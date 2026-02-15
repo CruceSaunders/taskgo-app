@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskGo! — Tranquil Productivity for macOS</title>
+    <style>
+        :root {
+            --teal: #45B5AB;
+            --teal-dark: #389088;
+            --teal-light: #e8f7f5;
+            --amber: #F2C230;
+            --amber-dark: #d4a520;
+            --amber-light: #fef9e8;
+            --text: #2d3748;
+            --text-light: #718096;
+            --bg: #fafbfc;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+            color: var(--text);
+            background: var(--bg);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 2rem;
+            background: linear-gradient(180deg, #ffffff 0%, var(--teal-light) 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(ellipse at 30% 20%, rgba(69, 181, 171, 0.08) 0%, transparent 50%),
+                        radial-gradient(ellipse at 70% 80%, rgba(242, 194, 48, 0.06) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        .icon-wrapper {
+            width: 120px;
+            height: 120px;
+            border-radius: 26px;
+            background: linear-gradient(135deg, #51c9be, #389088);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 2rem;
+            box-shadow: 0 12px 40px rgba(69, 181, 171, 0.3);
+            position: relative;
+            z-index: 1;
+        }
+
+        .icon-wrapper svg {
+            width: 60px;
+            height: 60px;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        h1 span {
+            color: var(--teal);
+        }
+
+        .tagline {
+            font-size: 1.35rem;
+            color: var(--text-light);
+            margin-bottom: 2.5rem;
+            max-width: 500px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .cta-group {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.9rem 2rem;
+            background: var(--teal);
+            color: white;
+            text-decoration: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 14px rgba(69, 181, 171, 0.35);
+        }
+
+        .btn-primary:hover {
+            background: var(--teal-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(69, 181, 171, 0.4);
+        }
+
+        .btn-primary svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .version-badge {
+            display: inline-block;
+            padding: 0.35rem 0.8rem;
+            background: var(--amber-light);
+            color: var(--amber-dark);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .requirements {
+            margin-top: 1rem;
+            font-size: 0.85rem;
+            color: var(--text-light);
+            position: relative;
+            z-index: 1;
+        }
+
+        .features {
+            padding: 5rem 2rem;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .features h2 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 3rem;
+            letter-spacing: -0.01em;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+        }
+
+        .feature-card {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s ease;
+        }
+
+        .feature-card:hover {
+            border-color: var(--teal);
+            box-shadow: 0 4px 20px rgba(69, 181, 171, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .feature-icon.teal { background: var(--teal-light); }
+        .feature-icon.amber { background: var(--amber-light); }
+
+        .feature-card h3 {
+            font-size: 1.15rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .feature-card p {
+            color: var(--text-light);
+            font-size: 0.95rem;
+        }
+
+        .how-it-works {
+            padding: 5rem 2rem;
+            background: white;
+        }
+
+        .how-it-works h2 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .steps {
+            max-width: 700px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .step {
+            display: flex;
+            gap: 1.5rem;
+            align-items: flex-start;
+        }
+
+        .step-number {
+            width: 40px;
+            height: 40px;
+            min-width: 40px;
+            border-radius: 50%;
+            background: var(--teal);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .step-content h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .step-content p {
+            color: var(--text-light);
+            font-size: 0.95rem;
+        }
+
+        .xp-section {
+            padding: 5rem 2rem;
+            text-align: center;
+            background: linear-gradient(180deg, var(--bg) 0%, var(--amber-light) 100%);
+        }
+
+        .xp-section h2 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .xp-section p {
+            color: var(--text-light);
+            max-width: 600px;
+            margin: 0 auto 2rem;
+            font-size: 1.05rem;
+        }
+
+        .xp-stats {
+            display: flex;
+            gap: 3rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .xp-stat {
+            text-align: center;
+        }
+
+        .xp-stat .number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--amber-dark);
+        }
+
+        .xp-stat .label {
+            font-size: 0.9rem;
+            color: var(--text-light);
+        }
+
+        footer {
+            padding: 3rem 2rem;
+            text-align: center;
+            color: var(--text-light);
+            font-size: 0.9rem;
+            background: white;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        footer a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        @media (max-width: 640px) {
+            h1 { font-size: 2.5rem; }
+            .tagline { font-size: 1.1rem; }
+            .feature-grid { grid-template-columns: 1fr; }
+            .xp-stats { gap: 2rem; }
+        }
+    </style>
+</head>
+<body>
+    <section class="hero">
+        <div class="icon-wrapper">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M13 2L4.09 12.26a1 1 0 00.77 1.64H11v6.1a1 1 0 001.77.64L21.68 10.1a1 1 0 00-.77-1.64H13V2.1a.1.1 0 00-.1-.1h.1z" fill="white" stroke="white" stroke-width="0.5"/>
+                <circle cx="18" cy="18" r="5" fill="#F2C230"/>
+                <path d="M15.5 18l1.5-1.5 3 3" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+
+        <h1>Task<span>Go!</span></h1>
+        <p class="tagline">A tranquil menu bar productivity app for macOS. Stay focused, earn XP, level up your day.</p>
+
+        <div class="cta-group">
+            <a href="https://github.com/CruceSaunders/taskgo-app/releases/latest" class="btn-primary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Download for macOS
+            </a>
+            <span class="version-badge">v1.0.0</span>
+        </div>
+        <p class="requirements">Requires macOS 14.0 (Sonoma) or later</p>
+    </section>
+
+    <section class="features">
+        <h2>Everything you need, nothing you don't</h2>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-icon teal">&#9889;</div>
+                <h3>Task Go Mode</h3>
+                <p>A floating timer counts down your task. When time's up, it gently bounces and plays a peaceful alarm. Complete or add more time — your call.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon amber">&#11088;</div>
+                <h3>XP & Levels</h3>
+                <p>Earn 1 XP for every minute of verified work. Level up to 100 with progressively harder milestones. Your productivity, gamified.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon teal">&#128196;</div>
+                <h3>Smart Task Groups</h3>
+                <p>Organize tasks into named groups with tabs. "Urgent", "Side Projects", "Errands" — whatever works for your brain.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon amber">&#128338;</div>
+                <h3>Time Estimates</h3>
+                <p>Set how long each task should take. TaskGo! uses this to run your focus sessions and keep you honest about time.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon teal">&#128187;</div>
+                <h3>Lives in Your Menu Bar</h3>
+                <p>One click to open, one click to add a task. No dock icon, no window management. It's just there when you need it.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon amber">&#128274;</div>
+                <h3>Privacy-First Activity Check</h3>
+                <p>XP verification detects keyboard and mouse activity — never what you type. Your work is verified, your privacy is protected.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="how-it-works">
+        <h2>How it works</h2>
+        <div class="steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h3>Add your tasks</h3>
+                    <p>Click the menu bar icon, add tasks with names, descriptions, and time estimates. Organize them into groups.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3>Hit "Task Go!"</h3>
+                    <p>A floating timer appears on screen. It starts counting down from your first task's time estimate.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h3>Work through your list</h3>
+                    <p>Complete tasks, earn XP, and watch yourself level up. The timer auto-advances to the next task when you're done.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <h3>Feel accomplished</h3>
+                    <p>See your level grow, track your weekly XP, and know exactly how productive you were.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="xp-section">
+        <h2>Gamify your grind</h2>
+        <p>TaskGo! turns your daily work into a progression system. Every minute of real work earns you XP. How high can you level?</p>
+        <div class="xp-stats">
+            <div class="xp-stat">
+                <div class="number">100</div>
+                <div class="label">Max Level</div>
+            </div>
+            <div class="xp-stat">
+                <div class="number">1 XP</div>
+                <div class="label">Per Minute Worked</div>
+            </div>
+            <div class="xp-stat">
+                <div class="number">&infin;</div>
+                <div class="label">Task Groups</div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <p>Built by <a href="https://github.com/CruceSaunders">Cruce Saunders</a>. TaskGo! is free and open source.</p>
+        <p style="margin-top: 0.5rem; font-size: 0.8rem;">macOS 14.0+ required. Social features & leaderboards coming in v2.</p>
+    </footer>
+</body>
+</html>
