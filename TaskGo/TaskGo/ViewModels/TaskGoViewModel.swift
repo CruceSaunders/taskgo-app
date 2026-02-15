@@ -17,10 +17,13 @@ class TaskGoViewModel: ObservableObject {
     @Published var totalTime: Int = 0 // seconds
     @Published var isActive = false // Task Go toggle
     @Published var elapsedActiveMinutes: Int = 0
+    @Published var activityPercentage: Double = 0.0
+    @Published var hasActivityPermission = false
 
     private var timer: Timer?
     private var elapsedSeconds: Int = 0
     private var alarmPlayer: NSSound?
+    private let activityMonitor = ActivityMonitor.shared
 
     var progress: Double {
         guard totalTime > 0 else { return 0 }
@@ -46,13 +49,25 @@ class TaskGoViewModel: ObservableObject {
         timeRemaining = task.timeEstimate
         elapsedSeconds = 0
         elapsedActiveMinutes = 0
+        activityPercentage = 0.0
         state = .running
         isActive = true
+        hasActivityPermission = activityMonitor.hasPermission
         startTimer()
         showTimerPanel()
+
+        // Start activity monitoring if permission granted
+        if activityMonitor.hasPermission {
+            activityMonitor.startMonitoring()
+        }
     }
 
     func stopTaskGo() {
+        // Stop activity monitoring
+        if activityMonitor.isMonitoring {
+            _ = activityMonitor.stopMonitoring()
+        }
+
         state = .idle
         isActive = false
         currentTask = nil
@@ -60,6 +75,7 @@ class TaskGoViewModel: ObservableObject {
         totalTime = 0
         elapsedSeconds = 0
         elapsedActiveMinutes = 0
+        activityPercentage = 0.0
         stopTimer()
         stopAlarm()
         hideTimerPanel()
@@ -93,17 +109,37 @@ class TaskGoViewModel: ObservableObject {
         startTimer()
     }
 
-    func completeCurrentTask() -> (task: TaskItem, activeMinutes: Int)? {
+    func completeCurrentTask() -> (task: TaskItem, earnedXP: Int, activeMinutes: Int, activityPct: Double)? {
         guard let task = currentTask else { return nil }
         let minutes = elapsedSeconds / 60
         stopAlarm()
-        return (task: task, activeMinutes: minutes)
+
+        // Calculate XP based on activity monitoring
+        var earnedXP = 0
+        if activityMonitor.isMonitoring {
+            let result = activityMonitor.stopMonitoring()
+            activityPercentage = result.percentage
+            earnedXP = activityMonitor.calculateEarnedXP(totalMinutes: minutes)
+        } else {
+            // No monitoring = no XP (permission was denied)
+            earnedXP = 0
+        }
+
+        return (task: task, earnedXP: earnedXP, activeMinutes: minutes, activityPct: activityPercentage)
     }
 
     func advanceToNextTask(_ task: TaskItem) {
+        // Stop current monitoring before starting next task
+        if activityMonitor.isMonitoring {
+            _ = activityMonitor.stopMonitoring()
+        }
         stopTimer()
         stopAlarm()
         startTaskGo(with: task)
+    }
+
+    func requestActivityPermission() {
+        activityMonitor.requestPermission()
     }
 
     // MARK: - Timer
@@ -130,6 +166,11 @@ class TaskGoViewModel: ObservableObject {
 
         // Update active minutes (tracked for XP)
         elapsedActiveMinutes = elapsedSeconds / 60
+
+        // Update activity percentage from monitor
+        if activityMonitor.isMonitoring {
+            activityPercentage = activityMonitor.activityPercentage
+        }
 
         if timeRemaining <= 0 && state == .running {
             timerExpired()

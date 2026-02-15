@@ -11,17 +11,20 @@
 		0B6F29DFB803301AC3F6DCDD /* AddTaskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CFA5D5B5DE5ABB16751416C /* AddTaskView.swift */; };
 		145A7F5914C7361864BCEC21 /* TasksTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D4F7723F30386460F00AC04 /* TasksTabView.swift */; };
 		16F53117AC1D164D75F2B694 /* SocialGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F91950161C2A9173243D7AB /* SocialGroup.swift */; };
+		18863A8D30869B72533C24F2 /* ActivityPermissionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11F2FE777393DC7BC6DB9B82 /* ActivityPermissionView.swift */; };
 		1BA4064B47F0316D88A68022 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A8FF3A5FDFCAA5B83BF302DB /* GoogleService-Info.plist */; };
 		254EEECDE64B53A62ECFCC4F /* SocialViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24F5EAC57EF8CE36F46E5921 /* SocialViewModel.swift */; };
 		2BB3F81ED105F85737C8E04B /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2FEF670D70806A76EB920AD /* AuthView.swift */; };
 		31788EE98A4B66D5E65FC932 /* XPSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CC27D85FA9242D9EC968515 /* XPSystem.swift */; };
 		36EE435E907073DFCD9AB936 /* FirestoreService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6016C7874768DD81EC494C3A /* FirestoreService.swift */; };
 		42D8E5BB4C6A83213514337F /* ProfileTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 452EE4389C00BE96B3AB2E4C /* ProfileTabView.swift */; };
+		49194E1254BCCFF3744DC5F5 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70E7B43B13FEA8F47DE49411 /* OnboardingView.swift */; };
 		497E873A8C1730EE51DE9201 /* SocialTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8580F97983641AEF2E652D1D /* SocialTabView.swift */; };
 		4C4FDC8A80A6B271E5DB0BC4 /* AuthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6526129E499A8ACA19A950A7 /* AuthViewModel.swift */; };
 		57ECCE268256E12F3D510340 /* TaskRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 648E7FC3CD4FA1F164A0778F /* TaskRowView.swift */; };
 		58B289913434112B51ACFA77 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1FC7B80D74227FB39145081 /* ContentView.swift */; };
 		625845E6A896369ED8DD2244 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 003DD174E7457A95D1E21BAF /* AppDelegate.swift */; };
+		64E011887F796A7B9497626D /* ActivityMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F032DF8EB0B47BAB6258962 /* ActivityMonitor.swift */; };
 		750A74E7EF92E04C28633514 /* TaskViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F7AF353F120A673167F106F /* TaskViewModel.swift */; };
 		767D8DD1AB1969CC9B69F042 /* TaskGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D972A77C6FE830C3FBB482C /* TaskGroup.swift */; };
 		7C48244EF075205319B49F52 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70AE9E5FAEF817FEE7AC3B2 /* MainView.swift */; };
@@ -41,6 +44,7 @@
 /* Begin PBXFileReference section */
 		003DD174E7457A95D1E21BAF /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		07EE897C5F69B373D9A4BF7A /* TaskGo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TaskGo.entitlements; sourceTree = "<group>"; };
+		11F2FE777393DC7BC6DB9B82 /* ActivityPermissionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityPermissionView.swift; sourceTree = "<group>"; };
 		138811B11211B27FA83843D5 /* TaskGo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TaskGo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		15F88D044B59DD607504DC83 /* TaskItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskItem.swift; sourceTree = "<group>"; };
 		188D2BD9E0C7B4661653670F /* TimerWidgetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerWidgetView.swift; sourceTree = "<group>"; };
@@ -55,9 +59,11 @@
 		6526129E499A8ACA19A950A7 /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
 		6CC27D85FA9242D9EC968515 /* XPSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XPSystem.swift; sourceTree = "<group>"; };
 		6F91950161C2A9173243D7AB /* SocialGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialGroup.swift; sourceTree = "<group>"; };
+		70E7B43B13FEA8F47DE49411 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		8580F97983641AEF2E652D1D /* SocialTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialTabView.swift; sourceTree = "<group>"; };
 		867D39AB81280313039E72E4 /* TaskGoViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskGoViewModel.swift; sourceTree = "<group>"; };
 		8CFA5D5B5DE5ABB16751416C /* AddTaskView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskView.swift; sourceTree = "<group>"; };
+		8F032DF8EB0B47BAB6258962 /* ActivityMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityMonitor.swift; sourceTree = "<group>"; };
 		9CDF076C5FCD74FC0341A7D4 /* XPViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XPViewModel.swift; sourceTree = "<group>"; };
 		9D4F7723F30386460F00AC04 /* TasksTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasksTabView.swift; sourceTree = "<group>"; };
 		A1FC7B80D74227FB39145081 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -109,6 +115,7 @@
 		2E7243E382847E6E14C93910 /* Onboarding */ = {
 			isa = PBXGroup;
 			children = (
+				70E7B43B13FEA8F47DE49411 /* OnboardingView.swift */,
 			);
 			path = Onboarding;
 			sourceTree = "<group>";
@@ -124,6 +131,7 @@
 		574F2692166D2CBD298F34B3 /* TaskGo */ = {
 			isa = PBXGroup;
 			children = (
+				11F2FE777393DC7BC6DB9B82 /* ActivityPermissionView.swift */,
 				27F41C368D43C3BDD46716D0 /* TimerPanelController.swift */,
 				188D2BD9E0C7B4661653670F /* TimerWidgetView.swift */,
 			);
@@ -222,6 +230,7 @@
 		ED771357D33F6DBD73D03414 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				8F032DF8EB0B47BAB6258962 /* ActivityMonitor.swift */,
 				6016C7874768DD81EC494C3A /* FirestoreService.swift */,
 			);
 			path = Services;
@@ -311,6 +320,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				64E011887F796A7B9497626D /* ActivityMonitor.swift in Sources */,
+				18863A8D30869B72533C24F2 /* ActivityPermissionView.swift in Sources */,
 				0B6F29DFB803301AC3F6DCDD /* AddTaskView.swift in Sources */,
 				625845E6A896369ED8DD2244 /* AppDelegate.swift in Sources */,
 				2BB3F81ED105F85737C8E04B /* AuthView.swift in Sources */,
@@ -319,6 +330,7 @@
 				36EE435E907073DFCD9AB936 /* FirestoreService.swift in Sources */,
 				7F83BBC47C18F08F02C84EB0 /* GroupViewModel.swift in Sources */,
 				7C48244EF075205319B49F52 /* MainView.swift in Sources */,
+				49194E1254BCCFF3744DC5F5 /* OnboardingView.swift in Sources */,
 				42D8E5BB4C6A83213514337F /* ProfileTabView.swift in Sources */,
 				8A7BD16180DF5A871926CA24 /* SettingsView.swift in Sources */,
 				16F53117AC1D164D75F2B694 /* SocialGroup.swift in Sources */,
