@@ -34,11 +34,14 @@
 		8E0E8BC4CF8561D90EF37505 /* TaskGoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C63D1FE7A8930D50926A67F0 /* TaskGoApp.swift */; };
 		945DC791F938CC6757B759C1 /* TimerPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F41C368D43C3BDD46716D0 /* TimerPanelController.swift */; };
 		946142485A28B1D2109D579D /* TaskGoViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 867D39AB81280313039E72E4 /* TaskGoViewModel.swift */; };
+		98D1101C2CCEE9634854535E /* ErrorHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21489BBA2F7562B45B546170 /* ErrorHandler.swift */; };
 		9CC3E6DE1E424D995C9DCF02 /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = 8F6D9CA0787155200FE82657 /* FirebaseFunctions */; };
 		9E9A09F08515C8E3AECC2C07 /* TimerWidgetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 188D2BD9E0C7B4661653670F /* TimerWidgetView.swift */; };
 		9F5B3B163D784DA3C3DA4AAD /* TaskItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15F88D044B59DD607504DC83 /* TaskItem.swift */; };
 		B568058977C5620EC219D757 /* XPViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CDF076C5FCD74FC0341A7D4 /* XPViewModel.swift */; };
 		DDCF47C80C40E1BC88F9F392 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 352AD1619B7869FA4000CAE1 /* FirebaseAuth */; };
+		E14493C9531680941468C095 /* KeyboardShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9B8F7F093F3466FD9CF2889 /* KeyboardShortcuts.swift */; };
+		F2C867673F75F72427CB5EBE /* LoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46B7E9600775B4AB20EF1F5 /* LoadingView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -48,6 +51,7 @@
 		138811B11211B27FA83843D5 /* TaskGo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TaskGo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		15F88D044B59DD607504DC83 /* TaskItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskItem.swift; sourceTree = "<group>"; };
 		188D2BD9E0C7B4661653670F /* TimerWidgetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerWidgetView.swift; sourceTree = "<group>"; };
+		21489BBA2F7562B45B546170 /* ErrorHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorHandler.swift; sourceTree = "<group>"; };
 		24F5EAC57EF8CE36F46E5921 /* SocialViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialViewModel.swift; sourceTree = "<group>"; };
 		27F41C368D43C3BDD46716D0 /* TimerPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerPanelController.swift; sourceTree = "<group>"; };
 		2F7AF353F120A673167F106F /* TaskViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskViewModel.swift; sourceTree = "<group>"; };
@@ -70,10 +74,12 @@
 		A200B6C348014E56D67F4FA5 /* GroupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupViewModel.swift; sourceTree = "<group>"; };
 		A70AE9E5FAEF817FEE7AC3B2 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
 		A8FF3A5FDFCAA5B83BF302DB /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		C46B7E9600775B4AB20EF1F5 /* LoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingView.swift; sourceTree = "<group>"; };
 		C63D1FE7A8930D50926A67F0 /* TaskGoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskGoApp.swift; sourceTree = "<group>"; };
 		C95EF9CEB4F8B9894DE90A0E /* UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfile.swift; sourceTree = "<group>"; };
 		CFF11D36D338F19E8A5BE6A4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		D2FEF670D70806A76EB920AD /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
+		F9B8F7F093F3466FD9CF2889 /* KeyboardShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcuts.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -213,6 +219,9 @@
 		DE896496190FFC37366B3586 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				21489BBA2F7562B45B546170 /* ErrorHandler.swift */,
+				F9B8F7F093F3466FD9CF2889 /* KeyboardShortcuts.swift */,
+				C46B7E9600775B4AB20EF1F5 /* LoadingView.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -327,8 +336,11 @@
 				2BB3F81ED105F85737C8E04B /* AuthView.swift in Sources */,
 				4C4FDC8A80A6B271E5DB0BC4 /* AuthViewModel.swift in Sources */,
 				58B289913434112B51ACFA77 /* ContentView.swift in Sources */,
+				98D1101C2CCEE9634854535E /* ErrorHandler.swift in Sources */,
 				36EE435E907073DFCD9AB936 /* FirestoreService.swift in Sources */,
 				7F83BBC47C18F08F02C84EB0 /* GroupViewModel.swift in Sources */,
+				E14493C9531680941468C095 /* KeyboardShortcuts.swift in Sources */,
+				F2C867673F75F72427CB5EBE /* LoadingView.swift in Sources */,
 				7C48244EF075205319B49F52 /* MainView.swift in Sources */,
 				49194E1254BCCFF3744DC5F5 /* OnboardingView.swift in Sources */,
 				42D8E5BB4C6A83213514337F /* ProfileTabView.swift in Sources */,

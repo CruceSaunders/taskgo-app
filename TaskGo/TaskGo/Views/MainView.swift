@@ -16,8 +16,13 @@ struct MainView: View {
 
     @State private var selectedTab: AppTab = .tasks
 
+    @State private var showActivityPermission = false
+
     var body: some View {
         VStack(spacing: 0) {
+            // Error banner
+            ErrorBannerView()
+
             // Header with Task Go button and level
             headerView
 
@@ -42,11 +47,57 @@ struct MainView: View {
             groupVM.startListening()
             socialVM.startListening()
             Task { await xpVM.loadXP() }
+            KeyboardShortcutModifiers.registerGlobalHotkey {}
         }
         .onDisappear {
             groupVM.stopListening()
             taskVM.stopListening()
             socialVM.stopListening()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .shortcutToggleTaskGo)) { _ in
+            toggleTaskGo()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .shortcutTogglePause)) { _ in
+            taskGoVM.togglePause()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .taskGoCompleteTask)) { _ in
+            completeCurrentTask()
+        }
+        .sheet(isPresented: $showActivityPermission) {
+            ActivityPermissionView(isPresented: $showActivityPermission)
+                .environmentObject(taskGoVM)
+        }
+    }
+
+    private func toggleTaskGo() {
+        if taskGoVM.isActive {
+            taskGoVM.stopTaskGo()
+        } else {
+            // Check activity permission first time
+            if !taskGoVM.hasActivityPermission && !UserDefaults.standard.bool(forKey: "hasSeenActivityPermission") {
+                UserDefaults.standard.set(true, forKey: "hasSeenActivityPermission")
+                showActivityPermission = true
+            }
+            if let firstTask = taskVM.firstIncompleteTask {
+                taskGoVM.startTaskGo(with: firstTask)
+            }
+        }
+    }
+
+    private func completeCurrentTask() {
+        guard let result = taskGoVM.completeCurrentTask() else { return }
+
+        // Award XP
+        Task {
+            await xpVM.awardXP(activeMinutes: result.activeMinutes)
+            await taskVM.toggleComplete(result.task)
+
+            // Advance to next task if Task Go is active
+            if taskGoVM.isActive, let nextTask = taskVM.firstIncompleteTask {
+                taskGoVM.advanceToNextTask(nextTask)
+            } else {
+                taskGoVM.stopTaskGo()
+            }
         }
     }
 
