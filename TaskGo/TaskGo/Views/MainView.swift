@@ -2,7 +2,7 @@ import SwiftUI
 
 enum AppTab: String, CaseIterable {
     case tasks = "Tasks"
-    case social = "Social"
+    // case social = "Social"  // v2: Social features deferred
     case profile = "Profile"
 }
 
@@ -12,7 +12,7 @@ struct MainView: View {
     @EnvironmentObject var groupVM: GroupViewModel
     @EnvironmentObject var taskGoVM: TaskGoViewModel
     @EnvironmentObject var xpVM: XPViewModel
-    @EnvironmentObject var socialVM: SocialViewModel
+    // @EnvironmentObject var socialVM: SocialViewModel  // v2: Social features deferred
 
     @State private var selectedTab: AppTab = .tasks
 
@@ -37,22 +37,22 @@ struct MainView: View {
             switch selectedTab {
             case .tasks:
                 TasksTabView()
-            case .social:
-                SocialTabView()
+            // case .social:  // v2: Social features deferred
+            //     SocialTabView()
             case .profile:
                 ProfileTabView()
             }
         }
         .onAppear {
             groupVM.startListening()
-            socialVM.startListening()
+            // socialVM.startListening()  // v2: Social features deferred
             Task { await xpVM.loadXP() }
             KeyboardShortcutModifiers.registerGlobalHotkey {}
         }
         .onDisappear {
             groupVM.stopListening()
             taskVM.stopListening()
-            socialVM.stopListening()
+            // socialVM.stopListening()  // v2: Social features deferred
         }
         .onReceive(NotificationCenter.default.publisher(for: .shortcutToggleTaskGo)) { _ in
             toggleTaskGo()

@@ -24,14 +24,7 @@ struct OnboardingView: View {
             iconColor: .orange,
             title: "Earn XP & Level Up",
             subtitle: "Gamify your productivity",
-            description: "Earn 1 XP for every minute you work during Task Go. Level up to 100 and compete with friends on weekly leaderboards."
-        ),
-        OnboardingPage(
-            icon: "person.3.fill",
-            iconColor: .calmBlue,
-            title: "Compete with Friends",
-            subtitle: "Social accountability",
-            description: "Create groups, invite friends, and see who's getting the most done each week. Weekly leaderboards reset every Monday."
+            description: "Earn 1 XP for every minute you work during Task Go. Level up to 100 and track your progress over time."
         )
     ]
 

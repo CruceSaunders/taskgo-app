@@ -9,7 +9,7 @@ struct TaskGoApp: App {
     @StateObject private var groupViewModel: GroupViewModel
     @StateObject private var taskGoViewModel: TaskGoViewModel
     @StateObject private var xpViewModel: XPViewModel
-    @StateObject private var socialViewModel: SocialViewModel
+    // @StateObject private var socialViewModel: SocialViewModel  // v2: Social features deferred
 
     init() {
         // CRITICAL: Configure Firebase BEFORE any ViewModels that use Firestore
@@ -21,7 +21,7 @@ struct TaskGoApp: App {
         _groupViewModel = StateObject(wrappedValue: GroupViewModel())
         _taskGoViewModel = StateObject(wrappedValue: TaskGoViewModel())
         _xpViewModel = StateObject(wrappedValue: XPViewModel())
-        _socialViewModel = StateObject(wrappedValue: SocialViewModel())
+        // _socialViewModel = StateObject(wrappedValue: SocialViewModel())  // v2
     }
 
     var body: some Scene {
@@ -32,7 +32,7 @@ struct TaskGoApp: App {
                 .environmentObject(groupViewModel)
                 .environmentObject(taskGoViewModel)
                 .environmentObject(xpViewModel)
-                .environmentObject(socialViewModel)
+                // .environmentObject(socialViewModel)  // v2: Social features deferred
         } label: {
             Image(systemName: "checkmark.circle.fill")
                 .symbolRenderingMode(.hierarchical)

@@ -3,6 +3,7 @@ import ServiceManagement
 
 struct SettingsView: View {
     @EnvironmentObject var authVM: AuthViewModel
+    @StateObject private var updater = SparkleUpdater()
     @AppStorage("launchAtLogin") private var launchAtLogin = false
 
     var body: some View {
@@ -29,13 +30,20 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Updates") {
+                Button("Check for Updates...") {
+                    updater.checkForUpdates()
+                }
+                .disabled(!updater.canCheckForUpdates)
+            }
+
             Section("About") {
                 LabeledContent("Version", value: Bundle.main.appVersion)
                 LabeledContent("Build", value: Bundle.main.buildNumber)
             }
         }
         .formStyle(.grouped)
-        .frame(width: 350, height: 250)
+        .frame(width: 350, height: 300)
     }
 }
 

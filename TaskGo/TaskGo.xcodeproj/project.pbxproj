@@ -21,6 +21,7 @@
 		49194E1254BCCFF3744DC5F5 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70E7B43B13FEA8F47DE49411 /* OnboardingView.swift */; };
 		497E873A8C1730EE51DE9201 /* SocialTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8580F97983641AEF2E652D1D /* SocialTabView.swift */; };
 		4C4FDC8A80A6B271E5DB0BC4 /* AuthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6526129E499A8ACA19A950A7 /* AuthViewModel.swift */; };
+		558723B1C15E52017AB2A13C /* SparkleUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F8B676966D05B5E9B741C3F /* SparkleUpdater.swift */; };
 		57ECCE268256E12F3D510340 /* TaskRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 648E7FC3CD4FA1F164A0778F /* TaskRowView.swift */; };
 		58B289913434112B51ACFA77 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1FC7B80D74227FB39145081 /* ContentView.swift */; };
 		625845E6A896369ED8DD2244 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 003DD174E7457A95D1E21BAF /* AppDelegate.swift */; };
@@ -34,11 +35,13 @@
 		8E0E8BC4CF8561D90EF37505 /* TaskGoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C63D1FE7A8930D50926A67F0 /* TaskGoApp.swift */; };
 		945DC791F938CC6757B759C1 /* TimerPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F41C368D43C3BDD46716D0 /* TimerPanelController.swift */; };
 		946142485A28B1D2109D579D /* TaskGoViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 867D39AB81280313039E72E4 /* TaskGoViewModel.swift */; };
+		95801F32BCDB4008589B3273 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 9FE1BA547CFD5118D46CC719 /* Sparkle */; };
 		98D1101C2CCEE9634854535E /* ErrorHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21489BBA2F7562B45B546170 /* ErrorHandler.swift */; };
 		9CC3E6DE1E424D995C9DCF02 /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = 8F6D9CA0787155200FE82657 /* FirebaseFunctions */; };
 		9E9A09F08515C8E3AECC2C07 /* TimerWidgetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 188D2BD9E0C7B4661653670F /* TimerWidgetView.swift */; };
 		9F5B3B163D784DA3C3DA4AAD /* TaskItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15F88D044B59DD607504DC83 /* TaskItem.swift */; };
 		B568058977C5620EC219D757 /* XPViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CDF076C5FCD74FC0341A7D4 /* XPViewModel.swift */; };
+		C4FF67E2BD3F140B0B56805E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FD095BBFAFCD2368E15E91E3 /* Assets.xcassets */; };
 		DDCF47C80C40E1BC88F9F392 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 352AD1619B7869FA4000CAE1 /* FirebaseAuth */; };
 		E14493C9531680941468C095 /* KeyboardShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9B8F7F093F3466FD9CF2889 /* KeyboardShortcuts.swift */; };
 		F2C867673F75F72427CB5EBE /* LoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46B7E9600775B4AB20EF1F5 /* LoadingView.swift */; };
@@ -56,6 +59,7 @@
 		27F41C368D43C3BDD46716D0 /* TimerPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerPanelController.swift; sourceTree = "<group>"; };
 		2F7AF353F120A673167F106F /* TaskViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskViewModel.swift; sourceTree = "<group>"; };
 		31FD9C9D89EBE8DD3D965F1F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		3F8B676966D05B5E9B741C3F /* SparkleUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparkleUpdater.swift; sourceTree = "<group>"; };
 		452EE4389C00BE96B3AB2E4C /* ProfileTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileTabView.swift; sourceTree = "<group>"; };
 		4D972A77C6FE830C3FBB482C /* TaskGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskGroup.swift; sourceTree = "<group>"; };
 		6016C7874768DD81EC494C3A /* FirestoreService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirestoreService.swift; sourceTree = "<group>"; };
@@ -80,6 +84,7 @@
 		CFF11D36D338F19E8A5BE6A4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		D2FEF670D70806A76EB920AD /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
 		F9B8F7F093F3466FD9CF2889 /* KeyboardShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcuts.swift; sourceTree = "<group>"; };
+		FD095BBFAFCD2368E15E91E3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -90,6 +95,7 @@
 				DDCF47C80C40E1BC88F9F392 /* FirebaseAuth in Frameworks */,
 				0B48CB4CB4D3757D81DB4D49 /* FirebaseFirestore in Frameworks */,
 				9CC3E6DE1E424D995C9DCF02 /* FirebaseFunctions in Frameworks */,
+				95801F32BCDB4008589B3273 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -154,6 +160,7 @@
 		92D2920A341166F70274C3FA /* TaskGo */ = {
 			isa = PBXGroup;
 			children = (
+				FD095BBFAFCD2368E15E91E3 /* Assets.xcassets */,
 				A8FF3A5FDFCAA5B83BF302DB /* GoogleService-Info.plist */,
 				CFF11D36D338F19E8A5BE6A4 /* Info.plist */,
 				07EE897C5F69B373D9A4BF7A /* TaskGo.entitlements */,
@@ -241,6 +248,7 @@
 			children = (
 				8F032DF8EB0B47BAB6258962 /* ActivityMonitor.swift */,
 				6016C7874768DD81EC494C3A /* FirestoreService.swift */,
+				3F8B676966D05B5E9B741C3F /* SparkleUpdater.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -277,6 +285,7 @@
 				352AD1619B7869FA4000CAE1 /* FirebaseAuth */,
 				FFE9408858D206675D0083F4 /* FirebaseFirestore */,
 				8F6D9CA0787155200FE82657 /* FirebaseFunctions */,
+				9FE1BA547CFD5118D46CC719 /* Sparkle */,
 			);
 			productName = TaskGo;
 			productReference = 138811B11211B27FA83843D5 /* TaskGo.app */;
@@ -302,6 +311,7 @@
 			mainGroup = AB73419F08079C3A9CD047AB;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				8AC924FB450C21243B4FC201 /* XCRemoteSwiftPackageReference "Sparkle" */,
 				129F89730E065D7521DC5798 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -318,6 +328,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C4FF67E2BD3F140B0B56805E /* Assets.xcassets in Resources */,
 				1BA4064B47F0316D88A68022 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -348,6 +359,7 @@
 				16F53117AC1D164D75F2B694 /* SocialGroup.swift in Sources */,
 				497E873A8C1730EE51DE9201 /* SocialTabView.swift in Sources */,
 				254EEECDE64B53A62ECFCC4F /* SocialViewModel.swift in Sources */,
+				558723B1C15E52017AB2A13C /* SparkleUpdater.swift in Sources */,
 				8E0E8BC4CF8561D90EF37505 /* TaskGoApp.swift in Sources */,
 				946142485A28B1D2109D579D /* TaskGoViewModel.swift in Sources */,
 				767D8DD1AB1969CC9B69F042 /* TaskGroup.swift in Sources */,
@@ -555,6 +567,14 @@
 				version = 11.0.0;
 			};
 		};
+		8AC924FB450C21243B4FC201 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.6.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -567,6 +587,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 129F89730E065D7521DC5798 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseFunctions;
+		};
+		9FE1BA547CFD5118D46CC719 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8AC924FB450C21243B4FC201 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 		FFE9408858D206675D0083F4 /* FirebaseFirestore */ = {
 			isa = XCSwiftPackageProductDependency;
