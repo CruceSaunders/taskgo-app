@@ -6,7 +6,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var timerPanelController: TimerPanelController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        FirebaseApp.configure()
+        // Note: FirebaseApp.configure() is called in TaskGoApp.init()
+        // to ensure it runs before @StateObject ViewModels are created.
 
         // Request notification permissions for timer alerts
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, error in

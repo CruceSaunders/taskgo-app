@@ -5,7 +5,11 @@ import FirebaseAuth
 /// Central Firestore service for all database operations
 class FirestoreService {
     static let shared = FirestoreService()
-    private let db = Firestore.firestore()
+
+    /// Lazy Firestore instance - ensures FirebaseApp.configure() has been called first
+    private lazy var db: Firestore = {
+        return Firestore.firestore()
+    }()
 
     private init() {}
 
