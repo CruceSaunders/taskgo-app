@@ -16,13 +16,6 @@
         { "fieldPath": "isComplete", "order": "ASCENDING" },
         { "fieldPath": "position", "order": "ASCENDING" }
       ]
-    },
-    {
-      "collectionGroup": "members",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "weeklyXP", "order": "DESCENDING" }
-      ]
     }
   ],
   "fieldOverrides": []

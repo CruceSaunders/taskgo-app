@@ -40,12 +40,15 @@ class TaskViewModel: ObservableObject {
     }
 
     func addTask(name: String, timeEstimate: Int, description: String? = nil, position: Int? = nil, groupId: String) async {
-        guard let userId = Auth.auth().currentUser?.uid else { return }
+        guard let userId = Auth.auth().currentUser?.uid else {
+            print("[TaskVM] addTask: no authenticated user")
+            return
+        }
 
         let targetPosition = position ?? 1
+        print("[TaskVM] addTask: '\(name)' at position \(targetPosition) in group \(groupId)")
 
         do {
-            // Shift existing tasks down if needed
             try await firestoreService.shiftTaskPositions(
                 groupId: groupId,
                 userId: userId,
@@ -60,9 +63,12 @@ class TaskViewModel: ObservableObject {
                 groupId: groupId
             )
 
-            _ = try await firestoreService.createTask(task, userId: userId)
+            let taskId = try await firestoreService.createTask(task, userId: userId)
+            print("[TaskVM] addTask: created with id \(taskId)")
         } catch {
+            print("[TaskVM] addTask error: \(error)")
             errorMessage = error.localizedDescription
+            ErrorHandler.shared.handle(error)
         }
     }
 

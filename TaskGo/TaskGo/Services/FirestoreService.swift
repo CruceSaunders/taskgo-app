@@ -102,6 +102,10 @@ class FirestoreService {
         return groupsRef(userId)
             .order(by: "order")
             .addSnapshotListener { snapshot, error in
+                if let error = error {
+                    print("[Firestore] listenToGroups error: \(error)")
+                    return
+                }
                 guard let documents = snapshot?.documents else { return }
                 let groups = documents.compactMap { try? $0.data(as: TaskGroup.self) }
                 completion(groups)
@@ -157,7 +161,12 @@ class FirestoreService {
             .whereField("groupId", isEqualTo: groupId)
             .order(by: "position")
             .addSnapshotListener { snapshot, error in
+                if let error = error {
+                    print("[Firestore] listenToTasks error: \(error)")
+                    return
+                }
                 guard let documents = snapshot?.documents else { return }
+                print("[Firestore] listenToTasks got \(documents.count) tasks for group \(groupId)")
                 let tasks = documents.compactMap { try? $0.data(as: TaskItem.self) }
                 completion(tasks)
             }
