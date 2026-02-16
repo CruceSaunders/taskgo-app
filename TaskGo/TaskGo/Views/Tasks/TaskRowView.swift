@@ -63,6 +63,29 @@ struct TaskRowView: View {
                     .buttonStyle(.plain)
                 }
 
+                // Reorder buttons (incomplete only)
+                if !task.isComplete {
+                    VStack(spacing: 0) {
+                        Button(action: {
+                            Task { await taskVM.moveTaskUp(task) }
+                        }) {
+                            Image(systemName: "chevron.up")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(.primary.opacity(0.3))
+                        }
+                        .buttonStyle(.plain)
+
+                        Button(action: {
+                            Task { await taskVM.moveTaskDown(task) }
+                        }) {
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(.primary.opacity(0.3))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
                 Button(action: {
                     Task { await taskVM.deleteTask(task) }
                 }) {

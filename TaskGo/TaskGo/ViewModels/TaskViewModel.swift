@@ -277,6 +277,44 @@ class TaskViewModel: ObservableObject {
         }
     }
 
+    func moveTaskUp(_ task: TaskItem) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        let items = incompleteTasksForDisplay
+        guard let index = items.firstIndex(where: { $0.id == task.id }), index > 0 else { return }
+
+        var above = items[index - 1]
+        var current = items[index]
+        let tempPos = above.position
+        above.position = current.position
+        current.position = tempPos
+
+        do {
+            try await firestoreService.updateTask(above, userId: userId)
+            try await firestoreService.updateTask(current, userId: userId)
+        } catch {
+            print("[TaskVM] moveTaskUp error: \(error)")
+        }
+    }
+
+    func moveTaskDown(_ task: TaskItem) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        let items = incompleteTasksForDisplay
+        guard let index = items.firstIndex(where: { $0.id == task.id }), index < items.count - 1 else { return }
+
+        var below = items[index + 1]
+        var current = items[index]
+        let tempPos = below.position
+        below.position = current.position
+        current.position = tempPos
+
+        do {
+            try await firestoreService.updateTask(below, userId: userId)
+            try await firestoreService.updateTask(current, userId: userId)
+        } catch {
+            print("[TaskVM] moveTaskDown error: \(error)")
+        }
+    }
+
     func moveTask(from source: IndexSet, to destination: Int) async {
         guard let userId = Auth.auth().currentUser?.uid else { return }
 
