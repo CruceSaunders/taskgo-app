@@ -47,8 +47,9 @@ struct TasksTabView: View {
                         onRename: { newName in
                             Task { await groupVM.renameGroup(group, to: newName) }
                         },
-                        onDelete: group.isDefault ? nil : {
-                            Task { await groupVM.deleteGroup(group) }
+                        onDelete: group.isDefault ? nil : { [group] in
+                            let groupToDelete = group
+                            Task { await groupVM.deleteGroup(groupToDelete) }
                         }
                     )
                 }

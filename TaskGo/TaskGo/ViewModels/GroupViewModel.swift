@@ -72,7 +72,10 @@ class GroupViewModel: ObservableObject {
     func deleteGroup(_ group: TaskGroup) async {
         guard let userId = Auth.auth().currentUser?.uid,
               let groupId = group.id,
-              !group.isDefault else { return }
+              !group.isDefault else {
+            print("[GroupVM] deleteGroup guard failed: userId=\(Auth.auth().currentUser?.uid ?? "nil"), groupId=\(group.id ?? "nil"), isDefault=\(group.isDefault)")
+            return
+        }
 
         do {
             try await firestoreService.deleteGroup(groupId, userId: userId)
@@ -81,7 +84,9 @@ class GroupViewModel: ObservableObject {
                 selectedGroupId = groups.first { $0.isDefault }?.id ?? groups.first?.id
             }
         } catch {
+            print("[GroupVM] deleteGroup error: \(error)")
             errorMessage = error.localizedDescription
+            ErrorHandler.shared.handle(error)
         }
     }
 
