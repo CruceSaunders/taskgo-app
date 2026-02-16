@@ -5,7 +5,7 @@ struct TaskRowView: View {
     let task: TaskItem
 
     @State private var isExpanded = false
-    @State private var isEditing = false
+    @State private var showActions = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -38,12 +38,10 @@ struct TaskRowView: View {
 
                     if task.description != nil || !task.isComplete {
                         HStack(spacing: 6) {
-                            // Time estimate
                             Label(task.timeEstimateFormatted, systemImage: "clock")
                                 .font(.system(size: 10))
                                 .foregroundStyle(.primary.opacity(0.55))
 
-                            // Description indicator
                             if task.description != nil {
                                 Image(systemName: "doc.text")
                                     .font(.system(size: 9))
@@ -55,16 +53,29 @@ struct TaskRowView: View {
 
                 Spacer()
 
-                // Expand button for description
-                if task.description != nil {
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            isExpanded.toggle()
+                // Action buttons
+                HStack(spacing: 6) {
+                    // Expand description
+                    if task.description != nil {
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                isExpanded.toggle()
+                            }
+                        }) {
+                            Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.secondary)
                         }
+                        .buttonStyle(.plain)
+                    }
+
+                    // Delete button
+                    Button(action: {
+                        Task { await taskVM.deleteTask(task) }
                     }) {
-                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        Image(systemName: "trash")
                             .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.red.opacity(0.6))
                     }
                     .buttonStyle(.plain)
                 }
@@ -81,14 +92,6 @@ struct TaskRowView: View {
                     .padding(.horizontal, 48)
                     .padding(.bottom, 8)
                     .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-        }
-        .contextMenu {
-            Button("Edit") {
-                isEditing = true
-            }
-            Button("Delete", role: .destructive) {
-                Task { await taskVM.deleteTask(task) }
             }
         }
     }

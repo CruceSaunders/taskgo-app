@@ -31,14 +31,9 @@ struct OnboardingView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Page content
-            TabView(selection: $currentPage) {
-                ForEach(Array(pages.enumerated()), id: \.offset) { index, page in
-                    pageView(page)
-                        .tag(index)
-                }
-            }
-            .tabViewStyle(.automatic)
-            .frame(height: 340)
+            pageView(pages[currentPage])
+                .frame(height: 340)
+                .animation(.easeInOut(duration: 0.25), value: currentPage)
 
             // Page indicators
             HStack(spacing: 6) {
@@ -104,7 +99,7 @@ struct OnboardingView: View {
 
             Text(page.description)
                 .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.primary.opacity(0.6))
                 .multilineTextAlignment(.center)
                 .lineSpacing(2)
                 .padding(.horizontal, 20)

@@ -6,16 +6,25 @@ struct TasksTabView: View {
     @State private var showAddTask = false
     @State private var showAddGroup = false
     @State private var newGroupName = ""
+    @State private var renamingGroupId: String?
+    @State private var renameText = ""
 
     var body: some View {
         VStack(spacing: 0) {
-            // Group tabs
             groupTabBar
 
             Divider()
 
-            // Task list
-            if taskVM.tasks.isEmpty {
+            if showAddGroup {
+                addGroupInline
+                Divider()
+            }
+
+            if showAddTask {
+                AddTaskView(groupId: groupVM.selectedGroupId ?? "", onDismiss: {
+                    showAddTask = false
+                })
+            } else if taskVM.tasks.isEmpty {
                 emptyState
             } else {
                 taskList
@@ -31,71 +40,119 @@ struct TasksTabView: View {
                 taskVM.startListening(groupId: groupId)
             }
         }
-        .sheet(isPresented: $showAddTask) {
-            AddTaskView(groupId: groupVM.selectedGroupId ?? "")
-        }
     }
 
     private var groupTabBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 4) {
                 ForEach(groupVM.groups) { group in
-                    GroupTabButton(
-                        group: group,
-                        isSelected: group.id == groupVM.selectedGroupId,
-                        onSelect: { groupVM.selectGroup(group) },
-                        onRename: { newName in
-                            Task { await groupVM.renameGroup(group, to: newName) }
-                        },
-                        onDelete: group.isDefault ? nil : { [group] in
-                            let groupToDelete = group
-                            Task { await groupVM.deleteGroup(groupToDelete) }
-                        }
-                    )
+                    if renamingGroupId == group.id {
+                        renameGroupInline(group: group)
+                    } else {
+                        GroupTabButton(
+                            group: group,
+                            isSelected: group.id == groupVM.selectedGroupId,
+                            onSelect: { groupVM.selectGroup(group) },
+                            onRename: {
+                                renameText = group.name
+                                renamingGroupId = group.id
+                            },
+                            onDelete: group.isDefault ? nil : { [group] in
+                                let groupToDelete = group
+                                Task { await groupVM.deleteGroup(groupToDelete) }
+                            }
+                        )
+                    }
                 }
 
-                // Add group button
                 Button(action: {
-                    showAddGroup = true
+                    showAddGroup.toggle()
                 }) {
                     Image(systemName: "plus")
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.primary.opacity(0.5))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(Color.secondary.opacity(0.1))
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
-                .popover(isPresented: $showAddGroup) {
-                    VStack(spacing: 8) {
-                        Text("New Group")
-                            .font(.headline)
-                        TextField("Group name", text: $newGroupName)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 160)
-                        HStack {
-                            Button("Cancel") {
-                                showAddGroup = false
-                                newGroupName = ""
-                            }
-                            Button("Create") {
-                                Task {
-                                    await groupVM.addGroup(name: newGroupName)
-                                    newGroupName = ""
-                                    showAddGroup = false
-                                }
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(Color.calmTeal)
-                            .disabled(newGroupName.isEmpty)
-                        }
-                    }
-                    .padding()
-                }
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
+        }
+    }
+
+    private var addGroupInline: some View {
+        HStack(spacing: 8) {
+            TextField("Group name", text: $newGroupName)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(size: 12))
+                .frame(maxWidth: .infinity)
+                .onSubmit {
+                    createGroup()
+                }
+
+            Button("Add") {
+                createGroup()
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color.calmTeal)
+            .controlSize(.small)
+            .disabled(newGroupName.isEmpty)
+
+            Button(action: {
+                showAddGroup = false
+                newGroupName = ""
+            }) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+    }
+
+    private func renameGroupInline(group: TaskGroup) -> some View {
+        HStack(spacing: 4) {
+            TextField("Name", text: $renameText)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(size: 11))
+                .frame(width: 100)
+                .onSubmit {
+                    Task { await groupVM.renameGroup(group, to: renameText) }
+                    renamingGroupId = nil
+                }
+
+            Button(action: {
+                Task { await groupVM.renameGroup(group, to: renameText) }
+                renamingGroupId = nil
+            }) {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(Color.calmTeal)
+            }
+            .buttonStyle(.plain)
+
+            Button(action: { renamingGroupId = nil }) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 4)
+        .padding(.vertical, 4)
+    }
+
+    private func createGroup() {
+        guard !newGroupName.isEmpty else { return }
+        Task {
+            await groupVM.addGroup(name: newGroupName)
+            newGroupName = ""
+            showAddGroup = false
         }
     }
 
@@ -120,7 +177,6 @@ struct TasksTabView: View {
 
     private var taskList: some View {
         VStack(spacing: 0) {
-            // Incomplete tasks
             ScrollView {
                 LazyVStack(spacing: 0) {
                     ForEach(taskVM.incompleteTasks) { task in
@@ -129,7 +185,6 @@ struct TasksTabView: View {
                             .padding(.leading, 36)
                     }
 
-                    // Completed section
                     if !taskVM.completedTasks.isEmpty {
                         HStack {
                             Text("Completed")
@@ -152,7 +207,6 @@ struct TasksTabView: View {
 
             Divider()
 
-            // Add task button at bottom
             Button(action: {
                 showAddTask = true
             }) {
@@ -176,54 +230,65 @@ struct GroupTabButton: View {
     let group: TaskGroup
     let isSelected: Bool
     let onSelect: () -> Void
-    let onRename: (String) -> Void
+    let onRename: () -> Void
     let onDelete: (() -> Void)?
 
-    @State private var isEditing = false
-    @State private var editName = ""
+    @State private var showActions = false
 
     var body: some View {
-        Button(action: onSelect) {
-            Text(group.name)
-                .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? Color.calmTeal : .primary.opacity(0.6))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(isSelected ? Color.calmTeal.opacity(0.12) : Color.clear)
-                .clipShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .contextMenu {
-            Button("Rename") {
-                editName = group.name
-                isEditing = true
+        HStack(spacing: 2) {
+            Button(action: onSelect) {
+                Text(group.name)
+                    .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                    .foregroundStyle(isSelected ? Color.calmTeal : .primary.opacity(0.6))
             }
-            if let onDelete = onDelete {
-                Divider()
-                Button("Delete", role: .destructive) {
-                    onDelete()
+            .buttonStyle(.plain)
+
+            if isSelected && !group.isDefault {
+                Button(action: { showActions.toggle() }) {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 8))
+                        .foregroundStyle(.secondary)
                 }
+                .buttonStyle(.plain)
             }
         }
-        .popover(isPresented: $isEditing) {
-            VStack(spacing: 8) {
-                Text("Rename Group")
-                    .font(.headline)
-                TextField("Group name", text: $editName)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 160)
-                HStack {
-                    Button("Cancel") { isEditing = false }
-                    Button("Save") {
-                        onRename(editName)
-                        isEditing = false
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(isSelected ? Color.calmTeal.opacity(0.12) : Color.clear)
+        .clipShape(Capsule())
+        .overlay(alignment: .bottom) {
+            if showActions {
+                HStack(spacing: 8) {
+                    Button(action: {
+                        showActions = false
+                        onRename()
+                    }) {
+                        Text("Rename")
+                            .font(.system(size: 10))
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color.calmTeal)
-                    .disabled(editName.isEmpty)
+                    .buttonStyle(.plain)
+
+                    if let onDelete = onDelete {
+                        Button(action: {
+                            showActions = false
+                            onDelete()
+                        }) {
+                            Text("Delete")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.red)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color(.windowBackgroundColor))
+                .cornerRadius(6)
+                .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
+                .offset(y: 24)
+                .zIndex(10)
             }
-            .padding()
         }
     }
 }

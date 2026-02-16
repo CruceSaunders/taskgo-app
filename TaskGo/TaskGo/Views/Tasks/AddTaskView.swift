@@ -2,9 +2,9 @@ import SwiftUI
 
 struct AddTaskView: View {
     @EnvironmentObject var taskVM: TaskViewModel
-    @Environment(\.dismiss) var dismiss
 
     let groupId: String
+    var onDismiss: () -> Void
 
     @State private var name = ""
     @State private var minutesText = "25"
@@ -18,13 +18,13 @@ struct AddTaskView: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
             // Header
             HStack {
                 Text("New Task")
-                    .font(.headline)
+                    .font(.system(size: 14, weight: .semibold))
                 Spacer()
-                Button(action: { dismiss() }) {
+                Button(action: { onDismiss() }) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)
                 }
@@ -34,11 +34,11 @@ struct AddTaskView: View {
             // Task name
             TextField("Task name", text: $name)
                 .textFieldStyle(.roundedBorder)
-                .font(.system(size: 14))
+                .font(.system(size: 13))
 
             // Time estimate
             HStack(spacing: 6) {
-                Text("Time estimate")
+                Text("Time")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.primary.opacity(0.55))
 
@@ -48,48 +48,46 @@ struct AddTaskView: View {
                     .font(.system(size: 13))
                     .multilineTextAlignment(.center)
 
-                Text("minutes")
+                Text("min")
                     .font(.system(size: 11))
                     .foregroundStyle(.primary.opacity(0.55))
-            }
 
-            // Optional fields toggles
-            HStack(spacing: 12) {
+                Spacer()
+
+                // Optional field toggles
                 Button(action: { showDescription.toggle() }) {
-                    Label("Note", systemImage: "doc.text")
+                    Image(systemName: "doc.text")
                         .font(.system(size: 11))
-                        .foregroundStyle(showDescription ? Color.calmTeal : .secondary)
+                        .foregroundStyle(showDescription ? Color.calmTeal : .primary.opacity(0.4))
                 }
                 .buttonStyle(.plain)
 
                 Button(action: { showPosition.toggle() }) {
-                    Label("Position", systemImage: "number")
+                    Image(systemName: "number")
                         .font(.system(size: 11))
-                        .foregroundStyle(showPosition ? Color.calmTeal : .secondary)
+                        .foregroundStyle(showPosition ? Color.calmTeal : .primary.opacity(0.4))
                 }
                 .buttonStyle(.plain)
-
-                Spacer()
             }
 
             // Description field (optional)
             if showDescription {
-                TextEditor(text: $description)
+                TextField("Add a note...", text: $description, axis: .vertical)
+                    .lineLimit(3...6)
+                    .textFieldStyle(.roundedBorder)
                     .font(.system(size: 12))
-                    .frame(height: 60)
-                    .border(Color.secondary.opacity(0.2))
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
             }
 
             // Position field (optional)
             if showPosition {
                 HStack {
-                    Text("Position in list:")
+                    Text("Position:")
                         .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.primary.opacity(0.55))
                     TextField("#", text: $position)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 50)
+                        .font(.system(size: 12))
                 }
             }
 
@@ -104,7 +102,7 @@ struct AddTaskView: View {
                         position: showPosition ? positionInt : nil,
                         groupId: groupId
                     )
-                    dismiss()
+                    onDismiss()
                 }
             }) {
                 Text("Add Task")
@@ -114,7 +112,6 @@ struct AddTaskView: View {
             .tint(Color.calmTeal)
             .disabled(name.isEmpty || timeEstimateSeconds == 0)
         }
-        .padding(16)
-        .frame(width: 300)
+        .padding(14)
     }
 }

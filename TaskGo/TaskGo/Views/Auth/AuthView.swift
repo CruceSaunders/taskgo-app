@@ -42,11 +42,9 @@ struct SignInView: View {
             VStack(spacing: 10) {
                 TextField("Email", text: $email)
                     .textFieldStyle(.roundedBorder)
-                    .textContentType(.emailAddress)
 
                 SecureField("Password", text: $password)
                     .textFieldStyle(.roundedBorder)
-                    .textContentType(.password)
             }
             .padding(.horizontal, 24)
 
@@ -114,15 +112,12 @@ struct SignUpView: View {
 
                 TextField("Username", text: $username)
                     .textFieldStyle(.roundedBorder)
-                    .textContentType(.username)
 
                 TextField("Email", text: $email)
                     .textFieldStyle(.roundedBorder)
-                    .textContentType(.emailAddress)
 
                 SecureField("Password (min 6 characters)", text: $password)
                     .textFieldStyle(.roundedBorder)
-                    .textContentType(.newPassword)
             }
             .padding(.horizontal, 24)
 

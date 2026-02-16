@@ -63,9 +63,19 @@ struct MainView: View {
         .onReceive(NotificationCenter.default.publisher(for: .taskGoCompleteTask)) { _ in
             completeCurrentTask()
         }
-        .sheet(isPresented: $showActivityPermission) {
-            ActivityPermissionView(isPresented: $showActivityPermission)
-                .environmentObject(taskGoVM)
+        .overlay {
+            if showActivityPermission {
+                ZStack {
+                    Color.black.opacity(0.3)
+                        .onTapGesture { showActivityPermission = false }
+                    ActivityPermissionView(isPresented: $showActivityPermission)
+                        .environmentObject(taskGoVM)
+                        .frame(width: 320)
+                        .background(Color(.windowBackgroundColor))
+                        .cornerRadius(12)
+                        .shadow(color: .black.opacity(0.2), radius: 10)
+                }
+            }
         }
     }
 

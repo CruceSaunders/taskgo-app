@@ -9,9 +9,14 @@ class TimerPanelController {
     private var isBouncing = false
     private var originalFrame: NSRect?
     private var cancellables = Set<AnyCancellable>()
+    private var taskGoVM: TaskGoViewModel?
 
     init() {
         setupNotifications()
+    }
+
+    func setViewModel(_ viewModel: TaskGoViewModel) {
+        self.taskGoVM = viewModel
     }
 
     private func setupNotifications() {
@@ -95,7 +100,13 @@ class TimerPanelController {
             }
             .store(in: &cancellables)
 
-        let hostingView = NSHostingView(rootView: TimerWidgetView())
+        let timerView: AnyView
+        if let vm = taskGoVM {
+            timerView = AnyView(TimerWidgetView().environmentObject(vm))
+        } else {
+            timerView = AnyView(Text("Timer loading..."))
+        }
+        let hostingView = NSHostingView(rootView: timerView)
         panel.contentView = hostingView
 
         self.panel = panel
