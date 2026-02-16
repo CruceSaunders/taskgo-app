@@ -103,10 +103,10 @@ struct TasksTabView: View {
             Spacer()
             Image(systemName: "checklist")
                 .font(.system(size: 36))
-                .foregroundStyle(.secondary.opacity(0.5))
+                .foregroundStyle(.secondary)
             Text("No tasks yet")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.primary.opacity(0.5))
             Button("Add Task") {
                 showAddTask = true
             }
@@ -133,12 +133,12 @@ struct TasksTabView: View {
                         HStack {
                             Text("Completed")
                                 .font(.system(size: 11, weight: .medium))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(.primary.opacity(0.5))
                             Spacer()
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(Color.secondary.opacity(0.05))
+                        .background(Color.secondary.opacity(0.1))
 
                         ForEach(taskVM.completedTasks) { task in
                             TaskRowView(task: task)
@@ -160,7 +160,7 @@ struct TasksTabView: View {
                         .foregroundStyle(Color.calmTeal)
                     Text("Add task")
                         .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.primary.opacity(0.6))
                     Spacer()
                 }
                 .padding(.horizontal, 12)
@@ -185,7 +185,7 @@ struct GroupTabButton: View {
         Button(action: onSelect) {
             Text(group.name)
                 .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? Color.calmTeal : .secondary)
+                .foregroundStyle(isSelected ? Color.calmTeal : .primary.opacity(0.6))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
                 .background(isSelected ? Color.calmTeal.opacity(0.12) : Color.clear)

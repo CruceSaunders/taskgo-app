@@ -22,5 +22,6 @@ struct ContentView: View {
             }
         }
         .frame(width: 360, height: 480)
+        .background(Color(.windowBackgroundColor))
     }
 }

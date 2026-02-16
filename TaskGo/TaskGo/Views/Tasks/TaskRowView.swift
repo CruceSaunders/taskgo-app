@@ -14,7 +14,7 @@ struct TaskRowView: View {
                 if !task.isComplete {
                     Text("\(task.position)")
                         .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                         .frame(width: 20)
                 }
 
@@ -24,7 +24,7 @@ struct TaskRowView: View {
                 }) {
                     Image(systemName: task.isComplete ? "checkmark.circle.fill" : "circle")
                         .font(.system(size: 16))
-                        .foregroundStyle(task.isComplete ? Color.calmTeal : .secondary)
+                        .foregroundStyle(task.isComplete ? Color.calmTeal : .primary.opacity(0.4))
                 }
                 .buttonStyle(.plain)
 
@@ -41,13 +41,13 @@ struct TaskRowView: View {
                             // Time estimate
                             Label(task.timeEstimateFormatted, systemImage: "clock")
                                 .font(.system(size: 10))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(.primary.opacity(0.55))
 
                             // Description indicator
                             if task.description != nil {
                                 Image(systemName: "doc.text")
                                     .font(.system(size: 9))
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(.secondary)
                             }
                         }
                     }
@@ -64,7 +64,7 @@ struct TaskRowView: View {
                     }) {
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                             .font(.system(size: 10))
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
                 }
@@ -77,7 +77,7 @@ struct TaskRowView: View {
             if isExpanded, let description = task.description {
                 Text(description)
                     .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.primary.opacity(0.65))
                     .padding(.horizontal, 48)
                     .padding(.bottom, 8)
                     .transition(.opacity.combined(with: .move(edge: .top)))

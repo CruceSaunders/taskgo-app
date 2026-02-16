@@ -33,7 +33,7 @@ struct SignInView: View {
                     .font(.system(size: 24, weight: .bold))
                 Text("Stay focused. Get things done.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.primary.opacity(0.6))
             }
 
             Spacer()

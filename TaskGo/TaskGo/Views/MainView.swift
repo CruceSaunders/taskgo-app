@@ -155,12 +155,12 @@ struct MainView: View {
                 }) {
                     Text(tab.rawValue)
                         .font(.system(size: 12, weight: selectedTab == tab ? .semibold : .regular))
-                        .foregroundStyle(selectedTab == tab ? Color.calmTeal : .secondary)
+                        .foregroundStyle(selectedTab == tab ? Color.calmTeal : .primary.opacity(0.6))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 6)
                         .background(
                             selectedTab == tab
-                                ? Color.calmTeal.opacity(0.1)
+                                ? Color.calmTeal.opacity(0.15)
                                 : Color.clear
                         )
                 }

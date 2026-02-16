@@ -12,14 +12,14 @@ struct ProfileTabView: View {
             VStack(spacing: 8) {
                 Image(systemName: "person.circle.fill")
                     .font(.system(size: 48))
-                    .foregroundStyle(Color.calmTeal.opacity(0.6))
+                    .foregroundStyle(Color.calmTeal.opacity(0.8))
 
                 if let profile = authVM.userProfile {
                     Text(profile.displayName)
                         .font(.system(size: 16, weight: .semibold))
                     Text("@\(profile.username)")
                         .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.primary.opacity(0.6))
                 }
             }
 
@@ -58,12 +58,12 @@ struct ProfileTabView: View {
                     HStack {
                         Text("\(xpVM.totalXP) XP total")
                             .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.primary.opacity(0.55))
                         Spacer()
                         if xpVM.level < 100 {
                             Text("\(xpVM.xpToNextLevel) XP to next level")
                                 .font(.system(size: 10))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(.primary.opacity(0.55))
                         } else {
                             Text("Max Level!")
                                 .font(.system(size: 10, weight: .bold))
