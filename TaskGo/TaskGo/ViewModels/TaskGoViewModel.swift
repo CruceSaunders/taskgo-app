@@ -53,8 +53,9 @@ class TaskGoViewModel: ObservableObject {
 
     func startTaskGo(with task: TaskItem) {
         currentTask = task
-        totalTime = task.timeEstimate
-        timeRemaining = task.timeEstimate
+        let time = task.effectiveTimeEstimate
+        totalTime = time
+        timeRemaining = time
         elapsedSeconds = 0
         elapsedActiveMinutes = 0
         activityPercentage = 0.0

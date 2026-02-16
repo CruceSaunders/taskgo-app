@@ -11,6 +11,8 @@ struct TaskItem: Identifiable, Codable, Equatable {
     var groupId: String
     var createdAt: Date
     var completedAt: Date?
+    var batchId: String? // tasks with the same batchId are a batch
+    var batchTimeEstimate: Int? // collective time override for the batch (seconds)
 
     var timeEstimateFormatted: String {
         let minutes = timeEstimate / 60
@@ -25,6 +27,15 @@ struct TaskItem: Identifiable, Codable, Equatable {
         timeEstimate / 60
     }
 
+    var isBatched: Bool {
+        batchId != nil
+    }
+
+    /// Effective time for Task Go -- uses batch time if part of a batch, else individual
+    var effectiveTimeEstimate: Int {
+        batchTimeEstimate ?? timeEstimate
+    }
+
     init(
         id: String? = nil,
         name: String,
@@ -34,7 +45,9 @@ struct TaskItem: Identifiable, Codable, Equatable {
         isComplete: Bool = false,
         groupId: String,
         createdAt: Date = Date(),
-        completedAt: Date? = nil
+        completedAt: Date? = nil,
+        batchId: String? = nil,
+        batchTimeEstimate: Int? = nil
     ) {
         self.id = id
         self.name = name
@@ -45,5 +58,7 @@ struct TaskItem: Identifiable, Codable, Equatable {
         self.groupId = groupId
         self.createdAt = createdAt
         self.completedAt = completedAt
+        self.batchId = batchId
+        self.batchTimeEstimate = batchTimeEstimate
     }
 }

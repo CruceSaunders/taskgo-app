@@ -5,14 +5,21 @@ struct TimerWidgetView: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            // Task name
+            // Task name (or batch label)
             if let task = taskGoVM.currentTask {
-                Text(task.name)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: 4) {
+                    if task.isBatched {
+                        Image(systemName: "square.stack")
+                            .font(.system(size: 9))
+                            .foregroundStyle(Color.calmTeal)
+                    }
+                    Text(task.isBatched ? "Batch" : task.name)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             // Countdown timer (hero element)

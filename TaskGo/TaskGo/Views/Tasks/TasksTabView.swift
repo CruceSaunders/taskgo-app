@@ -8,6 +8,9 @@ struct TasksTabView: View {
     @State private var newGroupName = ""
     @State private var renamingGroupId: String?
     @State private var renameText = ""
+    @State private var isSelectMode = false
+    @State private var selectedTaskIds: Set<String> = []
+    @State private var batchTimeText = "30"
 
     var body: some View {
         VStack(spacing: 0) {
@@ -177,19 +180,73 @@ struct TasksTabView: View {
 
     private var taskList: some View {
         VStack(spacing: 0) {
+            // Batch action bar (when selecting)
+            if isSelectMode && selectedTaskIds.count >= 2 {
+                HStack(spacing: 8) {
+                    Text("\(selectedTaskIds.count) selected")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.primary.opacity(0.6))
+
+                    Spacer()
+
+                    TextField("min", text: $batchTimeText)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 40)
+                        .font(.system(size: 11))
+                        .multilineTextAlignment(.center)
+
+                    Button("Batch") {
+                        let ids = Array(selectedTaskIds)
+                        let time = (Int(batchTimeText) ?? 30) * 60
+                        Task {
+                            await taskVM.batchTasks(ids, batchTimeEstimate: time)
+                            isSelectMode = false
+                            selectedTaskIds.removeAll()
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color.calmTeal)
+                    .controlSize(.mini)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color.calmTeal.opacity(0.08))
+
+                Divider()
+            }
+
             List {
-                ForEach(taskVM.incompleteTasks) { task in
-                    TaskRowView(task: task)
-                        .listRowInsets(EdgeInsets())
-                        .listRowSeparator(.hidden)
+                ForEach(taskVM.incompleteTasksForDisplay) { task in
+                    HStack(spacing: 6) {
+                        if isSelectMode, !task.isBatched {
+                            Button(action: {
+                                if let id = task.id {
+                                    if selectedTaskIds.contains(id) {
+                                        selectedTaskIds.remove(id)
+                                    } else {
+                                        selectedTaskIds.insert(id)
+                                    }
+                                }
+                            }) {
+                                Image(systemName: selectedTaskIds.contains(task.id ?? "") ? "checkmark.square.fill" : "square")
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(selectedTaskIds.contains(task.id ?? "") ? Color.calmTeal : .primary.opacity(0.3))
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        TaskRowView(task: task)
+                    }
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
                 }
                 .onMove { source, destination in
                     Task { await taskVM.moveTask(from: source, to: destination) }
                 }
 
-                if !taskVM.completedTasks.isEmpty {
+                if !taskVM.completedTasksForDisplay.isEmpty {
                     Section {
-                        ForEach(taskVM.completedTasks) { task in
+                        ForEach(taskVM.completedTasksForDisplay) { task in
                             TaskRowView(task: task)
                                 .listRowInsets(EdgeInsets())
                                 .listRowSeparator(.hidden)
@@ -206,21 +263,41 @@ struct TasksTabView: View {
 
             Divider()
 
-            Button(action: {
-                showAddTask = true
-            }) {
-                HStack {
-                    Image(systemName: "plus.circle.fill")
-                        .foregroundStyle(Color.calmTeal)
-                    Text("Add task")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.primary.opacity(0.6))
-                    Spacer()
+            // Bottom bar: Add task + Select mode toggle
+            HStack {
+                Button(action: {
+                    showAddTask = true
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundStyle(Color.calmTeal)
+                        Text("Add task")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.primary.opacity(0.6))
+                    }
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .buttonStyle(.plain)
+
+                Spacer()
+
+                if !taskVM.incompleteTasksForDisplay.isEmpty {
+                    Button(action: {
+                        isSelectMode.toggle()
+                        if !isSelectMode { selectedTaskIds.removeAll() }
+                    }) {
+                        HStack(spacing: 3) {
+                            Image(systemName: isSelectMode ? "xmark" : "square.stack")
+                                .font(.system(size: 10))
+                            Text(isSelectMode ? "Cancel" : "Batch")
+                                .font(.system(size: 10))
+                        }
+                        .foregroundStyle(isSelectMode ? .red : .primary.opacity(0.5))
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            .buttonStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
         }
     }
 }

@@ -15,12 +15,46 @@ class TaskViewModel: ObservableObject {
         tasks.filter { !$0.isComplete }.sorted { $0.position < $1.position }
     }
 
+    /// Deduplicated incomplete tasks for display -- batch tasks show only the leader
+    var incompleteTasksForDisplay: [TaskItem] {
+        var seenBatches = Set<String>()
+        var result: [TaskItem] = []
+        for task in incompleteTasks {
+            if let batchId = task.batchId {
+                if !seenBatches.contains(batchId) {
+                    seenBatches.insert(batchId)
+                    result.append(task)
+                }
+            } else {
+                result.append(task)
+            }
+        }
+        return result
+    }
+
     var completedTasks: [TaskItem] {
         tasks.filter { $0.isComplete }.sorted { ($0.completedAt ?? Date.distantPast) > ($1.completedAt ?? Date.distantPast) }
     }
 
+    /// Deduplicated completed tasks -- batch tasks show only the leader
+    var completedTasksForDisplay: [TaskItem] {
+        var seenBatches = Set<String>()
+        var result: [TaskItem] = []
+        for task in completedTasks {
+            if let batchId = task.batchId {
+                if !seenBatches.contains(batchId) {
+                    seenBatches.insert(batchId)
+                    result.append(task)
+                }
+            } else {
+                result.append(task)
+            }
+        }
+        return result
+    }
+
     var firstIncompleteTask: TaskItem? {
-        incompleteTasks.first
+        incompleteTasksForDisplay.first
     }
 
     func startListening(groupId: String) {
@@ -72,10 +106,106 @@ class TaskViewModel: ObservableObject {
         }
     }
 
+    func addBatch(names: [String], batchTimeEstimate: Int, groupId: String) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+
+        let batchId = UUID().uuidString
+        let targetPosition = 1
+
+        do {
+            // Shift existing tasks down to make room
+            try await firestoreService.shiftTaskPositions(
+                groupId: groupId,
+                userId: userId,
+                fromPosition: targetPosition
+            )
+
+            // Create all tasks in the batch with the same batchId
+            for (index, name) in names.enumerated() {
+                let task = TaskItem(
+                    name: name,
+                    timeEstimate: batchTimeEstimate / names.count,
+                    position: targetPosition,
+                    groupId: groupId,
+                    batchId: batchId,
+                    batchTimeEstimate: index == 0 ? batchTimeEstimate : nil
+                )
+                _ = try await firestoreService.createTask(task, userId: userId)
+            }
+            print("[TaskVM] addBatch: created \(names.count) tasks with batchId \(batchId)")
+        } catch {
+            print("[TaskVM] addBatch error: \(error)")
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Batch existing tasks together with a collective time
+    func batchTasks(_ taskIds: [String], batchTimeEstimate: Int) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+
+        let batchId = UUID().uuidString
+
+        do {
+            for (index, taskId) in taskIds.enumerated() {
+                guard var task = tasks.first(where: { $0.id == taskId }) else { continue }
+                task.batchId = batchId
+                task.batchTimeEstimate = index == 0 ? batchTimeEstimate : nil
+                try await firestoreService.updateTask(task, userId: userId)
+            }
+            print("[TaskVM] batchTasks: batched \(taskIds.count) tasks")
+        } catch {
+            print("[TaskVM] batchTasks error: \(error)")
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Unbatch a task (remove from its batch)
+    func unbatchTask(_ task: TaskItem) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+
+        var updated = task
+        updated.batchId = nil
+        updated.batchTimeEstimate = nil
+
+        do {
+            try await firestoreService.updateTask(updated, userId: userId)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Get all tasks in a batch
+    func tasksInBatch(_ batchId: String) -> [TaskItem] {
+        tasks.filter { $0.batchId == batchId }
+    }
+
+    /// For Task Go: get the next "item" (single task or batch leader)
+    var taskGoItems: [TaskItem] {
+        var seen = Set<String>()
+        var items: [TaskItem] = []
+        for task in incompleteTasks {
+            if let batchId = task.batchId {
+                if !seen.contains(batchId) {
+                    seen.insert(batchId)
+                    items.append(task)
+                }
+            } else {
+                items.append(task)
+            }
+        }
+        return items
+    }
+
     /// Force-mark a task as complete (never toggles back). Used by Task Go.
     func markComplete(_ task: TaskItem) async {
         guard let userId = Auth.auth().currentUser?.uid else { return }
         guard !task.isComplete else { return }
+
+        // If task is part of a batch, complete all tasks in the batch
+        if let batchId = task.batchId {
+            await markBatchComplete(batchId: batchId)
+            return
+        }
 
         var updated = task
         updated.isComplete = true
@@ -86,6 +216,23 @@ class TaskViewModel: ObservableObject {
         } catch {
             print("[TaskVM] markComplete error: \(error)")
             errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Complete all tasks in a batch at once
+    func markBatchComplete(batchId: String) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        let batchTasks = tasksInBatch(batchId)
+
+        for var task in batchTasks {
+            guard !task.isComplete else { continue }
+            task.isComplete = true
+            task.completedAt = Date()
+            do {
+                try await firestoreService.updateTask(task, userId: userId)
+            } catch {
+                print("[TaskVM] markBatchComplete error: \(error)")
+            }
         }
     }
 
