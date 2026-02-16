@@ -63,16 +63,9 @@ struct TaskRowView: View {
     }
 
     private var displayView: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            // Row 1: checkbox + task name (gets most of the width)
+        VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
-                if !task.isComplete {
-                    Text("\(task.position)")
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 16)
-                }
-
+                // Checkbox
                 Button(action: {
                     Task { await taskVM.toggleComplete(task) }
                 }) {
@@ -92,79 +85,48 @@ struct TaskRowView: View {
                     isEditing = true
                 }) {
                     Text(task.name)
-                        .font(.system(size: 12.5))
+                        .font(.system(size: 13))
                         .strikethrough(task.isComplete)
                         .foregroundStyle(task.isComplete ? .secondary : .primary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
+                        .lineLimit(1)
                 }
                 .buttonStyle(.plain)
 
                 Spacer(minLength: 4)
-            }
-
-            // Row 2: time + actions (compact)
-            HStack(spacing: 8) {
-                // Indent to align under the name
-                Spacer()
-                    .frame(width: task.isComplete ? 22 : 46)
 
                 if !task.isComplete {
                     Text(task.timeEstimateFormatted)
                         .font(.system(size: 10))
                         .foregroundStyle(.primary.opacity(0.45))
+                        .fixedSize()
                 }
 
-                if task.description != nil {
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            isExpanded.toggle()
-                        }
-                    }) {
-                        HStack(spacing: 2) {
-                            Image(systemName: "doc.text")
-                                .font(.system(size: 9))
-                            Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                                .font(.system(size: 8))
-                        }
-                        .foregroundStyle(.secondary)
-                        .frame(height: 16)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                Spacer()
-
-                if !task.isComplete {
-                    reorderButtons
-                }
-
+                // Trash
                 Button(action: {
                     Task { await taskVM.deleteTask(task) }
                 }) {
                     Image(systemName: "trash")
                         .font(.system(size: 11))
-                        .foregroundStyle(.red.opacity(0.5))
-                        .frame(width: 22, height: 16)
+                        .foregroundStyle(.red.opacity(0.4))
+                        .frame(width: 20, height: 20)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .contentShape(Rectangle())
 
             if isExpanded, let description = task.description {
                 Text(description)
                     .font(.system(size: 11))
                     .foregroundStyle(.primary.opacity(0.65))
-                    .padding(.leading, task.isComplete ? 30 : 46)
-                    .padding(.top, 2)
-                    .padding(.bottom, 4)
+                    .padding(.leading, 40)
+                    .padding(.trailing, 10)
+                    .padding(.bottom, 6)
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .contentShape(Rectangle())
     }
 
     private var editView: some View {
@@ -190,13 +152,32 @@ struct TaskRowView: View {
                 .textFieldStyle(.roundedBorder)
                 .font(.system(size: 11))
 
-            HStack {
+            HStack(spacing: 12) {
                 Button("Cancel") {
                     isEditing = false
                 }
                 .font(.system(size: 11))
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
+
+                // Reorder in edit mode
+                if !task.isComplete {
+                    HStack(spacing: 4) {
+                        Button(action: { Task { await taskVM.moveTaskUp(task) } }) {
+                            Image(systemName: "arrow.up")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.primary.opacity(0.4))
+                        }
+                        .buttonStyle(.plain)
+
+                        Button(action: { Task { await taskVM.moveTaskDown(task) } }) {
+                            Image(systemName: "arrow.down")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.primary.opacity(0.4))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
 
                 Spacer()
 
@@ -217,7 +198,7 @@ struct TaskRowView: View {
                 .disabled(editName.isEmpty)
             }
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .background(Color.calmTeal.opacity(0.05))
     }
@@ -232,13 +213,6 @@ struct TaskRowView: View {
 
         return VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
-                if !allComplete {
-                    Text("\(task.position)")
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 20)
-                }
-
                 Image(systemName: allComplete ? "checkmark.square.stack.fill" : "square.stack")
                     .font(.system(size: 15))
                     .foregroundStyle(allComplete ? Color.calmTeal : Color.calmTeal.opacity(0.7))
@@ -253,6 +227,7 @@ struct TaskRowView: View {
                     Text("\(batchMinutes)m")
                         .font(.system(size: 10))
                         .foregroundStyle(.primary.opacity(0.45))
+                        .fixedSize()
                 }
 
                 Button(action: {
@@ -267,10 +242,6 @@ struct TaskRowView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-
-                if !allComplete {
-                    reorderButtons
-                }
 
                 // Delete entire batch
                 Button(action: {
@@ -327,13 +298,6 @@ struct TaskRowView: View {
         return VStack(alignment: .leading, spacing: 0) {
             // Chain header
             HStack(spacing: 8) {
-                if !allComplete {
-                    Text("\(task.position)")
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 20)
-                }
-
                 Image(systemName: allComplete ? "link.circle.fill" : "link")
                     .font(.system(size: 15))
                     .foregroundStyle(allComplete ? .orange : .orange.opacity(0.7))
@@ -358,6 +322,7 @@ struct TaskRowView: View {
                     Text("\(totalMinutes)m")
                         .font(.system(size: 10))
                         .foregroundStyle(.primary.opacity(0.45))
+                        .fixedSize()
                 }
 
                 Button(action: {
@@ -372,10 +337,6 @@ struct TaskRowView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-
-                if !allComplete {
-                    reorderButtons
-                }
 
                 Button(action: {
                     Task {

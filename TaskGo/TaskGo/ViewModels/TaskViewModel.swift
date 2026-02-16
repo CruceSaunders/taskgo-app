@@ -378,8 +378,23 @@ class TaskViewModel: ObservableObject {
 
         do {
             try await firestoreService.deleteTask(taskId, userId: userId)
+            // Renormalize positions after deletion
+            await renormalizePositions(groupId: task.groupId)
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Renormalize task positions to be sequential (1, 2, 3...) with no gaps
+    func renormalizePositions(groupId: String) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        let items = incompleteTasksForDisplay.filter { $0.groupId == groupId }
+        for (index, var task) in items.enumerated() {
+            let newPos = index + 1
+            if task.position != newPos {
+                task.position = newPos
+                try? await firestoreService.updateTask(task, userId: userId)
+            }
         }
     }
 
