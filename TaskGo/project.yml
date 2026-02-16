@@ -45,5 +45,8 @@ targets:
         product: Sparkle
     info:
       path: TaskGo/Info.plist
+      properties:
+        LSUIElement: true
+        SUFeedURL: "https://crucesaunders.github.io/taskgo-app/appcast.xml"
     entitlements:
       path: TaskGo/TaskGo.entitlements
