@@ -135,12 +135,16 @@ class TaskGoViewModel: ObservableObject {
     /// Self-contained: complete current task, award XP, advance to next or stop
     func completeAndAdvance() {
         guard let result = completeCurrentTask() else { return }
+        let completedTaskId = result.task.id
 
         Task {
             await xpVM?.awardXP(activeMinutes: result.activeMinutes)
             await taskVM?.toggleComplete(result.task)
 
-            if isActive, let nextTask = taskVM?.firstIncompleteTask {
+            // Find next task, excluding the one we just completed
+            let nextTask = taskVM?.incompleteTasks.first { $0.id != completedTaskId }
+
+            if isActive, let nextTask = nextTask {
                 advanceToNextTask(nextTask)
             } else {
                 stopTaskGo()
