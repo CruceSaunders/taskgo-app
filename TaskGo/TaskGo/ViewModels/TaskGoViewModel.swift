@@ -230,27 +230,29 @@ class TaskGoViewModel: ObservableObject {
     // MARK: - Alarm
 
     private func playAlarm() {
-        // Check if Focus/DND is active
-        if !isFocusModeActive() {
-            // Play a gentle chime sound
-            if let soundURL = Bundle.main.url(forResource: "gentle_chime", withExtension: "aiff") {
-                alarmPlayer = NSSound(contentsOf: soundURL, byReference: true)
-            } else {
-                // Fallback to system sound
-                alarmPlayer = NSSound(named: "Glass")
-            }
-            alarmPlayer?.play()
+        guard !isFocusModeActive() else { return }
 
-            // Stop sound after 5 seconds
-            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
-                self?.alarmPlayer?.stop()
-            }
+        // Use a gentle system sound, looped for 5 seconds
+        if let soundURL = Bundle.main.url(forResource: "gentle_chime", withExtension: "aiff") {
+            alarmPlayer = NSSound(contentsOf: soundURL, byReference: true)
+        } else {
+            alarmPlayer = NSSound(named: "Glass")
+        }
+        alarmPlayer?.loops = true
+        alarmPlayer?.play()
+
+        // Stop looping after 5 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            self?.alarmPlayer?.loops = false
+            self?.alarmPlayer?.stop()
         }
     }
 
     private func stopAlarm() {
+        alarmPlayer?.loops = false
         alarmPlayer?.stop()
         alarmPlayer = nil
+        NotificationCenter.default.post(name: .taskGoStopBounce, object: nil)
     }
 
     private func isFocusModeActive() -> Bool {
@@ -283,6 +285,7 @@ class TaskGoViewModel: ObservableObject {
 
 extension Notification.Name {
     static let taskGoTimerExpired = Notification.Name("taskGoTimerExpired")
+    static let taskGoStopBounce = Notification.Name("taskGoStopBounce")
     static let taskGoShowPanel = Notification.Name("taskGoShowPanel")
     static let taskGoHidePanel = Notification.Name("taskGoHidePanel")
 }

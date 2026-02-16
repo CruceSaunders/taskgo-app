@@ -38,6 +38,12 @@ class TimerPanelController: NSObject, NSWindowDelegate {
                 self?.startBouncing()
             }
             .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: .taskGoStopBounce)
+            .sink { [weak self] _ in
+                self?.stopBouncing()
+            }
+            .store(in: &cancellables)
     }
 
     func show() {
@@ -133,6 +139,11 @@ class TimerPanelController: NSObject, NSWindowDelegate {
 
         bounceTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             self?.performBounce()
+        }
+
+        // Auto-stop bouncing after 5 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            self?.stopBouncing()
         }
     }
 
