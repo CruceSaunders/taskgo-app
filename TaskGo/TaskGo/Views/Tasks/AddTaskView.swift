@@ -7,15 +7,14 @@ struct AddTaskView: View {
     let groupId: String
 
     @State private var name = ""
-    @State private var hours = 0
-    @State private var minutes = 25
+    @State private var minutesText = "25"
     @State private var description = ""
     @State private var position = ""
     @State private var showDescription = false
     @State private var showPosition = false
 
     var timeEstimateSeconds: Int {
-        (hours * 3600) + (minutes * 60)
+        (Int(minutesText) ?? 0) * 60
     }
 
     var body: some View {
@@ -38,30 +37,20 @@ struct AddTaskView: View {
                 .font(.system(size: 14))
 
             // Time estimate
-            VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
                 Text("Time estimate")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.primary.opacity(0.55))
 
-                HStack(spacing: 8) {
-                    HStack(spacing: 4) {
-                        Picker("Hours", selection: $hours) {
-                            ForEach(0..<13) { h in
-                                Text("\(h)h").tag(h)
-                            }
-                        }
-                        .frame(width: 60)
-                    }
+                TextField("25", text: $minutesText)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 50)
+                    .font(.system(size: 13))
+                    .multilineTextAlignment(.center)
 
-                    HStack(spacing: 4) {
-                        Picker("Minutes", selection: $minutes) {
-                            ForEach(Array(stride(from: 0, through: 55, by: 5)), id: \.self) { m in
-                                Text("\(m)m").tag(m)
-                            }
-                        }
-                        .frame(width: 60)
-                    }
-                }
+                Text("minutes")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.primary.opacity(0.55))
             }
 
             // Optional fields toggles
