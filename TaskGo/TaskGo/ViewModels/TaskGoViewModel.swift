@@ -25,6 +25,10 @@ class TaskGoViewModel: ObservableObject {
     private var alarmPlayer: NSSound?
     private let activityMonitor = ActivityMonitor.shared
 
+    // References to other VMs for self-contained completion
+    weak var taskVM: TaskViewModel?
+    weak var xpVM: XPViewModel?
+
     var progress: Double {
         guard totalTime > 0 else { return 0 }
         return Double(totalTime - timeRemaining) / Double(totalTime)
@@ -126,6 +130,22 @@ class TaskGoViewModel: ObservableObject {
         }
 
         return (task: task, earnedXP: earnedXP, activeMinutes: minutes, activityPct: activityPercentage)
+    }
+
+    /// Self-contained: complete current task, award XP, advance to next or stop
+    func completeAndAdvance() {
+        guard let result = completeCurrentTask() else { return }
+
+        Task {
+            await xpVM?.awardXP(activeMinutes: result.activeMinutes)
+            await taskVM?.toggleComplete(result.task)
+
+            if isActive, let nextTask = taskVM?.firstIncompleteTask {
+                advanceToNextTask(nextTask)
+            } else {
+                stopTaskGo()
+            }
+        }
     }
 
     func advanceToNextTask(_ task: TaskItem) {

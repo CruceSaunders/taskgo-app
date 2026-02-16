@@ -57,8 +57,8 @@ class TimerPanelController {
         let savedX = UserDefaults.standard.double(forKey: "timerPanelX")
         let savedY = UserDefaults.standard.double(forKey: "timerPanelY")
 
-        let panelWidth: CGFloat = 220
-        let panelHeight: CGFloat = 120
+        let panelWidth: CGFloat = 185
+        let panelHeight: CGFloat = 110
 
         let frame: NSRect
         if savedX != 0 || savedY != 0 {
@@ -97,6 +97,15 @@ class TimerPanelController {
                 guard let panel = panel else { return }
                 UserDefaults.standard.set(panel.frame.origin.x, forKey: "timerPanelX")
                 UserDefaults.standard.set(panel.frame.origin.y, forKey: "timerPanelY")
+            }
+            .store(in: &cancellables)
+
+        // Handle close button (X) -- stop Task Go when panel is closed
+        NotificationCenter.default.publisher(for: NSWindow.willCloseNotification, object: panel)
+            .sink { [weak self] _ in
+                Task { @MainActor in
+                    self?.taskGoVM?.stopTaskGo()
+                }
             }
             .store(in: &cancellables)
 

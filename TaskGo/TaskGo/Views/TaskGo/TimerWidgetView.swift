@@ -17,7 +17,7 @@ struct TimerWidgetView: View {
 
             // Countdown timer (hero element)
             Text(taskGoVM.timeRemainingFormatted)
-                .font(.system(size: 36, weight: .bold, design: .monospaced))
+                .font(.system(size: 28, weight: .bold, design: .monospaced))
                 .foregroundStyle(taskGoVM.isExpired ? Color.amberText : Color.primary)
                 .frame(maxWidth: .infinity)
 
@@ -50,7 +50,7 @@ struct TimerWidgetView: View {
                     .controlSize(.small)
 
                     Button(action: {
-                        NotificationCenter.default.post(name: .taskGoCompleteTask, object: nil)
+                        taskGoVM.completeAndAdvance()
                     }) {
                         Label("Done", systemImage: "checkmark")
                             .font(.system(size: 11, weight: .semibold))
@@ -72,7 +72,7 @@ struct TimerWidgetView: View {
                     .controlSize(.small)
 
                     Button(action: {
-                        NotificationCenter.default.post(name: .taskGoCompleteTask, object: nil)
+                        taskGoVM.completeAndAdvance()
                     }) {
                         Label("Done", systemImage: "checkmark")
                             .font(.system(size: 11, weight: .semibold))
@@ -82,13 +82,13 @@ struct TimerWidgetView: View {
                 }
             }
         }
-        .padding(14)
+        .padding(10)
         .background(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: 10)
                 .fill(taskGoVM.isExpired ? Color.amberBackground : Color(.windowBackgroundColor))
-                .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
+                .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
         )
-        .frame(width: 200, height: 110)
+        .frame(width: 170, height: 100)
     }
 }
 

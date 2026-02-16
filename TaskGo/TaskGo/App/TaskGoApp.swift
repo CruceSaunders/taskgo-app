@@ -39,6 +39,8 @@ struct TaskGoApp: App {
                 // .environmentObject(socialViewModel)  // v2: Social features deferred
                 .onAppear {
                     appDelegate.timerPanelController?.setViewModel(taskGoViewModel)
+                    taskGoViewModel.taskVM = taskViewModel
+                    taskGoViewModel.xpVM = xpViewModel
                 }
         } label: {
             Image(systemName: "checkmark.circle.fill")
