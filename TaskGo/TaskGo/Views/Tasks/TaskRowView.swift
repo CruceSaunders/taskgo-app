@@ -5,6 +5,10 @@ struct TaskRowView: View {
     let task: TaskItem
 
     @State private var isExpanded = false
+    @State private var isEditing = false
+    @State private var editName = ""
+    @State private var editMinutes = ""
+    @State private var editDescription = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -48,6 +52,16 @@ struct TaskRowView: View {
 
     private var singleTaskRow: some View {
         VStack(alignment: .leading, spacing: 0) {
+            if isEditing {
+                editView
+            } else {
+                displayView
+            }
+        }
+    }
+
+    private var displayView: some View {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
                 if !task.isComplete {
                     Text("\(task.position)")
@@ -67,11 +81,20 @@ struct TaskRowView: View {
                 }
                 .buttonStyle(.plain)
 
-                Text(task.name)
-                    .font(.system(size: 13, weight: .regular))
-                    .strikethrough(task.isComplete)
-                    .foregroundStyle(task.isComplete ? .secondary : .primary)
-                    .lineLimit(1)
+                // Tap name to edit
+                Button(action: {
+                    editName = task.name
+                    editMinutes = "\(task.timeEstimate / 60)"
+                    editDescription = task.description ?? ""
+                    isEditing = true
+                }) {
+                    Text(task.name)
+                        .font(.system(size: 13, weight: .regular))
+                        .strikethrough(task.isComplete)
+                        .foregroundStyle(task.isComplete ? .secondary : .primary)
+                        .lineLimit(1)
+                }
+                .buttonStyle(.plain)
 
                 Spacer()
 
@@ -124,6 +147,61 @@ struct TaskRowView: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+    }
+
+    private var editView: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 6) {
+                TextField("Task name", text: $editName)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 12))
+
+                TextField("min", text: $editMinutes)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 40)
+                    .font(.system(size: 11))
+                    .multilineTextAlignment(.center)
+
+                Text("m")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.primary.opacity(0.45))
+            }
+
+            TextField("Note (optional)", text: $editDescription, axis: .vertical)
+                .lineLimit(2...4)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(size: 11))
+
+            HStack {
+                Button("Cancel") {
+                    isEditing = false
+                }
+                .font(.system(size: 11))
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Button("Save") {
+                    var updated = task
+                    updated.name = editName
+                    updated.timeEstimate = (Int(editMinutes) ?? task.timeEstimate / 60) * 60
+                    updated.description = editDescription.isEmpty ? nil : editDescription
+                    Task {
+                        await taskVM.updateTask(updated)
+                        isEditing = false
+                    }
+                }
+                .font(.system(size: 11, weight: .semibold))
+                .buttonStyle(.borderedProminent)
+                .tint(Color.calmTeal)
+                .controlSize(.small)
+                .disabled(editName.isEmpty)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.calmTeal.opacity(0.05))
     }
 
     // MARK: - Batch View
