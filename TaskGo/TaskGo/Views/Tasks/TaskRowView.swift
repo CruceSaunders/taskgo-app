@@ -5,12 +5,11 @@ struct TaskRowView: View {
     let task: TaskItem
 
     @State private var isExpanded = false
-    @State private var showActions = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
-                // Position number
+                // Position number (only for incomplete)
                 if !task.isComplete {
                     Text("\(task.position)")
                         .font(.system(size: 10, weight: .medium, design: .monospaced))
@@ -18,7 +17,7 @@ struct TaskRowView: View {
                         .frame(width: 20)
                 }
 
-                // Checkbox
+                // Checkbox -- toggles complete/incomplete
                 Button(action: {
                     Task { await taskVM.toggleComplete(task) }
                 }) {
@@ -28,60 +27,48 @@ struct TaskRowView: View {
                 }
                 .buttonStyle(.plain)
 
-                // Task info
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(task.name)
-                        .font(.system(size: 13, weight: .regular))
-                        .strikethrough(task.isComplete)
-                        .foregroundStyle(task.isComplete ? .secondary : .primary)
-                        .lineLimit(1)
-
-                    if task.description != nil || !task.isComplete {
-                        HStack(spacing: 6) {
-                            Label(task.timeEstimateFormatted, systemImage: "clock")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.primary.opacity(0.55))
-
-                            if task.description != nil {
-                                Image(systemName: "doc.text")
-                                    .font(.system(size: 9))
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
+                // Task name
+                Text(task.name)
+                    .font(.system(size: 13, weight: .regular))
+                    .strikethrough(task.isComplete)
+                    .foregroundStyle(task.isComplete ? .secondary : .primary)
+                    .lineLimit(1)
 
                 Spacer()
 
-                // Action buttons
-                HStack(spacing: 6) {
-                    // Expand description
-                    if task.description != nil {
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                isExpanded.toggle()
-                            }
-                        }) {
-                            Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                    }
+                // Time estimate (only for incomplete)
+                if !task.isComplete {
+                    Text(task.timeEstimateFormatted)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.primary.opacity(0.45))
+                }
 
-                    // Delete button
+                // Expand description
+                if task.description != nil {
                     Button(action: {
-                        Task { await taskVM.deleteTask(task) }
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            isExpanded.toggle()
+                        }
                     }) {
-                        Image(systemName: "trash")
+                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                             .font(.system(size: 10))
-                            .foregroundStyle(.red.opacity(0.6))
+                            .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
                 }
+
+                // Delete button
+                Button(action: {
+                    Task { await taskVM.deleteTask(task) }
+                }) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.red.opacity(0.5))
+                }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.vertical, 7)
             .contentShape(Rectangle())
 
             // Expanded description

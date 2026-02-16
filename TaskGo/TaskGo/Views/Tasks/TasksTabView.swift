@@ -177,33 +177,32 @@ struct TasksTabView: View {
 
     private var taskList: some View {
         VStack(spacing: 0) {
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(taskVM.incompleteTasks) { task in
-                        TaskRowView(task: task)
-                        Divider()
-                            .padding(.leading, 36)
-                    }
+            List {
+                ForEach(taskVM.incompleteTasks) { task in
+                    TaskRowView(task: task)
+                        .listRowInsets(EdgeInsets())
+                        .listRowSeparator(.hidden)
+                }
+                .onMove { source, destination in
+                    Task { await taskVM.moveTask(from: source, to: destination) }
+                }
 
-                    if !taskVM.completedTasks.isEmpty {
-                        HStack {
-                            Text("Completed")
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundStyle(.primary.opacity(0.5))
-                            Spacer()
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.secondary.opacity(0.1))
-
+                if !taskVM.completedTasks.isEmpty {
+                    Section {
                         ForEach(taskVM.completedTasks) { task in
                             TaskRowView(task: task)
-                            Divider()
-                                .padding(.leading, 36)
+                                .listRowInsets(EdgeInsets())
+                                .listRowSeparator(.hidden)
                         }
+                    } header: {
+                        Text("Completed")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.primary.opacity(0.5))
                     }
                 }
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
 
             Divider()
 

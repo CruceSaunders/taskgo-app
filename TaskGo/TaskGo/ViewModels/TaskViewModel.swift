@@ -73,16 +73,22 @@ class TaskViewModel: ObservableObject {
     }
 
     func toggleComplete(_ task: TaskItem) async {
-        guard let userId = Auth.auth().currentUser?.uid else { return }
+        guard let userId = Auth.auth().currentUser?.uid else {
+            print("[TaskVM] toggleComplete: no user")
+            return
+        }
 
         var updated = task
         updated.isComplete.toggle()
         updated.completedAt = updated.isComplete ? Date() : nil
+        print("[TaskVM] toggleComplete: '\(task.name)' -> isComplete=\(updated.isComplete)")
 
         do {
             try await firestoreService.updateTask(updated, userId: userId)
         } catch {
+            print("[TaskVM] toggleComplete error: \(error)")
             errorMessage = error.localizedDescription
+            ErrorHandler.shared.handle(error)
         }
     }
 
@@ -103,6 +109,26 @@ class TaskViewModel: ObservableObject {
         do {
             try await firestoreService.deleteTask(taskId, userId: userId)
         } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func moveTask(from source: IndexSet, to destination: Int) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+
+        var reordered = incompleteTasks
+        reordered.move(fromOffsets: source, toOffset: destination)
+
+        do {
+            for (index, var task) in reordered.enumerated() {
+                let newPosition = index + 1
+                if task.position != newPosition {
+                    task.position = newPosition
+                    try await firestoreService.updateTask(task, userId: userId)
+                }
+            }
+        } catch {
+            print("[TaskVM] moveTask error: \(error)")
             errorMessage = error.localizedDescription
         }
     }
