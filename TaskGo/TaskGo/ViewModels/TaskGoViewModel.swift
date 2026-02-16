@@ -29,6 +29,10 @@ class TaskGoViewModel: ObservableObject {
     weak var taskVM: TaskViewModel?
     weak var xpVM: XPViewModel?
 
+    // Prevent rapid-fire completion
+    private var isProcessingCompletion = false
+    private var completedTaskIds: Set<String> = []
+
     var progress: Double {
         guard totalTime > 0 else { return 0 }
         return Double(totalTime - timeRemaining) / Double(totalTime)
@@ -80,6 +84,8 @@ class TaskGoViewModel: ObservableObject {
         elapsedSeconds = 0
         elapsedActiveMinutes = 0
         activityPercentage = 0.0
+        isProcessingCompletion = false
+        completedTaskIds.removeAll()
         stopTimer()
         stopAlarm()
         hideTimerPanel()
@@ -134,19 +140,32 @@ class TaskGoViewModel: ObservableObject {
 
     /// Self-contained: complete current task, award XP, advance to next or stop
     func completeAndAdvance() {
+        guard !isProcessingCompletion else { return }
         guard let result = completeCurrentTask() else { return }
-        let completedTaskId = result.task.id
+
+        isProcessingCompletion = true
+        if let taskId = result.task.id {
+            completedTaskIds.insert(taskId)
+        }
+
+        stopTimer()
 
         Task {
             await xpVM?.awardXP(activeMinutes: result.activeMinutes)
-            await taskVM?.toggleComplete(result.task)
+            await taskVM?.markComplete(result.task)
 
-            // Find next task, excluding the one we just completed
-            let nextTask = taskVM?.incompleteTasks.first { $0.id != completedTaskId }
+            // Find next task, excluding ALL tasks we've completed this session
+            let nextTask = taskVM?.incompleteTasks.first { task in
+                guard let id = task.id else { return false }
+                return !completedTaskIds.contains(id)
+            }
+
+            isProcessingCompletion = false
 
             if isActive, let nextTask = nextTask {
                 advanceToNextTask(nextTask)
             } else {
+                completedTaskIds.removeAll()
                 stopTaskGo()
             }
         }

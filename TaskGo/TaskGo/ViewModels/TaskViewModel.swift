@@ -72,6 +72,23 @@ class TaskViewModel: ObservableObject {
         }
     }
 
+    /// Force-mark a task as complete (never toggles back). Used by Task Go.
+    func markComplete(_ task: TaskItem) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        guard !task.isComplete else { return }
+
+        var updated = task
+        updated.isComplete = true
+        updated.completedAt = Date()
+
+        do {
+            try await firestoreService.updateTask(updated, userId: userId)
+        } catch {
+            print("[TaskVM] markComplete error: \(error)")
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func toggleComplete(_ task: TaskItem) async {
         guard let userId = Auth.auth().currentUser?.uid else {
             print("[TaskVM] toggleComplete: no user")
