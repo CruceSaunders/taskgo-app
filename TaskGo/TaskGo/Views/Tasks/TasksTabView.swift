@@ -11,6 +11,7 @@ struct TasksTabView: View {
     @State private var isSelectMode = false
     @State private var selectedTaskIds: Set<String> = []
     @State private var batchTimeText = "30"
+    @State private var editingTaskId: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -276,17 +277,16 @@ struct TasksTabView: View {
                             .buttonStyle(.plain)
                         }
 
-                        TaskRowView(task: task)
+                        TaskRowView(task: task, editingTaskId: $editingTaskId)
                     }
                     .listRowInsets(EdgeInsets())
                     .listRowSeparator(.hidden)
                 }
-                // Drag reorder disabled in MenuBarExtra -- use up/down buttons instead
 
                 if !taskVM.completedTasksForDisplay.isEmpty {
                     Section {
                         ForEach(taskVM.completedTasksForDisplay) { task in
-                            TaskRowView(task: task)
+                            TaskRowView(task: task, editingTaskId: $editingTaskId)
                                 .listRowInsets(EdgeInsets())
                                 .listRowSeparator(.hidden)
                         }

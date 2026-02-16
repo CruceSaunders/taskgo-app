@@ -3,12 +3,16 @@ import SwiftUI
 struct TaskRowView: View {
     @EnvironmentObject var taskVM: TaskViewModel
     let task: TaskItem
+    @Binding var editingTaskId: String?
 
     @State private var isExpanded = false
-    @State private var isEditing = false
     @State private var editName = ""
     @State private var editMinutes = ""
     @State private var editDescription = ""
+
+    private var isEditing: Bool {
+        editingTaskId == task.id
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -82,13 +86,13 @@ struct TaskRowView: View {
                     editName = task.name
                     editMinutes = "\(task.timeEstimate / 60)"
                     editDescription = task.description ?? ""
-                    isEditing = true
+                    editingTaskId = task.id
                 }) {
                     Text(task.name)
                         .font(.system(size: 13))
                         .strikethrough(task.isComplete)
                         .foregroundStyle(task.isComplete ? .secondary : .primary)
-                        .lineLimit(1)
+                        .lineLimit(2)
                 }
                 .buttonStyle(.plain)
 
@@ -154,7 +158,7 @@ struct TaskRowView: View {
 
             HStack(spacing: 12) {
                 Button("Cancel") {
-                    isEditing = false
+                    editingTaskId = nil
                 }
                 .font(.system(size: 11))
                 .buttonStyle(.plain)
@@ -188,7 +192,7 @@ struct TaskRowView: View {
                     updated.description = editDescription.isEmpty ? nil : editDescription
                     Task {
                         await taskVM.updateTask(updated)
-                        isEditing = false
+                        editingTaskId = nil
                     }
                 }
                 .font(.system(size: 11, weight: .semibold))
