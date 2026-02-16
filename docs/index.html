@@ -360,9 +360,11 @@
                 <div class="step-number">2</div>
                 <div class="step-content">
                     <h3>Allow the app to open</h3>
-                    <p>Since TaskGo! is distributed directly (not through the Mac App Store), macOS may block it on first launch. To fix this, open <strong>Terminal</strong> and run:</p>
+                    <p>macOS may show a warning saying "TaskGo! can't be opened." This is normal for apps distributed outside the Mac App Store. To allow it:</p>
+                    <p style="margin-top: 0.5rem;"><strong>Option A (easiest):</strong> Go to <strong>System Settings &rarr; Privacy &amp; Security</strong>, scroll down, and click <strong>"Open Anyway"</strong> next to the TaskGo! message. Then try opening the app again.</p>
+                    <p style="margin-top: 0.5rem;"><strong>Option B (Terminal):</strong> Open <strong>Terminal</strong> and run this command:</p>
                     <p style="margin-top: 0.75rem; padding: 0.75rem 1rem; background: #1a202c; color: #e2e8f0; border-radius: 8px; font-family: 'SF Mono', Menlo, monospace; font-size: 0.85rem;">xattr -cr /Applications/TaskGo!.app</p>
-                    <p style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-light);">If you placed the app somewhere else, replace <code>/Applications/TaskGo!.app</code> with the actual path.</p>
+                    <p style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-light);">Adjust the path if you placed the app somewhere else. On macOS Sequoia, Option A is recommended.</p>
                 </div>
             </div>
             <div class="step">
