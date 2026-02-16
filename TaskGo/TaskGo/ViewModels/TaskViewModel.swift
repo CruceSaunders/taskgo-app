@@ -284,9 +284,10 @@ class TaskViewModel: ObservableObject {
 
         var above = items[index - 1]
         var current = items[index]
-        let tempPos = above.position
-        above.position = current.position
-        current.position = tempPos
+
+        // Ensure unique positions by using index-based values
+        above.position = index + 1
+        current.position = index
 
         do {
             try await firestoreService.updateTask(above, userId: userId)
@@ -303,9 +304,10 @@ class TaskViewModel: ObservableObject {
 
         var below = items[index + 1]
         var current = items[index]
-        let tempPos = below.position
-        below.position = current.position
-        current.position = tempPos
+
+        // Ensure unique positions by using index-based values
+        below.position = index + 1
+        current.position = index + 2
 
         do {
             try await firestoreService.updateTask(below, userId: userId)

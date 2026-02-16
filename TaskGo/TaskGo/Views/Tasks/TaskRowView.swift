@@ -8,7 +8,6 @@ struct TaskRowView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // If this is a batch leader, show the batch header
             if task.isBatched, let batchId = task.batchId {
                 batchView(batchId: batchId)
             } else {
@@ -16,6 +15,36 @@ struct TaskRowView: View {
             }
         }
     }
+
+    // MARK: - Reorder Buttons (shared)
+
+    private var reorderButtons: some View {
+        VStack(spacing: 2) {
+            Button(action: {
+                Task { await taskVM.moveTaskUp(task) }
+            }) {
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.primary.opacity(0.35))
+                    .frame(width: 22, height: 16)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button(action: {
+                Task { await taskVM.moveTaskDown(task) }
+            }) {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.primary.opacity(0.35))
+                    .frame(width: 22, height: 16)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: - Single Task Row
 
     private var singleTaskRow: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -31,8 +60,10 @@ struct TaskRowView: View {
                     Task { await taskVM.toggleComplete(task) }
                 }) {
                     Image(systemName: task.isComplete ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 16))
+                        .font(.system(size: 18))
                         .foregroundStyle(task.isComplete ? Color.calmTeal : .primary.opacity(0.4))
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
 
@@ -57,41 +88,26 @@ struct TaskRowView: View {
                         }
                     }) {
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 10))
+                            .font(.system(size: 11))
                             .foregroundStyle(.secondary)
+                            .frame(width: 20, height: 20)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
 
-                // Reorder buttons (incomplete only)
                 if !task.isComplete {
-                    VStack(spacing: 0) {
-                        Button(action: {
-                            Task { await taskVM.moveTaskUp(task) }
-                        }) {
-                            Image(systemName: "chevron.up")
-                                .font(.system(size: 8, weight: .bold))
-                                .foregroundStyle(.primary.opacity(0.3))
-                        }
-                        .buttonStyle(.plain)
-
-                        Button(action: {
-                            Task { await taskVM.moveTaskDown(task) }
-                        }) {
-                            Image(systemName: "chevron.down")
-                                .font(.system(size: 8, weight: .bold))
-                                .foregroundStyle(.primary.opacity(0.3))
-                        }
-                        .buttonStyle(.plain)
-                    }
+                    reorderButtons
                 }
 
                 Button(action: {
                     Task { await taskVM.deleteTask(task) }
                 }) {
                     Image(systemName: "trash")
-                        .font(.system(size: 10))
+                        .font(.system(size: 12))
                         .foregroundStyle(.red.opacity(0.5))
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
@@ -110,6 +126,8 @@ struct TaskRowView: View {
         }
     }
 
+    // MARK: - Batch View
+
     private func batchView(batchId: String) -> some View {
         let batchTasks = taskVM.tasksInBatch(batchId)
         let allComplete = batchTasks.allSatisfy { $0.isComplete }
@@ -117,7 +135,6 @@ struct TaskRowView: View {
         let batchMinutes = batchTime / 60
 
         return VStack(alignment: .leading, spacing: 0) {
-            // Batch header
             HStack(spacing: 8) {
                 if !allComplete {
                     Text("\(task.position)")
@@ -127,7 +144,7 @@ struct TaskRowView: View {
                 }
 
                 Image(systemName: allComplete ? "checkmark.square.stack.fill" : "square.stack")
-                    .font(.system(size: 14))
+                    .font(.system(size: 15))
                     .foregroundStyle(allComplete ? Color.calmTeal : Color.calmTeal.opacity(0.7))
 
                 Text("Batch (\(batchTasks.count) tasks)")
@@ -148,21 +165,26 @@ struct TaskRowView: View {
                     }
                 }) {
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
                         .foregroundStyle(.secondary)
+                        .frame(width: 20, height: 20)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+
+                if !allComplete {
+                    reorderButtons
+                }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
 
-            // Expanded: show individual sub-tasks
             if isExpanded {
                 VStack(spacing: 0) {
                     ForEach(batchTasks) { subTask in
                         HStack(spacing: 6) {
                             Image(systemName: subTask.isComplete ? "checkmark.circle.fill" : "circle")
-                                .font(.system(size: 12))
+                                .font(.system(size: 13))
                                 .foregroundStyle(subTask.isComplete ? Color.calmTeal : .primary.opacity(0.3))
 
                             Text(subTask.name)
