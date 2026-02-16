@@ -175,6 +175,22 @@ struct TaskRowView: View {
                 if !allComplete {
                     reorderButtons
                 }
+
+                // Delete entire batch
+                Button(action: {
+                    Task {
+                        for subTask in batchTasks {
+                            await taskVM.deleteTask(subTask)
+                        }
+                    }
+                }) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.red.opacity(0.5))
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 7)

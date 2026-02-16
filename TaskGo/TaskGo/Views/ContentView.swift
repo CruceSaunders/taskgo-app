@@ -21,7 +21,7 @@ struct ContentView: View {
                 AuthView()
             }
         }
-        .frame(width: 360, height: 480)
+        .frame(width: 340, height: 400)
         .background(Color(.windowBackgroundColor))
     }
 }
