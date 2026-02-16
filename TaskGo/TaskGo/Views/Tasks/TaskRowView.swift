@@ -63,22 +63,23 @@ struct TaskRowView: View {
     }
 
     private var displayView: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 2) {
+            // Row 1: checkbox + task name (gets most of the width)
             HStack(spacing: 8) {
                 if !task.isComplete {
                     Text("\(task.position)")
                         .font(.system(size: 10, weight: .medium, design: .monospaced))
                         .foregroundStyle(.secondary)
-                        .frame(width: 20)
+                        .frame(width: 16)
                 }
 
                 Button(action: {
                     Task { await taskVM.toggleComplete(task) }
                 }) {
                     Image(systemName: task.isComplete ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 18))
+                        .font(.system(size: 17))
                         .foregroundStyle(task.isComplete ? Color.calmTeal : .primary.opacity(0.4))
-                        .frame(width: 24, height: 24)
+                        .frame(width: 22, height: 22)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -91,14 +92,22 @@ struct TaskRowView: View {
                     isEditing = true
                 }) {
                     Text(task.name)
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.system(size: 12.5))
                         .strikethrough(task.isComplete)
                         .foregroundStyle(task.isComplete ? .secondary : .primary)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
                 }
                 .buttonStyle(.plain)
 
+                Spacer(minLength: 4)
+            }
+
+            // Row 2: time + actions (compact)
+            HStack(spacing: 8) {
+                // Indent to align under the name
                 Spacer()
+                    .frame(width: task.isComplete ? 22 : 46)
 
                 if !task.isComplete {
                     Text(task.timeEstimateFormatted)
@@ -112,14 +121,20 @@ struct TaskRowView: View {
                             isExpanded.toggle()
                         }
                     }) {
-                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                            .frame(width: 20, height: 20)
-                            .contentShape(Rectangle())
+                        HStack(spacing: 2) {
+                            Image(systemName: "doc.text")
+                                .font(.system(size: 9))
+                            Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                                .font(.system(size: 8))
+                        }
+                        .foregroundStyle(.secondary)
+                        .frame(height: 16)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
+
+                Spacer()
 
                 if !task.isComplete {
                     reorderButtons
@@ -129,26 +144,27 @@ struct TaskRowView: View {
                     Task { await taskVM.deleteTask(task) }
                 }) {
                     Image(systemName: "trash")
-                        .font(.system(size: 12))
+                        .font(.system(size: 11))
                         .foregroundStyle(.red.opacity(0.5))
-                        .frame(width: 24, height: 24)
+                        .frame(width: 22, height: 16)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .contentShape(Rectangle())
 
             if isExpanded, let description = task.description {
                 Text(description)
                     .font(.system(size: 11))
                     .foregroundStyle(.primary.opacity(0.65))
-                    .padding(.horizontal, 48)
-                    .padding(.bottom, 8)
+                    .padding(.leading, task.isComplete ? 30 : 46)
+                    .padding(.top, 2)
+                    .padding(.bottom, 4)
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
     }
 
     private var editView: some View {
