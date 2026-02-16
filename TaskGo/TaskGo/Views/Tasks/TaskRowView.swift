@@ -12,7 +12,9 @@ struct TaskRowView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if task.isBatched, let batchId = task.batchId {
+            if task.isChained, let chainId = task.chainId {
+                chainView(chainId: chainId)
+            } else if task.isBatched, let batchId = task.batchId {
                 batchView(batchId: batchId)
             } else {
                 singleTaskRow
@@ -290,6 +292,119 @@ struct TaskRowView: View {
                             Spacer()
                         }
                         .padding(.horizontal, 48)
+                        .padding(.vertical, 3)
+                    }
+                }
+                .padding(.bottom, 4)
+            }
+        }
+    }
+
+    // MARK: - Chain View
+
+    private func chainView(chainId: String) -> some View {
+        let chainTasks = taskVM.tasksInChain(chainId)
+        let allComplete = chainTasks.allSatisfy { $0.isComplete }
+        let completedCount = chainTasks.filter { $0.isComplete }.count
+        let totalMinutes = chainTasks.reduce(0) { $0 + $1.timeEstimate } / 60
+
+        return VStack(alignment: .leading, spacing: 0) {
+            // Chain header
+            HStack(spacing: 8) {
+                if !allComplete {
+                    Text("\(task.position)")
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 20)
+                }
+
+                Image(systemName: allComplete ? "link.circle.fill" : "link")
+                    .font(.system(size: 15))
+                    .foregroundStyle(allComplete ? .orange : .orange.opacity(0.7))
+
+                Text("Chain (\(chainTasks.count) steps)")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(allComplete ? .secondary : .primary)
+
+                if !allComplete {
+                    Text("\(completedCount)/\(chainTasks.count)")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(.orange)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(Color.orange.opacity(0.12))
+                        .cornerRadius(4)
+                }
+
+                Spacer()
+
+                if !allComplete {
+                    Text("\(totalMinutes)m")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.primary.opacity(0.45))
+                }
+
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isExpanded.toggle()
+                    }
+                }) {
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 20, height: 20)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                if !allComplete {
+                    reorderButtons
+                }
+
+                Button(action: {
+                    Task {
+                        for t in chainTasks { await taskVM.deleteTask(t) }
+                    }
+                }) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.red.opacity(0.5))
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+
+            // Expanded: show steps with progress
+            if isExpanded {
+                VStack(spacing: 0) {
+                    ForEach(chainTasks) { step in
+                        HStack(spacing: 6) {
+                            // Step number
+                            Text("Step \(step.chainOrder ?? 0)")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundColor(step.isComplete ? .secondary : .orange)
+                                .frame(width: 38, alignment: .leading)
+
+                            Image(systemName: step.isComplete ? "checkmark.circle.fill" : "circle")
+                                .font(.system(size: 12))
+                                .foregroundColor(step.isComplete ? .orange : .primary.opacity(0.3))
+
+                            Text(step.name)
+                                .font(.system(size: 11))
+                                .strikethrough(step.isComplete)
+                                .foregroundStyle(step.isComplete ? .secondary : .primary)
+                                .lineLimit(1)
+
+                            Spacer()
+
+                            Text("\(step.timeEstimate / 60)m")
+                                .font(.system(size: 9))
+                                .foregroundStyle(.primary.opacity(0.4))
+                        }
+                        .padding(.horizontal, 40)
                         .padding(.vertical, 3)
                     }
                 }

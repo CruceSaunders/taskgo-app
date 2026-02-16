@@ -5,19 +5,38 @@ struct TimerWidgetView: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            // Task name (or batch label)
+            // Task name / batch label / chain step
             if let task = taskGoVM.currentTask {
                 HStack(spacing: 4) {
-                    if task.isBatched {
+                    if task.isChained {
+                        Image(systemName: "link")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.orange)
+                        if let order = task.chainOrder, let chainId = task.chainId {
+                            let total = taskGoVM.taskVM?.tasksInChain(chainId).count ?? 0
+                            Text("Step \(order)/\(total)")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(.orange)
+                        }
+                        Text(task.name)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    } else if task.isBatched {
                         Image(systemName: "square.stack")
                             .font(.system(size: 9))
                             .foregroundStyle(Color.calmTeal)
+                        Text("Batch")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text(task.name)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
                     }
-                    Text(task.isBatched ? "Batch" : task.name)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }

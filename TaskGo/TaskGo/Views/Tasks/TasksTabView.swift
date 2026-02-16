@@ -209,19 +209,19 @@ struct TasksTabView: View {
 
     private var taskList: some View {
         VStack(spacing: 0) {
-            // Batch action bar (when selecting)
+            // Action bar (when selecting 2+)
             if isSelectMode && selectedTaskIds.count >= 2 {
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     Text("\(selectedTaskIds.count) selected")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(.primary.opacity(0.6))
 
                     Spacer()
 
                     TextField("min", text: $batchTimeText)
                         .textFieldStyle(.roundedBorder)
-                        .frame(width: 40)
-                        .font(.system(size: 11))
+                        .frame(width: 36)
+                        .font(.system(size: 10))
                         .multilineTextAlignment(.center)
 
                     Button("Batch") {
@@ -236,10 +236,22 @@ struct TasksTabView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(Color.calmTeal)
                     .controlSize(.mini)
+
+                    Button("Chain") {
+                        let ids = Array(selectedTaskIds)
+                        Task {
+                            await taskVM.chainTasks(ids)
+                            isSelectMode = false
+                            selectedTaskIds.removeAll()
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.orange)
+                    .controlSize(.mini)
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(Color.calmTeal.opacity(0.08))
+                .background(Color.secondary.opacity(0.06))
 
                 Divider()
             }

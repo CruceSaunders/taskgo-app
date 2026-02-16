@@ -6,7 +6,8 @@ struct AddTaskView: View {
     let groupId: String
     var onDismiss: () -> Void
 
-    @State private var isBatchMode = false
+    enum AddMode: String { case single, batch, chain }
+    @State private var mode: AddMode = .single
 
     // Single task fields
     @State private var name = ""
@@ -20,6 +21,10 @@ struct AddTaskView: View {
     @State private var batchNames: [String] = ["", ""]
     @State private var batchMinutesText = "30"
 
+    // Chain fields
+    @State private var chainNames: [String] = ["", ""]
+    @State private var chainMinutes: [String] = ["25", "25"]
+
     var timeEstimateSeconds: Int {
         (Int(minutesText) ?? 0) * 60
     }
@@ -30,27 +35,15 @@ struct AddTaskView: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            // Header with mode toggle
-            HStack {
-                Text(isBatchMode ? "New Batch" : "New Task")
+            // Header with mode toggles
+            HStack(spacing: 6) {
+                Text(mode == .single ? "New Task" : mode == .batch ? "New Batch" : "New Chain")
                     .font(.system(size: 14, weight: .semibold))
                 Spacer()
 
-                // Batch toggle
-                Button(action: { isBatchMode.toggle() }) {
-                    HStack(spacing: 3) {
-                        Image(systemName: isBatchMode ? "square.stack.fill" : "square.stack")
-                            .font(.system(size: 10))
-                        Text("Batch")
-                            .font(.system(size: 10))
-                    }
-                    .foregroundStyle(isBatchMode ? Color.calmTeal : .primary.opacity(0.4))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(isBatchMode ? Color.calmTeal.opacity(0.12) : Color.clear)
-                    .cornerRadius(4)
-                }
-                .buttonStyle(.plain)
+                modeButton("Single", icon: "circle", mode: .single)
+                modeButton("Batch", icon: "square.stack", mode: .batch)
+                modeButton("Chain", icon: "link", mode: .chain)
 
                 Button(action: { onDismiss() }) {
                     Image(systemName: "xmark.circle.fill")
@@ -59,13 +52,26 @@ struct AddTaskView: View {
                 .buttonStyle(.plain)
             }
 
-            if isBatchMode {
-                batchModeView
-            } else {
-                singleTaskView
+            switch mode {
+            case .single: singleTaskView
+            case .batch: batchModeView
+            case .chain: chainModeView
             }
         }
         .padding(14)
+    }
+
+    private func modeButton(_ label: String, icon: String, mode target: AddMode) -> some View {
+        Button(action: { mode = target }) {
+            Image(systemName: mode == target ? "\(icon).fill" : icon)
+                .font(.system(size: 10))
+                .foregroundStyle(mode == target ? (target == .chain ? Color.orange : Color.calmTeal) : .primary.opacity(0.35))
+                .frame(width: 22, height: 22)
+                .background(mode == target ? (target == .chain ? Color.orange.opacity(0.12) : Color.calmTeal.opacity(0.12)) : Color.clear)
+                .cornerRadius(4)
+        }
+        .buttonStyle(.plain)
+        .help(label)
     }
 
     // MARK: - Single Task
@@ -226,6 +232,79 @@ struct AddTaskView: View {
             .buttonStyle(.borderedProminent)
             .tint(Color.calmTeal)
             .disabled(batchNames.filter { !$0.isEmpty }.count < 2 || batchTimeSeconds == 0)
+        }
+    }
+
+    // MARK: - Chain Mode
+
+    private var chainModeView: some View {
+        VStack(spacing: 10) {
+            ForEach(chainNames.indices, id: \.self) { index in
+                HStack(spacing: 6) {
+                    Text("Step \(index + 1)")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.orange)
+                        .frame(width: 38)
+
+                    TextField("Task name", text: $chainNames[index])
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 12))
+
+                    TextField("min", text: $chainMinutes[index])
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 36)
+                        .font(.system(size: 11))
+                        .multilineTextAlignment(.center)
+
+                    if chainNames.count > 2 {
+                        Button(action: {
+                            chainNames.remove(at: index)
+                            chainMinutes.remove(at: index)
+                        }) {
+                            Image(systemName: "minus.circle")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.red.opacity(0.5))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
+            Button(action: {
+                chainNames.append("")
+                chainMinutes.append("25")
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "plus.circle")
+                        .font(.system(size: 10))
+                    Text("Add step")
+                        .font(.system(size: 11))
+                }
+                .foregroundStyle(.orange)
+            }
+            .buttonStyle(.plain)
+
+            let validCount = chainNames.filter { !$0.isEmpty }.count
+
+            Button(action: {
+                var names: [String] = []
+                var times: [Int] = []
+                for (i, n) in chainNames.enumerated() {
+                    guard !n.isEmpty else { continue }
+                    names.append(n)
+                    times.append((Int(chainMinutes[i]) ?? 25) * 60)
+                }
+                Task {
+                    await taskVM.addChain(names: names, times: times, groupId: groupId)
+                    onDismiss()
+                }
+            }) {
+                Text("Create Chain (\(validCount) steps)")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.orange)
+            .disabled(validCount < 2)
         }
     }
 }

@@ -15,15 +15,25 @@ class TaskViewModel: ObservableObject {
         tasks.filter { !$0.isComplete }.sorted { $0.position < $1.position }
     }
 
-    /// Deduplicated incomplete tasks for display -- batch tasks show only the leader
+    /// Deduplicated incomplete tasks for display -- batch/chain groups show only the leader
     var incompleteTasksForDisplay: [TaskItem] {
-        var seenBatches = Set<String>()
+        var seenGroups = Set<String>()
         var result: [TaskItem] = []
         for task in incompleteTasks {
             if let batchId = task.batchId {
-                if !seenBatches.contains(batchId) {
-                    seenBatches.insert(batchId)
+                if !seenGroups.contains("b:\(batchId)") {
+                    seenGroups.insert("b:\(batchId)")
                     result.append(task)
+                }
+            } else if let chainId = task.chainId {
+                if !seenGroups.contains("c:\(chainId)") {
+                    seenGroups.insert("c:\(chainId)")
+                    // Use the first task in chain order as the leader
+                    if let leader = tasksInChain(chainId).first {
+                        result.append(leader)
+                    } else {
+                        result.append(task)
+                    }
                 }
             } else {
                 result.append(task)
@@ -36,14 +46,19 @@ class TaskViewModel: ObservableObject {
         tasks.filter { $0.isComplete }.sorted { ($0.completedAt ?? Date.distantPast) > ($1.completedAt ?? Date.distantPast) }
     }
 
-    /// Deduplicated completed tasks -- batch tasks show only the leader
+    /// Deduplicated completed tasks
     var completedTasksForDisplay: [TaskItem] {
-        var seenBatches = Set<String>()
+        var seenGroups = Set<String>()
         var result: [TaskItem] = []
         for task in completedTasks {
             if let batchId = task.batchId {
-                if !seenBatches.contains(batchId) {
-                    seenBatches.insert(batchId)
+                if !seenGroups.contains("b:\(batchId)") {
+                    seenGroups.insert("b:\(batchId)")
+                    result.append(task)
+                }
+            } else if let chainId = task.chainId {
+                if !seenGroups.contains("c:\(chainId)") {
+                    seenGroups.insert("c:\(chainId)")
                     result.append(task)
                 }
             } else {
@@ -179,6 +194,80 @@ class TaskViewModel: ObservableObject {
         tasks.filter { $0.batchId == batchId }
     }
 
+    // MARK: - Chains (Dependent Tasks)
+
+    func addChain(names: [String], times: [Int], groupId: String) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+
+        let chainId = UUID().uuidString
+        let targetPosition = 1
+
+        do {
+            try await firestoreService.shiftTaskPositions(
+                groupId: groupId,
+                userId: userId,
+                fromPosition: targetPosition
+            )
+
+            for (index, name) in names.enumerated() {
+                let time = index < times.count ? times[index] : 1500
+                let task = TaskItem(
+                    name: name,
+                    timeEstimate: time,
+                    position: targetPosition,
+                    groupId: groupId,
+                    chainId: chainId,
+                    chainOrder: index + 1
+                )
+                _ = try await firestoreService.createTask(task, userId: userId)
+            }
+            print("[TaskVM] addChain: created \(names.count) steps with chainId \(chainId)")
+        } catch {
+            print("[TaskVM] addChain error: \(error)")
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func chainTasks(_ taskIds: [String]) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+
+        let chainId = UUID().uuidString
+
+        do {
+            for (index, taskId) in taskIds.enumerated() {
+                guard var task = tasks.first(where: { $0.id == taskId }) else { continue }
+                task.chainId = chainId
+                task.chainOrder = index + 1
+                try await firestoreService.updateTask(task, userId: userId)
+            }
+            print("[TaskVM] chainTasks: chained \(taskIds.count) tasks")
+        } catch {
+            print("[TaskVM] chainTasks error: \(error)")
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func unchainTask(_ task: TaskItem) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        var updated = task
+        updated.chainId = nil
+        updated.chainOrder = nil
+        do {
+            try await firestoreService.updateTask(updated, userId: userId)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func tasksInChain(_ chainId: String) -> [TaskItem] {
+        tasks.filter { $0.chainId == chainId }
+            .sorted { ($0.chainOrder ?? 0) < ($1.chainOrder ?? 0) }
+    }
+
+    func nextIncompleteChainStep(_ chainId: String) -> TaskItem? {
+        tasksInChain(chainId).first { !$0.isComplete }
+    }
+
     /// For Task Go: get the next "item" (single task or batch leader)
     var taskGoItems: [TaskItem] {
         var seen = Set<String>()
@@ -194,6 +283,23 @@ class TaskViewModel: ObservableObject {
             }
         }
         return items
+    }
+
+    /// Mark a single task complete (ignoring batch/chain grouping). Used for chain steps.
+    func markSingleComplete(_ task: TaskItem) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        guard !task.isComplete else { return }
+
+        var updated = task
+        updated.isComplete = true
+        updated.completedAt = Date()
+
+        do {
+            try await firestoreService.updateTask(updated, userId: userId)
+        } catch {
+            print("[TaskVM] markSingleComplete error: \(error)")
+            errorMessage = error.localizedDescription
+        }
     }
 
     /// Force-mark a task as complete (never toggles back). Used by Task Go.

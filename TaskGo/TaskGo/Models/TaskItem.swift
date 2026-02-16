@@ -13,6 +13,8 @@ struct TaskItem: Identifiable, Codable, Equatable {
     var completedAt: Date?
     var batchId: String? // tasks with the same batchId are a batch
     var batchTimeEstimate: Int? // collective time override for the batch (seconds)
+    var chainId: String? // tasks with the same chainId form a dependent chain
+    var chainOrder: Int? // step number within the chain (1, 2, 3...)
 
     var timeEstimateFormatted: String {
         let minutes = timeEstimate / 60
@@ -31,6 +33,14 @@ struct TaskItem: Identifiable, Codable, Equatable {
         batchId != nil
     }
 
+    var isChained: Bool {
+        chainId != nil
+    }
+
+    var isGrouped: Bool {
+        isBatched || isChained
+    }
+
     /// Effective time for Task Go -- uses batch time if part of a batch, else individual
     var effectiveTimeEstimate: Int {
         batchTimeEstimate ?? timeEstimate
@@ -47,7 +57,9 @@ struct TaskItem: Identifiable, Codable, Equatable {
         createdAt: Date = Date(),
         completedAt: Date? = nil,
         batchId: String? = nil,
-        batchTimeEstimate: Int? = nil
+        batchTimeEstimate: Int? = nil,
+        chainId: String? = nil,
+        chainOrder: Int? = nil
     ) {
         self.id = id
         self.name = name
@@ -60,5 +72,7 @@ struct TaskItem: Identifiable, Codable, Equatable {
         self.completedAt = completedAt
         self.batchId = batchId
         self.batchTimeEstimate = batchTimeEstimate
+        self.chainId = chainId
+        self.chainOrder = chainOrder
     }
 }

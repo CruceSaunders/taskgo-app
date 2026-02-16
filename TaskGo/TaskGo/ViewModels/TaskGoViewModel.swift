@@ -52,8 +52,14 @@ class TaskGoViewModel: ObservableObject {
     // MARK: - Task Go Control
 
     func startTaskGo(with task: TaskItem) {
-        currentTask = task
-        let time = task.effectiveTimeEstimate
+        // If starting a chain leader, begin with the first incomplete step
+        var actualTask = task
+        if let chainId = task.chainId, let firstStep = taskVM?.nextIncompleteChainStep(chainId) {
+            actualTask = firstStep
+        }
+
+        currentTask = actualTask
+        let time = actualTask.effectiveTimeEstimate
         totalTime = time
         timeRemaining = time
         elapsedSeconds = 0
@@ -145,7 +151,8 @@ class TaskGoViewModel: ObservableObject {
         guard let result = completeCurrentTask() else { return }
 
         isProcessingCompletion = true
-        if let taskId = result.task.id {
+        let completedTask = result.task
+        if let taskId = completedTask.id {
             completedTaskIds.insert(taskId)
         }
 
@@ -153,12 +160,32 @@ class TaskGoViewModel: ObservableObject {
 
         Task {
             await xpVM?.awardXP(activeMinutes: result.activeMinutes)
-            await taskVM?.markComplete(result.task)
 
-            // Find next task, excluding ALL tasks we've completed this session
-            let nextTask = taskVM?.incompleteTasks.first { task in
-                guard let id = task.id else { return false }
-                return !completedTaskIds.contains(id)
+            // For chain tasks: only mark this single step complete (not the whole chain)
+            if completedTask.isChained {
+                await taskVM?.markSingleComplete(completedTask)
+            } else {
+                await taskVM?.markComplete(completedTask)
+            }
+
+            // Determine next task
+            var nextTask: TaskItem? = nil
+
+            // If this was a chain step, check for the next step in the chain first
+            if let chainId = completedTask.chainId {
+                nextTask = taskVM?.nextIncompleteChainStep(chainId)
+            }
+
+            // If no more chain steps (or not a chain), find the next main-list item
+            if nextTask == nil {
+                nextTask = taskVM?.incompleteTasksForDisplay.first { task in
+                    guard let id = task.id else { return false }
+                    return !completedTaskIds.contains(id)
+                }
+                // If the next item is a chain leader, start its first incomplete step
+                if let next = nextTask, let chainId = next.chainId {
+                    nextTask = taskVM?.nextIncompleteChainStep(chainId) ?? next
+                }
             }
 
             isProcessingCompletion = false
