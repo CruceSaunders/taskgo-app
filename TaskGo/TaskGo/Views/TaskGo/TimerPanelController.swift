@@ -3,7 +3,7 @@ import SwiftUI
 import Combine
 
 /// Controls the floating NSPanel that displays the Task Go timer
-class TimerPanelController {
+class TimerPanelController: NSObject, NSWindowDelegate {
     private var panel: NSPanel?
     private var bounceTimer: Timer?
     private var isBouncing = false
@@ -11,7 +11,8 @@ class TimerPanelController {
     private var cancellables = Set<AnyCancellable>()
     private var taskGoVM: TaskGoViewModel?
 
-    init() {
+    override init() {
+        super.init()
         setupNotifications()
     }
 
@@ -100,14 +101,7 @@ class TimerPanelController {
             }
             .store(in: &cancellables)
 
-        // Handle close button (X) -- stop Task Go when panel is closed
-        NotificationCenter.default.publisher(for: NSWindow.willCloseNotification, object: panel)
-            .sink { [weak self] _ in
-                Task { @MainActor in
-                    self?.taskGoVM?.stopTaskGo()
-                }
-            }
-            .store(in: &cancellables)
+        panel.delegate = self
 
         let timerView: AnyView
         if let vm = taskGoVM {
@@ -119,6 +113,15 @@ class TimerPanelController {
         panel.contentView = hostingView
 
         self.panel = panel
+    }
+
+    // MARK: - NSWindowDelegate
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        Task { @MainActor in
+            taskGoVM?.stopTaskGo()
+        }
+        return false // stopTaskGo will call hideTimerPanel which closes properly
     }
 
     // MARK: - Bounce Animation
