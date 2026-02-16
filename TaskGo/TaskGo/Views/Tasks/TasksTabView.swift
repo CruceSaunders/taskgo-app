@@ -46,43 +46,72 @@ struct TasksTabView: View {
     }
 
     private var groupTabBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 4) {
-                ForEach(groupVM.groups) { group in
-                    if renamingGroupId == group.id {
-                        renameGroupInline(group: group)
-                    } else {
-                        GroupTabButton(
-                            group: group,
-                            isSelected: group.id == groupVM.selectedGroupId,
-                            onSelect: { groupVM.selectGroup(group) },
-                            onRename: {
-                                renameText = group.name
-                                renamingGroupId = group.id
-                            },
-                            onDelete: group.isDefault ? nil : { [group] in
-                                let groupToDelete = group
-                                Task { await groupVM.deleteGroup(groupToDelete) }
-                            }
-                        )
+        VStack(spacing: 0) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 4) {
+                    ForEach(groupVM.groups) { group in
+                        Button(action: { groupVM.selectGroup(group) }) {
+                            Text(group.name)
+                                .font(.system(size: 11, weight: group.id == groupVM.selectedGroupId ? .semibold : .regular))
+                                .foregroundStyle(group.id == groupVM.selectedGroupId ? Color.calmTeal : .primary.opacity(0.6))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(group.id == groupVM.selectedGroupId ? Color.calmTeal.opacity(0.12) : Color.clear)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
                     }
-                }
 
-                Button(action: {
-                    showAddGroup.toggle()
-                }) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.primary.opacity(0.5))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.secondary.opacity(0.1))
-                        .clipShape(Capsule())
+                    Button(action: {
+                        showAddGroup.toggle()
+                    }) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.primary.opacity(0.5))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.secondary.opacity(0.1))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
+
+            // Inline actions for selected non-default group
+            if let selectedGroup = groupVM.selectedGroup, !selectedGroup.isDefault {
+                if renamingGroupId == selectedGroup.id {
+                    renameGroupInline(group: selectedGroup)
+                } else {
+                    HStack(spacing: 12) {
+                        Button(action: {
+                            renameText = selectedGroup.name
+                            renamingGroupId = selectedGroup.id
+                        }) {
+                            Text("Rename")
+                                .font(.system(size: 10))
+                                .foregroundStyle(Color.calmTeal)
+                        }
+                        .buttonStyle(.plain)
+
+                        Button(action: {
+                            let groupToDelete = selectedGroup
+                            Task { await groupVM.deleteGroup(groupToDelete) }
+                        }) {
+                            Text("Delete group")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.red.opacity(0.7))
+                        }
+                        .buttonStyle(.plain)
+
+                        Spacer()
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 4)
+                    .background(Color.secondary.opacity(0.05))
+                }
+            }
         }
     }
 
@@ -240,9 +269,7 @@ struct TasksTabView: View {
                     .listRowInsets(EdgeInsets())
                     .listRowSeparator(.hidden)
                 }
-                .onMove { source, destination in
-                    Task { await taskVM.moveTask(from: source, to: destination) }
-                }
+                // Drag reorder disabled in MenuBarExtra -- use up/down buttons instead
 
                 if !taskVM.completedTasksForDisplay.isEmpty {
                     Section {
@@ -302,69 +329,4 @@ struct TasksTabView: View {
     }
 }
 
-struct GroupTabButton: View {
-    let group: TaskGroup
-    let isSelected: Bool
-    let onSelect: () -> Void
-    let onRename: () -> Void
-    let onDelete: (() -> Void)?
-
-    @State private var showActions = false
-
-    var body: some View {
-        HStack(spacing: 2) {
-            Button(action: onSelect) {
-                Text(group.name)
-                    .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
-                    .foregroundStyle(isSelected ? Color.calmTeal : .primary.opacity(0.6))
-            }
-            .buttonStyle(.plain)
-
-            if isSelected && !group.isDefault {
-                Button(action: { showActions.toggle() }) {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 8))
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 4)
-        .background(isSelected ? Color.calmTeal.opacity(0.12) : Color.clear)
-        .clipShape(Capsule())
-        .overlay(alignment: .bottom) {
-            if showActions {
-                HStack(spacing: 8) {
-                    Button(action: {
-                        showActions = false
-                        onRename()
-                    }) {
-                        Text("Rename")
-                            .font(.system(size: 10))
-                    }
-                    .buttonStyle(.plain)
-
-                    if let onDelete = onDelete {
-                        Button(action: {
-                            showActions = false
-                            onDelete()
-                        }) {
-                            Text("Delete")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.red)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color(.windowBackgroundColor))
-                .cornerRadius(6)
-                .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
-                .offset(y: 24)
-                .zIndex(10)
-            }
-        }
-    }
-}
+// GroupTabButton removed -- tabs are now simple inline buttons in groupTabBar
