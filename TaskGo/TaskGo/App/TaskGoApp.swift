@@ -1,5 +1,6 @@
 import SwiftUI
 import FirebaseCore
+import FirebaseAuth
 
 @main
 struct TaskGoApp: App {
@@ -14,6 +15,9 @@ struct TaskGoApp: App {
     init() {
         // CRITICAL: Configure Firebase BEFORE any ViewModels that use Firestore
         FirebaseApp.configure()
+
+        // Use default keychain access group for non-App-Store distribution
+        try? Auth.auth().useUserAccessGroup(nil)
 
         // Now safe to initialize ViewModels
         _authViewModel = StateObject(wrappedValue: AuthViewModel())
