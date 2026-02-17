@@ -392,6 +392,77 @@ class TaskViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Duplicate
+
+    func duplicateTask(_ task: TaskItem) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        let newTask = TaskItem(
+            name: task.name,
+            description: task.description,
+            timeEstimate: task.timeEstimate,
+            position: task.position + 1,
+            groupId: task.groupId,
+            colorTag: task.colorTag
+        )
+        do {
+            try await firestoreService.shiftTaskPositions(groupId: task.groupId, userId: userId, fromPosition: newTask.position)
+            _ = try await firestoreService.createTask(newTask, userId: userId)
+        } catch {
+            print("[TaskVM] duplicateTask error: \(error)")
+        }
+    }
+
+    func duplicateBatch(batchId: String) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        let batchTasks = tasksInBatch(batchId)
+        guard !batchTasks.isEmpty else { return }
+
+        let newBatchId = UUID().uuidString
+        let batchTime = batchTasks.compactMap({ $0.batchTimeEstimate }).first
+
+        do {
+            for (index, original) in batchTasks.enumerated() {
+                let newTask = TaskItem(
+                    name: original.name,
+                    description: original.description,
+                    timeEstimate: original.timeEstimate,
+                    position: (original.position) + batchTasks.count,
+                    groupId: original.groupId,
+                    batchId: newBatchId,
+                    batchTimeEstimate: index == 0 ? batchTime : nil
+                )
+                _ = try await firestoreService.createTask(newTask, userId: userId)
+            }
+        } catch {
+            print("[TaskVM] duplicateBatch error: \(error)")
+        }
+    }
+
+    func duplicateChain(chainId: String) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        let chainTasks = tasksInChain(chainId)
+        guard !chainTasks.isEmpty else { return }
+
+        let newChainId = UUID().uuidString
+
+        do {
+            for original in chainTasks {
+                let newTask = TaskItem(
+                    name: original.name,
+                    description: original.description,
+                    timeEstimate: original.timeEstimate,
+                    position: (original.position) + chainTasks.count,
+                    groupId: original.groupId,
+                    chainId: newChainId,
+                    chainOrder: original.chainOrder
+                )
+                _ = try await firestoreService.createTask(newTask, userId: userId)
+            }
+        } catch {
+            print("[TaskVM] duplicateChain error: \(error)")
+        }
+    }
+
     func deleteTask(_ task: TaskItem) async {
         guard let userId = Auth.auth().currentUser?.uid,
               let taskId = task.id else { return }

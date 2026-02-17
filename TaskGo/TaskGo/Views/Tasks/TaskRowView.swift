@@ -134,6 +134,18 @@ struct TaskRowView: View {
                     }
                 }
 
+                // Duplicate
+                Button(action: {
+                    Task { await taskVM.duplicateTask(task) }
+                }) {
+                    Image(systemName: "doc.on.doc")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.primary.opacity(0.3))
+                        .frame(width: 20, height: 20)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
                 // Trash
                 Button(action: {
                     Task { await taskVM.deleteTask(task) }
@@ -271,6 +283,18 @@ struct TaskRowView: View {
                         .fixedSize()
                 }
 
+                // Duplicate batch
+                Button(action: {
+                    Task { await taskVM.duplicateBatch(batchId: batchId) }
+                }) {
+                    Image(systemName: "doc.on.doc")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.primary.opacity(0.3))
+                        .frame(width: 20, height: 20)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
                 // Delete entire batch
                 Button(action: {
                     Task {
@@ -359,6 +383,18 @@ struct TaskRowView: View {
                         .foregroundStyle(.primary.opacity(0.45))
                         .fixedSize()
                 }
+
+                // Duplicate chain
+                Button(action: {
+                    Task { await taskVM.duplicateChain(chainId: chainId) }
+                }) {
+                    Image(systemName: "doc.on.doc")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.primary.opacity(0.3))
+                        .frame(width: 20, height: 20)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
 
                 Button(action: {
                     Task {
