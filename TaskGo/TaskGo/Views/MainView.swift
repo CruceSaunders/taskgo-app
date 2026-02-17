@@ -13,7 +13,7 @@ struct MainView: View {
     @EnvironmentObject var groupVM: GroupViewModel
     @EnvironmentObject var taskGoVM: TaskGoViewModel
     @EnvironmentObject var xpVM: XPViewModel
-    @Environment(\.openWindow) private var openWindow
+    // Window opened via AppDelegate notification
 
     @State private var selectedTab: AppTab = .tasks
 
@@ -133,8 +133,7 @@ struct MainView: View {
 
             // Open full window
             Button(action: {
-                openWindow(id: "main-window")
-                NSApp.activate(ignoringOtherApps: true)
+                NotificationCenter.default.post(name: .openMainWindow, object: nil)
             }) {
                 HStack(spacing: 3) {
                     Image(systemName: "macwindow")

@@ -43,27 +43,34 @@ struct TaskGoApp: App {
                     appDelegate.timerPanelController?.setViewModel(taskGoViewModel)
                     taskGoViewModel.taskVM = taskViewModel
                     taskGoViewModel.xpVM = xpViewModel
+                    setupMainWindowContentHandler()
                 }
         } label: {
             Image(systemName: "bolt.circle.fill")
         }
         .menuBarExtraStyle(.window)
 
-        Window("TaskGo!", id: "main-window") {
-            MainWindowView()
-                .environmentObject(authViewModel)
-                .environmentObject(taskViewModel)
-                .environmentObject(groupViewModel)
-                .environmentObject(taskGoViewModel)
-                .environmentObject(xpViewModel)
-                .environmentObject(notesViewModel)
-        }
-        .defaultSize(width: 700, height: 550)
-        .defaultPosition(.center)
-
         Settings {
             SettingsView()
                 .environmentObject(authViewModel)
+        }
+    }
+
+    private func setupMainWindowContentHandler() {
+        NotificationCenter.default.addObserver(
+            forName: .mainWindowNeedsContent,
+            object: nil,
+            queue: .main
+        ) { notification in
+            guard let window = notification.object as? NSWindow else { return }
+            let contentView = MainWindowView()
+                .environmentObject(self.authViewModel)
+                .environmentObject(self.taskViewModel)
+                .environmentObject(self.groupViewModel)
+                .environmentObject(self.taskGoViewModel)
+                .environmentObject(self.xpViewModel)
+                .environmentObject(self.notesViewModel)
+            window.contentView = NSHostingView(rootView: contentView)
         }
     }
 }
