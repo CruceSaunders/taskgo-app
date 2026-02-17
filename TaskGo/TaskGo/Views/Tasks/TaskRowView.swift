@@ -134,18 +134,6 @@ struct TaskRowView: View {
                     }
                 }
 
-                // Duplicate
-                Button(action: {
-                    Task { await taskVM.duplicateTask(task) }
-                }) {
-                    Image(systemName: "doc.on.doc")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.primary.opacity(0.3))
-                        .frame(width: 20, height: 20)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-
                 // Trash
                 Button(action: {
                     Task { await taskVM.deleteTask(task) }
@@ -224,6 +212,19 @@ struct TaskRowView: View {
                         .buttonStyle(.plain)
                     }
                 }
+
+                // Duplicate
+                Button(action: {
+                    Task {
+                        await taskVM.duplicateTask(task)
+                        editingTaskId = nil
+                    }
+                }) {
+                    Image(systemName: "doc.on.doc")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.primary.opacity(0.4))
+                }
+                .buttonStyle(.plain)
 
                 Spacer()
 
