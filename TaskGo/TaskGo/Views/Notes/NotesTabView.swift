@@ -23,10 +23,9 @@ struct NotesTabView: View {
             }
         }
         .onAppear {
-            notesVM.startListening()
-        }
-        .onDisappear {
-            notesVM.stopListening()
+            if notesVM.notes.isEmpty {
+                notesVM.startListening()
+            }
         }
     }
 

@@ -89,7 +89,7 @@ class NotesViewModel: ObservableObject {
                 await self?.save(date: date, attributedText: attrText)
             }
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: saveTask!)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: saveTask!)
     }
 
     func saveNow() {
@@ -97,8 +97,20 @@ class NotesViewModel: ObservableObject {
         guard !isLoadingNote else { return }
         let date = selectedDate
         let attrText = attributedContent
-        Task {
+        // Save synchronously on current actor
+        Task { @MainActor in
             await save(date: date, attributedText: attrText)
+        }
+        // Also cache locally so selectNote finds it immediately
+        let plainText = attrText.plainText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !plainText.isEmpty {
+            let rtfBase64 = attrText.rtfBase64()
+            let cachedNote = Note(date: date, content: plainText, rtfData: rtfBase64, updatedAt: Date())
+            if let existingIndex = notes.firstIndex(where: { $0.date == date }) {
+                notes[existingIndex] = cachedNote
+            } else {
+                notes.insert(cachedNote, at: 0)
+            }
         }
     }
 
