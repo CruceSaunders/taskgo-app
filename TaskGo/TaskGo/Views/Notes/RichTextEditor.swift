@@ -5,6 +5,33 @@ import AppKit
 class RichTextEditorCoordinator: ObservableObject {
     weak var textView: NSTextView?
 
+    @Published var isBold = false
+    @Published var isItalic = false
+    @Published var isUnderline = false
+
+    /// Call this whenever selection or typing attributes change
+    func updateState() {
+        guard let tv = textView else { return }
+        let attrs: [NSAttributedString.Key: Any]
+
+        if tv.selectedRange().length > 0 {
+            attrs = tv.textStorage?.attributes(at: tv.selectedRange().location, effectiveRange: nil) ?? [:]
+        } else {
+            attrs = tv.typingAttributes
+        }
+
+        if let font = attrs[.font] as? NSFont {
+            let traits = NSFontManager.shared.traits(of: font)
+            isBold = traits.contains(.boldFontMask)
+            isItalic = traits.contains(.italicFontMask)
+        } else {
+            isBold = false
+            isItalic = false
+        }
+
+        isUnderline = ((attrs[.underlineStyle] as? Int) ?? 0) != 0
+    }
+
     func toggleBold() {
         guard let tv = textView else { return }
         tv.window?.makeFirstResponder(tv)
@@ -34,6 +61,7 @@ class RichTextEditorCoordinator: ObservableObject {
             attrs[.font] = newFont
             tv.typingAttributes = attrs
         }
+        updateState()
     }
 
     func toggleItalic() {
@@ -64,6 +92,7 @@ class RichTextEditorCoordinator: ObservableObject {
             attrs[.font] = newFont
             tv.typingAttributes = attrs
         }
+        updateState()
     }
 
     func toggleUnderline() {
@@ -91,6 +120,7 @@ class RichTextEditorCoordinator: ObservableObject {
             attrs[.underlineStyle] = current == 0 ? NSUnderlineStyle.single.rawValue : 0
             tv.typingAttributes = attrs
         }
+        updateState()
     }
 
     func setHeader(_ level: Int) {
@@ -112,6 +142,7 @@ class RichTextEditorCoordinator: ObservableObject {
             attrs[.font] = font
             tv.typingAttributes = attrs
         }
+        updateState()
     }
 
     private func notifyChange() {
@@ -219,6 +250,11 @@ struct RichTextEditor: NSViewRepresentable {
             isUpdating = true
             parent.attributedText = textView.attributedString()
             isUpdating = false
+            parent.coordinator.updateState()
+        }
+
+        func textViewDidChangeSelection(_ notification: Notification) {
+            parent.coordinator.updateState()
         }
     }
 }

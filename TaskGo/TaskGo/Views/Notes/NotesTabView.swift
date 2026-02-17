@@ -110,25 +110,25 @@ struct NotesTabView: View {
 
     private var formattingToolbar: some View {
         HStack(spacing: 4) {
-            toolbarButton("B", font: .system(size: 11, weight: .bold)) {
+            toolbarToggle("B", font: .system(size: 11, weight: .bold), isActive: editorCoordinator.isBold) {
                 editorCoordinator.toggleBold()
             }
-            toolbarButton("I", font: .system(size: 11).italic()) {
+            toolbarToggle("I", font: .system(size: 11).italic(), isActive: editorCoordinator.isItalic) {
                 editorCoordinator.toggleItalic()
             }
-            toolbarButton("U", font: .system(size: 11), underline: true) {
+            toolbarToggle("U", font: .system(size: 11), underline: true, isActive: editorCoordinator.isUnderline) {
                 editorCoordinator.toggleUnderline()
             }
 
             Divider().frame(height: 14).padding(.horizontal, 2)
 
-            toolbarButton("H1", font: .system(size: 9, weight: .bold)) {
+            toolbarToggle("H1", font: .system(size: 9, weight: .bold)) {
                 editorCoordinator.setHeader(1)
             }
-            toolbarButton("H2", font: .system(size: 9, weight: .semibold)) {
+            toolbarToggle("H2", font: .system(size: 9, weight: .semibold)) {
                 editorCoordinator.setHeader(2)
             }
-            toolbarButton("T", font: .system(size: 9)) {
+            toolbarToggle("T", font: .system(size: 9)) {
                 editorCoordinator.setHeader(0)
             }
 
@@ -139,14 +139,14 @@ struct NotesTabView: View {
         .background(Color.secondary.opacity(0.04))
     }
 
-    private func toolbarButton(_ label: String, font: Font, underline: Bool = false, action: @escaping () -> Void) -> some View {
+    private func toolbarToggle(_ label: String, font: Font, underline: Bool = false, isActive: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
                 .font(font)
                 .underline(underline)
-                .foregroundStyle(.primary.opacity(0.6))
+                .foregroundStyle(isActive ? .white : .primary.opacity(0.6))
                 .frame(width: 24, height: 20)
-                .background(Color.secondary.opacity(0.08))
+                .background(isActive ? Color.calmTeal : Color.secondary.opacity(0.08))
                 .cornerRadius(4)
         }
         .buttonStyle(.plain)
