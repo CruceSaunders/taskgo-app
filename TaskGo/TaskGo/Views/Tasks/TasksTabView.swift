@@ -18,7 +18,9 @@ struct TasksTabView: View {
     // Custom drag reorder state (no NSDraggingSession = panel stays open)
     @State private var draggingTaskId: String?
     @State private var dragOffset: CGFloat = 0
-    @State private var rowHeight: CGFloat = 60
+    @State private var targetDropIndex: Int?
+    @State private var dragStartIndex: Int?
+    @State private var rowHeight: CGFloat = 55
 
     var body: some View {
         VStack(spacing: 0) {
@@ -331,14 +333,6 @@ struct TasksTabView: View {
                         let isDragging = draggingTaskId == task.id
 
                         HStack(spacing: 6) {
-                            // Drag handle
-                            if !isSelectMode && !isColorMode {
-                                Image(systemName: "line.3.horizontal")
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.primary.opacity(0.25))
-                                    .frame(width: 16)
-                            }
-
                             // Color mode
                             if isColorMode {
                                 Button(action: {
@@ -398,39 +392,49 @@ struct TasksTabView: View {
                         .shadow(color: isDragging ? .black.opacity(0.15) : .clear, radius: isDragging ? 4 : 0, y: isDragging ? 2 : 0)
                         .background(isDragging ? Color(.windowBackgroundColor) : Color.clear)
                         .gesture(
-                            DragGesture()
+                            LongPressGesture(minimumDuration: 0.2)
+                                .sequenced(before: DragGesture())
                                 .onChanged { value in
-                                    if draggingTaskId == nil {
-                                        draggingTaskId = task.id
-                                    }
-                                    guard draggingTaskId == task.id else { return }
-                                    dragOffset = value.translation.height
-
-                                    // Calculate how many rows we've moved past
-                                    let rowsMoved = Int(round(dragOffset / max(rowHeight, 40)))
-                                    if rowsMoved != 0 {
-                                        let items = taskVM.incompleteTasksForDisplay
-                                        let newIndex = min(max(index + rowsMoved, 0), items.count - 1)
-                                        if newIndex != index {
-                                            Task {
-                                                await taskVM.moveTask(
-                                                    from: IndexSet(integer: index),
-                                                    to: newIndex > index ? newIndex + 1 : newIndex
-                                                )
-                                            }
-                                            dragOffset = 0
+                                    switch value {
+                                    case .second(true, let drag):
+                                        if draggingTaskId == nil {
+                                            draggingTaskId = task.id
+                                            dragStartIndex = index
                                         }
+                                        guard draggingTaskId == task.id, let drag = drag else { return }
+                                        dragOffset = drag.translation.height
+
+                                        // Track where we'd drop (visual only, no swap yet)
+                                        let rowsMoved = Int(round(dragOffset / max(rowHeight, 40)))
+                                        let items = taskVM.incompleteTasksForDisplay
+                                        let newIdx = min(max(index + rowsMoved, 0), items.count - 1)
+                                        targetDropIndex = newIdx
+                                    default:
+                                        break
                                     }
                                 }
-                                .onEnded { _ in
-                                    withAnimation(.easeOut(duration: 0.2)) {
+                                .onEnded { value in
+                                    // Perform the swap on drop
+                                    if let startIdx = dragStartIndex,
+                                       let targetIdx = targetDropIndex,
+                                       startIdx != targetIdx {
+                                        Task {
+                                            await taskVM.moveTask(
+                                                from: IndexSet(integer: startIdx),
+                                                to: targetIdx > startIdx ? targetIdx + 1 : targetIdx
+                                            )
+                                        }
+                                    }
+                                    withAnimation(.easeOut(duration: 0.15)) {
                                         draggingTaskId = nil
                                         dragOffset = 0
+                                        targetDropIndex = nil
+                                        dragStartIndex = nil
                                     }
                                 }
                         )
 
-                        Divider().padding(.leading, 20)
+                        Divider().padding(.leading, 10)
                     }
 
                     // Completed section
