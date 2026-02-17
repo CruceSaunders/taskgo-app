@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import FirebaseAuth
 import FirebaseFirestore
 import Combine
@@ -7,7 +8,7 @@ import Combine
 class NotesViewModel: ObservableObject {
     @Published var notes: [Note] = []
     @Published var selectedDate: String = Note.todayString
-    @Published var content: String = "" {
+    @Published var attributedContent: NSAttributedString = NSAttributedString(string: "") {
         didSet {
             scheduleSave()
         }
@@ -17,6 +18,8 @@ class NotesViewModel: ObservableObject {
     private var listener: ListenerRegistration?
     private var saveTask: DispatchWorkItem?
     private var isLoadingNote = false
+
+    private static let defaultFont = NSFont.systemFont(ofSize: 13)
 
     func startListening() {
         stopListening()
@@ -28,44 +31,51 @@ class NotesViewModel: ObservableObject {
             }
         }
 
-        // Load today's note
         selectNote(date: Note.todayString)
     }
 
     func stopListening() {
-        // Save current content before stopping
         saveNow()
         listener?.remove()
         listener = nil
     }
 
     func selectNote(date: String) {
-        // Save current note before switching
         saveNow()
 
         selectedDate = date
         isLoadingNote = true
 
-        // Find in local cache first
         if let existing = notes.first(where: { $0.date == date }) {
-            content = existing.content
-            isLoadingNote = false
+            loadNoteContent(existing)
         } else if date == Note.todayString {
-            // New note for today
-            content = ""
+            attributedContent = NSAttributedString(string: "",
+                                                    attributes: [.font: NotesViewModel.defaultFont])
             isLoadingNote = false
         } else {
-            // Load from Firestore
             Task {
                 guard let userId = Auth.auth().currentUser?.uid else { return }
                 if let note = try? await firestoreService.getNote(date: date, userId: userId) {
-                    content = note.content
+                    loadNoteContent(note)
                 } else {
-                    content = ""
+                    attributedContent = NSAttributedString(string: "",
+                                                            attributes: [.font: NotesViewModel.defaultFont])
                 }
                 isLoadingNote = false
             }
         }
+    }
+
+    private func loadNoteContent(_ note: Note) {
+        if let rtfBase64 = note.rtfData,
+           let attrString = NSAttributedString.fromRTFBase64(rtfBase64) {
+            attributedContent = attrString
+        } else {
+            // Fall back to plain text
+            attributedContent = NSAttributedString(string: note.content,
+                                                    attributes: [.font: NotesViewModel.defaultFont])
+        }
+        isLoadingNote = false
     }
 
     private func scheduleSave() {
@@ -73,10 +83,10 @@ class NotesViewModel: ObservableObject {
 
         saveTask?.cancel()
         let date = selectedDate
-        let text = content
+        let attrText = attributedContent
         saveTask = DispatchWorkItem { [weak self] in
             Task { @MainActor in
-                await self?.save(date: date, content: text)
+                await self?.save(date: date, attributedText: attrText)
             }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: saveTask!)
@@ -86,20 +96,22 @@ class NotesViewModel: ObservableObject {
         saveTask?.cancel()
         guard !isLoadingNote else { return }
         let date = selectedDate
-        let text = content
+        let attrText = attributedContent
         Task {
-            await save(date: date, content: text)
+            await save(date: date, attributedText: attrText)
         }
     }
 
-    private func save(date: String, content: String) async {
+    private func save(date: String, attributedText: NSAttributedString) async {
         guard let userId = Auth.auth().currentUser?.uid else { return }
 
-        if content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            // Don't save blank notes -- delete if exists
+        let plainText = attributedText.plainText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if plainText.isEmpty {
             try? await firestoreService.deleteNote(date: date, userId: userId)
         } else {
-            let note = Note(date: date, content: content, updatedAt: Date())
+            let rtfBase64 = attributedText.rtfBase64()
+            let note = Note(date: date, content: plainText, rtfData: rtfBase64, updatedAt: Date())
             try? await firestoreService.saveNote(note, userId: userId)
         }
     }

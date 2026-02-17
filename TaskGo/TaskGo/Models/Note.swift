@@ -4,18 +4,21 @@ import FirebaseFirestore
 struct Note: Identifiable, Codable, Equatable {
     @DocumentID var id: String?
     var date: String // "2026-02-16" format
-    var content: String
+    var content: String // plain text (for search/backwards compat)
+    var rtfData: String? // Base64-encoded RTF data (rich text)
     var updatedAt: Date
 
     init(
         id: String? = nil,
         date: String,
         content: String = "",
+        rtfData: String? = nil,
         updatedAt: Date = Date()
     ) {
         self.id = id
         self.date = date
         self.content = content
+        self.rtfData = rtfData
         self.updatedAt = updatedAt
     }
 
