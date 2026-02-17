@@ -376,7 +376,11 @@ class TaskViewModel: ObservableObject {
         guard let userId = Auth.auth().currentUser?.uid else { return }
         for taskId in taskIds {
             guard var task = tasks.first(where: { $0.id == taskId }) else { continue }
-            task.colorTag = task.colorTag == color ? nil : color
+            if color == nil {
+                task.colorTag = nil
+            } else {
+                task.colorTag = task.colorTag == color ? nil : color
+            }
             try? await firestoreService.updateTask(task, userId: userId)
         }
     }

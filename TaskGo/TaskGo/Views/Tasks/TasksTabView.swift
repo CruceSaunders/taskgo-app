@@ -281,6 +281,24 @@ struct TasksTabView: View {
                         .buttonStyle(.plain)
                     }
 
+                    // Clear/remove color
+                    Button(action: { selectedColor = "clear" }) {
+                        ZStack {
+                            Circle()
+                                .stroke(Color.primary.opacity(0.3), lineWidth: 1)
+                                .frame(width: 14, height: 14)
+                            Image(systemName: "xmark")
+                                .font(.system(size: 7, weight: .bold))
+                                .foregroundStyle(.primary.opacity(0.4))
+                        }
+                        .overlay(
+                            Circle()
+                                .stroke(Color.primary, lineWidth: selectedColor == "clear" ? 2 : 0)
+                                .frame(width: 17, height: 17)
+                        )
+                    }
+                    .buttonStyle(.plain)
+
                     Spacer()
 
                     Button(action: {
@@ -302,16 +320,23 @@ struct TasksTabView: View {
             List {
                 ForEach(Array(taskVM.incompleteTasksForDisplay.enumerated()), id: \.element.id) { index, task in
                     HStack(spacing: 6) {
-                        // Color mode: tap to apply color
+                        // Color mode: tap to apply/remove color
                         if isColorMode {
                             Button(action: {
                                 if let id = task.id {
-                                    Task { await taskVM.setColorTag([id], color: selectedColor) }
+                                    let color: String? = selectedColor == "clear" ? nil : selectedColor
+                                    Task { await taskVM.setColorTag([id], color: color) }
                                 }
                             }) {
-                                Circle()
-                                    .fill(colorFromName(selectedColor))
-                                    .frame(width: 12, height: 12)
+                                if selectedColor == "clear" {
+                                    Image(systemName: "xmark.circle")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(.primary.opacity(0.4))
+                                } else {
+                                    Circle()
+                                        .fill(colorFromName(selectedColor))
+                                        .frame(width: 12, height: 12)
+                                }
                             }
                             .buttonStyle(.plain)
                         }
