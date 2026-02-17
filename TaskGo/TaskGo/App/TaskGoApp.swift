@@ -10,6 +10,7 @@ struct TaskGoApp: App {
     @StateObject private var groupViewModel: GroupViewModel
     @StateObject private var taskGoViewModel: TaskGoViewModel
     @StateObject private var xpViewModel: XPViewModel
+    @StateObject private var notesViewModel: NotesViewModel
     // @StateObject private var socialViewModel: SocialViewModel  // v2: Social features deferred
 
     init() {
@@ -25,6 +26,7 @@ struct TaskGoApp: App {
         _groupViewModel = StateObject(wrappedValue: GroupViewModel())
         _taskGoViewModel = StateObject(wrappedValue: TaskGoViewModel())
         _xpViewModel = StateObject(wrappedValue: XPViewModel())
+        _notesViewModel = StateObject(wrappedValue: NotesViewModel())
         // _socialViewModel = StateObject(wrappedValue: SocialViewModel())  // v2
     }
 
@@ -36,6 +38,7 @@ struct TaskGoApp: App {
                 .environmentObject(groupViewModel)
                 .environmentObject(taskGoViewModel)
                 .environmentObject(xpViewModel)
+                .environmentObject(notesViewModel)
                 // .environmentObject(socialViewModel)  // v2: Social features deferred
                 .onAppear {
                     appDelegate.timerPanelController?.setViewModel(taskGoViewModel)

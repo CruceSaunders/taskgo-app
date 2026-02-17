@@ -245,4 +245,37 @@ class FirestoreService {
                 completion(invites)
             }
     }
+
+    // MARK: - Notes
+
+    private func notesRef(_ userId: String) -> CollectionReference {
+        userRef(userId).collection("notes")
+    }
+
+    func saveNote(_ note: Note, userId: String) async throws {
+        try notesRef(userId).document(note.date).setData(from: note)
+    }
+
+    func deleteNote(date: String, userId: String) async throws {
+        try await notesRef(userId).document(date).delete()
+    }
+
+    func getNote(date: String, userId: String) async throws -> Note? {
+        let doc = try await notesRef(userId).document(date).getDocument()
+        return try? doc.data(as: Note.self)
+    }
+
+    func listenToNotes(userId: String, completion: @escaping ([Note]) -> Void) -> ListenerRegistration {
+        return notesRef(userId)
+            .order(by: "date", descending: true)
+            .addSnapshotListener { snapshot, error in
+                if let error = error {
+                    print("[Firestore] listenToNotes error: \(error)")
+                    return
+                }
+                guard let documents = snapshot?.documents else { return }
+                let notes = documents.compactMap { try? $0.data(as: Note.self) }
+                completion(notes)
+            }
+    }
 }
