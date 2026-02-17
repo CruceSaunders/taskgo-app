@@ -565,7 +565,8 @@ class TaskViewModel: ObservableObject {
     func moveTask(from source: IndexSet, to destination: Int) async {
         guard let userId = Auth.auth().currentUser?.uid else { return }
 
-        var reordered = incompleteTasks
+        // Use the display list (deduplicated) for reordering
+        var reordered = incompleteTasksForDisplay
         reordered.move(fromOffsets: source, toOffset: destination)
 
         do {
@@ -574,6 +575,20 @@ class TaskViewModel: ObservableObject {
                 if task.position != newPosition {
                     task.position = newPosition
                     try await firestoreService.updateTask(task, userId: userId)
+                    
+                    // Also update all tasks in the same batch/chain
+                    if let batchId = task.batchId {
+                        for var bt in tasksInBatch(batchId) where bt.id != task.id {
+                            bt.position = newPosition
+                            try await firestoreService.updateTask(bt, userId: userId)
+                        }
+                    }
+                    if let chainId = task.chainId {
+                        for var ct in tasksInChain(chainId) where ct.id != task.id {
+                            ct.position = newPosition
+                            try await firestoreService.updateTask(ct, userId: userId)
+                        }
+                    }
                 }
             }
         } catch {

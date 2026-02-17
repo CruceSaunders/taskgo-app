@@ -391,37 +391,31 @@ struct TasksTabView: View {
                         .opacity(isDragging ? 0.85 : 1.0)
                         .shadow(color: isDragging ? .black.opacity(0.15) : .clear, radius: isDragging ? 4 : 0, y: isDragging ? 2 : 0)
                         .background(isDragging ? Color(.windowBackgroundColor) : Color.clear)
-                        .gesture(
-                            LongPressGesture(minimumDuration: 0.2)
-                                .sequenced(before: DragGesture())
+                        .simultaneousGesture(
+                            DragGesture(minimumDistance: 8)
                                 .onChanged { value in
-                                    switch value {
-                                    case .second(true, let drag):
-                                        if draggingTaskId == nil {
-                                            draggingTaskId = task.id
-                                            dragStartIndex = index
-                                        }
-                                        guard draggingTaskId == task.id, let drag = drag else { return }
-                                        dragOffset = drag.translation.height
-
-                                        // Track where we'd drop (visual only, no swap yet)
-                                        let rowsMoved = Int(round(dragOffset / max(rowHeight, 40)))
-                                        let items = taskVM.incompleteTasksForDisplay
-                                        let newIdx = min(max(index + rowsMoved, 0), items.count - 1)
-                                        targetDropIndex = newIdx
-                                    default:
-                                        break
+                                    if draggingTaskId == nil {
+                                        draggingTaskId = task.id
+                                        dragStartIndex = index
                                     }
+                                    guard draggingTaskId == task.id else { return }
+                                    dragOffset = value.translation.height
+
+                                    let rowsMoved = Int(round(dragOffset / max(rowHeight, 40)))
+                                    let items = taskVM.incompleteTasksForDisplay
+                                    let newIdx = min(max(index + rowsMoved, 0), items.count - 1)
+                                    targetDropIndex = newIdx
                                 }
-                                .onEnded { value in
-                                    // Perform the swap on drop
+                                .onEnded { _ in
                                     if let startIdx = dragStartIndex,
                                        let targetIdx = targetDropIndex,
                                        startIdx != targetIdx {
+                                        let s = startIdx
+                                        let t = targetIdx
                                         Task {
                                             await taskVM.moveTask(
-                                                from: IndexSet(integer: startIdx),
-                                                to: targetIdx > startIdx ? targetIdx + 1 : targetIdx
+                                                from: IndexSet(integer: s),
+                                                to: t > s ? t + 1 : t
                                             )
                                         }
                                     }
