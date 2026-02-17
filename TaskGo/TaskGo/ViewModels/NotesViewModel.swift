@@ -115,7 +115,10 @@ class NotesViewModel: ObservableObject {
     }
 
     private func save(date: String, attributedText: NSAttributedString) async {
-        guard let userId = Auth.auth().currentUser?.uid else { return }
+        guard let userId = Auth.auth().currentUser?.uid else {
+            print("[Notes] save failed: no authenticated user")
+            return
+        }
 
         let plainText = attributedText.plainText.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -124,7 +127,12 @@ class NotesViewModel: ObservableObject {
         } else {
             let rtfBase64 = attributedText.rtfBase64()
             let note = Note(date: date, content: plainText, rtfData: rtfBase64, updatedAt: Date())
-            try? await firestoreService.saveNote(note, userId: userId)
+            do {
+                try await firestoreService.saveNote(note, userId: userId)
+                print("[Notes] saved note for \(date) (\(plainText.count) chars)")
+            } catch {
+                print("[Notes] SAVE ERROR: \(error)")
+            }
         }
     }
 }
