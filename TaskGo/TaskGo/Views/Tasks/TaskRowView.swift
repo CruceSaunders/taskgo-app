@@ -271,9 +271,17 @@ struct TaskRowView: View {
                     .font(.system(size: 15))
                     .foregroundStyle(allComplete ? Color.calmTeal : Color.calmTeal.opacity(0.7))
 
-                Text("Batch (\(batchTasks.count) tasks)")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(allComplete ? .secondary : .primary)
+                VStack(alignment: .leading, spacing: 1) {
+                    if let title = batchTasks.compactMap({ $0.groupTitle }).first {
+                        Text(title)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(allComplete ? .secondary : .primary)
+                            .lineLimit(1)
+                    }
+                    Text("Batch (\(batchTasks.count) tasks)")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
 
                 Spacer()
 
@@ -362,9 +370,17 @@ struct TaskRowView: View {
                     .font(.system(size: 15))
                     .foregroundStyle(allComplete ? .orange : .orange.opacity(0.7))
 
-                Text("Chain")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(allComplete ? .secondary : .primary)
+                VStack(alignment: .leading, spacing: 1) {
+                    if let title = chainTasks.compactMap({ $0.groupTitle }).first {
+                        Text(title)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(allComplete ? .secondary : .primary)
+                            .lineLimit(1)
+                    }
+                    Text("Chain (\(chainTasks.count) steps)")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
 
                 if !allComplete {
                     Text("\(completedCount)/\(chainTasks.count)")

@@ -16,7 +16,8 @@ struct TaskItem: Identifiable, Codable, Equatable {
     var batchTimeEstimate: Int? // collective time override for the batch (seconds)
     var chainId: String? // tasks with the same chainId form a dependent chain
     var chainOrder: Int? // step number within the chain (1, 2, 3...)
-    var colorTag: String? // color name for highlighting ("red", "blue", "green", "yellow", "purple", "orange")
+    var colorTag: String? // color name for highlighting
+    var groupTitle: String? // title for batch or chain groups ("red", "blue", "green", "yellow", "purple", "orange")
 
     var timeEstimateFormatted: String {
         let minutes = timeEstimate / 60
@@ -62,7 +63,8 @@ struct TaskItem: Identifiable, Codable, Equatable {
         batchTimeEstimate: Int? = nil,
         chainId: String? = nil,
         chainOrder: Int? = nil,
-        colorTag: String? = nil
+        colorTag: String? = nil,
+        groupTitle: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -78,6 +80,7 @@ struct TaskItem: Identifiable, Codable, Equatable {
         self.chainId = chainId
         self.chainOrder = chainOrder
         self.colorTag = colorTag
+        self.groupTitle = groupTitle
     }
 
     var colorTagColor: Color? {

@@ -121,7 +121,7 @@ class TaskViewModel: ObservableObject {
         }
     }
 
-    func addBatch(names: [String], batchTimeEstimate: Int, groupId: String) async {
+    func addBatch(names: [String], batchTimeEstimate: Int, groupId: String, title: String? = nil) async {
         guard let userId = Auth.auth().currentUser?.uid else { return }
 
         let batchId = UUID().uuidString
@@ -143,7 +143,8 @@ class TaskViewModel: ObservableObject {
                     position: targetPosition,
                     groupId: groupId,
                     batchId: batchId,
-                    batchTimeEstimate: index == 0 ? batchTimeEstimate : nil
+                    batchTimeEstimate: index == 0 ? batchTimeEstimate : nil,
+                    groupTitle: index == 0 ? title : nil
                 )
                 _ = try await firestoreService.createTask(task, userId: userId)
             }
@@ -196,7 +197,7 @@ class TaskViewModel: ObservableObject {
 
     // MARK: - Chains (Dependent Tasks)
 
-    func addChain(names: [String], times: [Int], groupId: String) async {
+    func addChain(names: [String], times: [Int], groupId: String, title: String? = nil) async {
         guard let userId = Auth.auth().currentUser?.uid else { return }
 
         let chainId = UUID().uuidString
@@ -217,7 +218,8 @@ class TaskViewModel: ObservableObject {
                     position: targetPosition,
                     groupId: groupId,
                     chainId: chainId,
-                    chainOrder: index + 1
+                    chainOrder: index + 1,
+                    groupTitle: index == 0 ? title : nil
                 )
                 _ = try await firestoreService.createTask(task, userId: userId)
             }

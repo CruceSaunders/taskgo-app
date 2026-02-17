@@ -18,10 +18,12 @@ struct AddTaskView: View {
     @State private var showPosition = false
 
     // Batch fields
+    @State private var batchTitle = ""
     @State private var batchNames: [String] = ["", ""]
     @State private var batchMinutesText = "30"
 
     // Chain fields
+    @State private var chainTitle = ""
     @State private var chainNames: [String] = ["", ""]
     @State private var chainMinutes: [String] = ["25", "25"]
 
@@ -166,6 +168,11 @@ struct AddTaskView: View {
 
     private var batchModeView: some View {
         VStack(spacing: 10) {
+            // Batch title
+            TextField("Batch title (e.g. Morning Routine)", text: $batchTitle)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(size: 12))
+
             // Sub-task name fields
             ForEach(batchNames.indices, id: \.self) { index in
                 HStack(spacing: 6) {
@@ -228,7 +235,8 @@ struct AddTaskView: View {
                     await taskVM.addBatch(
                         names: validNames,
                         batchTimeEstimate: batchTimeSeconds,
-                        groupId: groupId
+                        groupId: groupId,
+                        title: batchTitle.isEmpty ? nil : batchTitle
                     )
                     onDismiss()
                 }
@@ -246,6 +254,11 @@ struct AddTaskView: View {
 
     private var chainModeView: some View {
         VStack(spacing: 10) {
+            // Chain title
+            TextField("Chain title (e.g. Deploy Pipeline)", text: $chainTitle)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(size: 12))
+
             ForEach(chainNames.indices, id: \.self) { index in
                 HStack(spacing: 6) {
                     Text("Step \(index + 1)")
@@ -302,7 +315,7 @@ struct AddTaskView: View {
                     times.append((Int(chainMinutes[i]) ?? 25) * 60)
                 }
                 Task {
-                    await taskVM.addChain(names: names, times: times, groupId: groupId)
+                    await taskVM.addChain(names: names, times: times, groupId: groupId, title: chainTitle.isEmpty ? nil : chainTitle)
                     onDismiss()
                 }
             }) {
