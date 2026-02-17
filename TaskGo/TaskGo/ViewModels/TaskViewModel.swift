@@ -364,6 +364,37 @@ class TaskViewModel: ObservableObject {
         }
     }
 
+    func moveToGroup(_ task: TaskItem, newGroupId: String) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+
+        // Move individual task
+        if !task.isGrouped {
+            var updated = task
+            updated.groupId = newGroupId
+            updated.position = 1
+            try? await firestoreService.updateTask(updated, userId: userId)
+            return
+        }
+
+        // Move entire batch
+        if let batchId = task.batchId {
+            for var t in tasksInBatch(batchId) {
+                t.groupId = newGroupId
+                try? await firestoreService.updateTask(t, userId: userId)
+            }
+            return
+        }
+
+        // Move entire chain
+        if let chainId = task.chainId {
+            for var t in tasksInChain(chainId) {
+                t.groupId = newGroupId
+                try? await firestoreService.updateTask(t, userId: userId)
+            }
+            return
+        }
+    }
+
     func updateTask(_ task: TaskItem) async {
         guard let userId = Auth.auth().currentUser?.uid else { return }
 

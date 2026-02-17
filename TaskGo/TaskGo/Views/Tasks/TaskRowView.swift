@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TaskRowView: View {
     @EnvironmentObject var taskVM: TaskViewModel
+    @EnvironmentObject var groupVM: GroupViewModel
     let task: TaskItem
     @Binding var editingTaskId: String?
     var displayIndex: Int = 0
@@ -181,6 +182,32 @@ struct TaskRowView: View {
                 .lineLimit(2...4)
                 .textFieldStyle(.roundedBorder)
                 .font(.system(size: 11))
+
+            // Move to group
+            if groupVM.groups.count > 1 {
+                HStack(spacing: 4) {
+                    Text("Move to:")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.primary.opacity(0.4))
+                    ForEach(groupVM.groups.filter { $0.id != task.groupId }) { group in
+                        Button(action: {
+                            Task {
+                                await taskVM.moveToGroup(task, newGroupId: group.id ?? "")
+                                editingTaskId = nil
+                            }
+                        }) {
+                            Text(group.name)
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundStyle(Color.calmTeal)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.calmTeal.opacity(0.1))
+                                .cornerRadius(4)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
 
             HStack(spacing: 12) {
                 Button("Cancel") {
@@ -490,6 +517,34 @@ struct TaskRowView: View {
                     Text("m")
                         .font(.system(size: 10))
                         .foregroundStyle(.primary.opacity(0.45))
+                }
+            }
+
+            // Move to group
+            if groupVM.groups.count > 1, let currentGroupId = tasks.first?.groupId {
+                HStack(spacing: 4) {
+                    Text("Move to:")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.primary.opacity(0.4))
+                    ForEach(groupVM.groups.filter { $0.id != currentGroupId }) { group in
+                        Button(action: {
+                            if let firstTask = tasks.first {
+                                Task {
+                                    await taskVM.moveToGroup(firstTask, newGroupId: group.id ?? "")
+                                    editingTaskId = nil
+                                }
+                            }
+                        }) {
+                            Text(group.name)
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundStyle(isBatch ? Color.calmTeal : .orange)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background((isBatch ? Color.calmTeal : Color.orange).opacity(0.1))
+                                .cornerRadius(4)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
 
