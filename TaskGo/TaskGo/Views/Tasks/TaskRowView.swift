@@ -354,29 +354,15 @@ struct TaskRowView: View {
                 .padding(.vertical, 7)
             }
 
-            // Sub-tasks always visible
+            // Sub-tasks always visible and editable
             VStack(spacing: 0) {
                 ForEach(batchTasks) { subTask in
-                    HStack(spacing: 6) {
-                            Image(systemName: subTask.isComplete ? "checkmark.circle.fill" : "circle")
-                                .font(.system(size: 13))
-                                .foregroundStyle(subTask.isComplete ? Color.calmTeal : .primary.opacity(0.3))
-
-                            Text(subTask.name)
-                                .font(.system(size: 11))
-                                .strikethrough(subTask.isComplete)
-                                .foregroundStyle(subTask.isComplete ? .secondary : .primary)
-                                .lineLimit(1)
-
-                            Spacer()
-                        }
-                        .padding(.horizontal, 48)
-                        .padding(.vertical, 3)
-                    }
+                    SubTaskRow(subTask: subTask, editingTaskId: $editingTaskId, taskVM: taskVM, accentColor: Color.calmTeal)
                 }
-                .padding(.bottom, 4)
             }
+            .padding(.bottom, 4)
         }
+    }
     
 
     // MARK: - Chain View
@@ -466,33 +452,17 @@ struct TaskRowView: View {
                 .padding(.vertical, 5)
             }
 
-            // Steps -- always visible
+            // Steps -- always visible and editable
             VStack(spacing: 0) {
                 ForEach(chainTasks) { step in
-                    HStack(spacing: 6) {
-                        Text("\(step.chainOrder ?? 0).")
-                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                            .foregroundColor(step.isComplete ? .secondary : .orange)
-                            .frame(width: 20, alignment: .trailing)
-
-                        Image(systemName: step.isComplete ? "checkmark.circle.fill" : "circle")
-                            .font(.system(size: 13))
-                            .foregroundColor(step.isComplete ? .orange : .primary.opacity(0.3))
-
-                        Text(step.name)
-                            .font(.system(size: 12))
-                            .strikethrough(step.isComplete)
-                            .foregroundStyle(step.isComplete ? .secondary : .primary)
-                            .lineLimit(2)
-
-                        Spacer()
-
-                        Text("\(step.timeEstimate / 60)m")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.primary.opacity(0.4))
-                    }
-                    .padding(.horizontal, 32)
-                    .padding(.vertical, 3)
+                    SubTaskRow(
+                        subTask: step,
+                        editingTaskId: $editingTaskId,
+                        taskVM: taskVM,
+                        accentColor: .orange,
+                        showStepNumber: true,
+                        showTime: true
+                    )
                 }
             }
             .padding(.bottom, 4)
@@ -598,5 +568,124 @@ struct TaskRowView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .background((isBatch ? Color.calmTeal : Color.orange).opacity(0.05))
+    }
+}
+
+// MARK: - Editable Sub-Task Row (for batch and chain sub-tasks)
+
+struct SubTaskRow: View {
+    let subTask: TaskItem
+    @Binding var editingTaskId: String?
+    var taskVM: TaskViewModel
+    var accentColor: Color = .calmTeal
+    var showStepNumber: Bool = false
+    var showTime: Bool = false
+
+    @State private var editName = ""
+    @State private var editMinutes = ""
+
+    private var isEditing: Bool {
+        editingTaskId == subTask.id
+    }
+
+    var body: some View {
+        if isEditing {
+            // Edit mode
+            HStack(spacing: 6) {
+                if showStepNumber {
+                    Text("\(subTask.chainOrder ?? 0).")
+                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .foregroundColor(accentColor)
+                        .frame(width: 20, alignment: .trailing)
+                }
+
+                TextField("Task name", text: $editName)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 11))
+
+                TextField("min", text: $editMinutes)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 35)
+                    .font(.system(size: 10))
+                    .multilineTextAlignment(.center)
+
+                Button("Save") {
+                    var updated = subTask
+                    updated.name = editName
+                    updated.timeEstimate = (Int(editMinutes) ?? subTask.timeEstimate / 60) * 60
+                    Task {
+                        await taskVM.updateTask(updated)
+                        editingTaskId = nil
+                    }
+                }
+                .font(.system(size: 9, weight: .semibold))
+                .buttonStyle(.borderedProminent)
+                .tint(accentColor)
+                .controlSize(.mini)
+
+                Button(action: { editingTaskId = nil }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 8))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, showStepNumber ? 32 : 48)
+            .padding(.vertical, 4)
+            .background(accentColor.opacity(0.05))
+        } else {
+            // Display mode -- tap to edit
+            HStack(spacing: 6) {
+                if showStepNumber {
+                    Text("\(subTask.chainOrder ?? 0).")
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .foregroundColor(subTask.isComplete ? .secondary : accentColor)
+                        .frame(width: 20, alignment: .trailing)
+                }
+
+                Button(action: {
+                    Task { await taskVM.toggleComplete(subTask) }
+                }) {
+                    Image(systemName: subTask.isComplete ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 13))
+                        .foregroundColor(subTask.isComplete ? accentColor : .primary.opacity(0.3))
+                }
+                .buttonStyle(.plain)
+
+                Button(action: {
+                    editName = subTask.name
+                    editMinutes = "\(subTask.timeEstimate / 60)"
+                    editingTaskId = subTask.id
+                }) {
+                    Text(subTask.name)
+                        .font(.system(size: 11))
+                        .strikethrough(subTask.isComplete)
+                        .foregroundStyle(subTask.isComplete ? .secondary : .primary)
+                        .lineLimit(2)
+                }
+                .buttonStyle(.plain)
+
+                Spacer()
+
+                if showTime {
+                    Text("\(subTask.timeEstimate / 60)m")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.primary.opacity(0.4))
+                }
+
+                Button(action: {
+                    Task { await taskVM.deleteTask(subTask) }
+                }) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.red.opacity(0.3))
+                        .frame(width: 16, height: 16)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, showStepNumber ? 32 : 48)
+            .padding(.vertical, 3)
+        }
     }
 }
