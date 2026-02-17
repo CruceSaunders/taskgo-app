@@ -376,12 +376,19 @@ class TaskViewModel: ObservableObject {
         guard let userId = Auth.auth().currentUser?.uid else { return }
         for taskId in taskIds {
             guard var task = tasks.first(where: { $0.id == taskId }) else { continue }
+            let newColor: String?
             if color == nil {
-                task.colorTag = nil
+                newColor = nil
             } else {
-                task.colorTag = task.colorTag == color ? nil : color
+                newColor = task.colorTag == color ? nil : color
             }
-            try? await firestoreService.updateTask(task, userId: userId)
+            task.colorTag = newColor
+            // Use FieldValue.delete() for nil since merge:true doesn't clear nil optionals
+            if newColor == nil {
+                try? await firestoreService.removeField("colorTag", taskId: taskId, userId: userId)
+            } else {
+                try? await firestoreService.updateTask(task, userId: userId)
+            }
         }
     }
 

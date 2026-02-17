@@ -136,6 +136,12 @@ class FirestoreService {
         try tasksRef(userId).document(taskId).setData(from: task, merge: true)
     }
 
+    func removeField(_ field: String, taskId: String, userId: String) async throws {
+        try await tasksRef(userId).document(taskId).updateData([
+            field: FieldValue.delete()
+        ])
+    }
+
     func deleteTask(_ taskId: String, userId: String) async throws {
         try await tasksRef(userId).document(taskId).delete()
     }
