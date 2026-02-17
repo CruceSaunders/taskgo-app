@@ -24,6 +24,8 @@ struct RichTextEditor: NSViewRepresentable {
         textView.importsGraphics = false
         textView.isAutomaticQuoteSubstitutionEnabled = false
         textView.isAutomaticDashSubstitutionEnabled = false
+        textView.isFieldEditor = false
+        textView.allowsDocumentBackgroundColorChange = false
 
         textView.font = NSFont.systemFont(ofSize: 13)
         textView.textColor = NSColor.labelColor
@@ -43,6 +45,11 @@ struct RichTextEditor: NSViewRepresentable {
         scrollView.drawsBackground = false
         scrollView.borderType = .noBorder
 
+        // Force focus after a brief delay (MenuBarExtra doesn't auto-focus)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            textView.window?.makeFirstResponder(textView)
+        }
+
         return scrollView
     }
 
@@ -55,10 +62,17 @@ struct RichTextEditor: NSViewRepresentable {
             let newRTF = attributedText.rtfData()
             if currentRTF != newRTF {
                 context.coordinator.isUpdating = true
-                let selectedRanges = textView.selectedRanges
                 textView.textStorage?.setAttributedString(attributedText)
-                textView.selectedRanges = selectedRanges
+                // Place cursor at end
+                textView.setSelectedRange(NSRange(location: attributedText.length, length: 0))
                 context.coordinator.isUpdating = false
+            }
+        }
+
+        // Ensure focus
+        if textView.window?.firstResponder != textView {
+            DispatchQueue.main.async {
+                textView.window?.makeFirstResponder(textView)
             }
         }
     }
