@@ -46,8 +46,7 @@ struct TaskGoApp: App {
                     taskGoViewModel.xpVM = xpViewModel
                 }
         } label: {
-            Image(systemName: "checkmark.circle.fill")
-                .symbolRenderingMode(.hierarchical)
+            Image(systemName: "bolt.circle.fill")
         }
         .menuBarExtraStyle(.window)
 

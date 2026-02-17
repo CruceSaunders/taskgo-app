@@ -103,6 +103,26 @@ struct TaskRowView: View {
                         .font(.system(size: 10))
                         .foregroundStyle(.primary.opacity(0.45))
                         .fixedSize()
+
+                    // Reorder arrows (always visible)
+                    VStack(spacing: 0) {
+                        Button(action: { Task { await taskVM.moveTaskUp(task) } }) {
+                            Image(systemName: "chevron.up")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(.primary.opacity(0.3))
+                                .frame(width: 18, height: 12)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        Button(action: { Task { await taskVM.moveTaskDown(task) } }) {
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(.primary.opacity(0.3))
+                                .frame(width: 18, height: 12)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
 
                 // Trash
