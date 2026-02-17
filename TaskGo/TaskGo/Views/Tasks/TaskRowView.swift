@@ -242,7 +242,7 @@ struct TaskRowView: View {
     private func batchView(batchId: String) -> some View {
         let batchTasks = taskVM.tasksInBatch(batchId)
         let allComplete = batchTasks.allSatisfy { $0.isComplete }
-        let batchTime = task.batchTimeEstimate ?? task.timeEstimate
+        let batchTime = batchTasks.compactMap({ $0.batchTimeEstimate }).first ?? task.timeEstimate
         let batchMinutes = batchTime / 60
 
         return VStack(alignment: .leading, spacing: 0) {
