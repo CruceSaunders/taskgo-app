@@ -1,12 +1,132 @@
 import SwiftUI
 import AppKit
 
+/// Shared reference so the toolbar can talk to the text view
+class RichTextEditorCoordinator: ObservableObject {
+    weak var textView: NSTextView?
+
+    func toggleBold() {
+        guard let tv = textView else { return }
+        tv.window?.makeFirstResponder(tv)
+        let range = tv.selectedRange()
+
+        if range.length > 0 {
+            let storage = tv.textStorage!
+            storage.beginEditing()
+            storage.enumerateAttribute(.font, in: range) { value, attrRange, _ in
+                guard let font = value as? NSFont else { return }
+                let mgr = NSFontManager.shared
+                let newFont = mgr.traits(of: font).contains(.boldFontMask)
+                    ? mgr.convert(font, toNotHaveTrait: .boldFontMask)
+                    : mgr.convert(font, toHaveTrait: .boldFontMask)
+                storage.addAttribute(.font, value: newFont, range: attrRange)
+            }
+            storage.endEditing()
+            notifyChange()
+        } else {
+            // No selection: toggle typing attributes for next typed text
+            var attrs = tv.typingAttributes
+            let font = (attrs[.font] as? NSFont) ?? NSFont.systemFont(ofSize: 13)
+            let mgr = NSFontManager.shared
+            let newFont = mgr.traits(of: font).contains(.boldFontMask)
+                ? mgr.convert(font, toNotHaveTrait: .boldFontMask)
+                : mgr.convert(font, toHaveTrait: .boldFontMask)
+            attrs[.font] = newFont
+            tv.typingAttributes = attrs
+        }
+    }
+
+    func toggleItalic() {
+        guard let tv = textView else { return }
+        tv.window?.makeFirstResponder(tv)
+        let range = tv.selectedRange()
+
+        if range.length > 0 {
+            let storage = tv.textStorage!
+            storage.beginEditing()
+            storage.enumerateAttribute(.font, in: range) { value, attrRange, _ in
+                guard let font = value as? NSFont else { return }
+                let mgr = NSFontManager.shared
+                let newFont = mgr.traits(of: font).contains(.italicFontMask)
+                    ? mgr.convert(font, toNotHaveTrait: .italicFontMask)
+                    : mgr.convert(font, toHaveTrait: .italicFontMask)
+                storage.addAttribute(.font, value: newFont, range: attrRange)
+            }
+            storage.endEditing()
+            notifyChange()
+        } else {
+            var attrs = tv.typingAttributes
+            let font = (attrs[.font] as? NSFont) ?? NSFont.systemFont(ofSize: 13)
+            let mgr = NSFontManager.shared
+            let newFont = mgr.traits(of: font).contains(.italicFontMask)
+                ? mgr.convert(font, toNotHaveTrait: .italicFontMask)
+                : mgr.convert(font, toHaveTrait: .italicFontMask)
+            attrs[.font] = newFont
+            tv.typingAttributes = attrs
+        }
+    }
+
+    func toggleUnderline() {
+        guard let tv = textView else { return }
+        tv.window?.makeFirstResponder(tv)
+        let range = tv.selectedRange()
+
+        if range.length > 0 {
+            let storage = tv.textStorage!
+            storage.beginEditing()
+            var has = false
+            storage.enumerateAttribute(.underlineStyle, in: range) { val, _, _ in
+                if let s = val as? Int, s != 0 { has = true }
+            }
+            if has {
+                storage.removeAttribute(.underlineStyle, range: range)
+            } else {
+                storage.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: range)
+            }
+            storage.endEditing()
+            notifyChange()
+        } else {
+            var attrs = tv.typingAttributes
+            let current = (attrs[.underlineStyle] as? Int) ?? 0
+            attrs[.underlineStyle] = current == 0 ? NSUnderlineStyle.single.rawValue : 0
+            tv.typingAttributes = attrs
+        }
+    }
+
+    func setHeader(_ level: Int) {
+        guard let tv = textView else { return }
+        tv.window?.makeFirstResponder(tv)
+        let range = tv.selectedRange()
+        let size: CGFloat = level == 1 ? 20 : level == 2 ? 16 : 13
+        let weight: NSFont.Weight = level <= 2 ? .bold : .regular
+        let font = NSFont.systemFont(ofSize: size, weight: weight)
+
+        if range.length > 0 {
+            let storage = tv.textStorage!
+            storage.beginEditing()
+            storage.addAttribute(.font, value: font, range: range)
+            storage.endEditing()
+            notifyChange()
+        } else {
+            var attrs = tv.typingAttributes
+            attrs[.font] = font
+            tv.typingAttributes = attrs
+        }
+    }
+
+    private func notifyChange() {
+        // Trigger the delegate's textDidChange
+        guard let tv = textView else { return }
+        tv.delegate?.textDidChange?(Notification(name: NSText.didChangeNotification, object: tv))
+    }
+}
+
 struct RichTextEditor: NSViewRepresentable {
     @Binding var attributedText: NSAttributedString
-    var onTextChange: (() -> Void)?
+    var coordinator: RichTextEditorCoordinator
 
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
+    func makeCoordinator() -> Delegate {
+        Delegate(self)
     }
 
     func makeNSView(context: Context) -> NSScrollView {
@@ -25,12 +145,11 @@ struct RichTextEditor: NSViewRepresentable {
         textView.isAutomaticQuoteSubstitutionEnabled = false
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isFieldEditor = false
-        textView.allowsDocumentBackgroundColorChange = false
 
         textView.font = NSFont.systemFont(ofSize: 13)
         textView.textColor = NSColor.labelColor
-        textView.backgroundColor = NSColor.clear
-        textView.drawsBackground = false
+        textView.backgroundColor = NSColor.textBackgroundColor
+        textView.drawsBackground = true
 
         textView.textContainerInset = NSSize(width: 8, height: 8)
         textView.isVerticallyResizable = true
@@ -40,12 +159,16 @@ struct RichTextEditor: NSViewRepresentable {
         textView.delegate = context.coordinator
         context.coordinator.textView = textView
 
+        // Share the text view reference with the toolbar coordinator
+        DispatchQueue.main.async {
+            self.coordinator.textView = textView
+        }
+
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = false
-        scrollView.drawsBackground = false
         scrollView.borderType = .noBorder
 
-        // Force focus after a brief delay (MenuBarExtra doesn't auto-focus)
+        // Focus
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             textView.window?.makeFirstResponder(textView)
         }
@@ -56,20 +179,25 @@ struct RichTextEditor: NSViewRepresentable {
     func updateNSView(_ nsView: NSScrollView, context: Context) {
         guard let textView = nsView.documentView as? NSTextView else { return }
 
-        // Only update if the content actually changed (avoid cursor jumps)
         if !context.coordinator.isUpdating {
             let currentRTF = textView.attributedString().rtfData()
             let newRTF = attributedText.rtfData()
             if currentRTF != newRTF {
                 context.coordinator.isUpdating = true
                 textView.textStorage?.setAttributedString(attributedText)
-                // Place cursor at end
                 textView.setSelectedRange(NSRange(location: attributedText.length, length: 0))
                 context.coordinator.isUpdating = false
             }
         }
 
-        // Ensure focus
+        // Share reference
+        if coordinator.textView !== textView {
+            DispatchQueue.main.async {
+                self.coordinator.textView = textView
+            }
+        }
+
+        // Focus
         if textView.window?.firstResponder != textView {
             DispatchQueue.main.async {
                 textView.window?.makeFirstResponder(textView)
@@ -77,87 +205,7 @@ struct RichTextEditor: NSViewRepresentable {
         }
     }
 
-    // MARK: - Formatting Actions
-
-    static func toggleBold(in textView: NSTextView?) {
-        guard let textView = textView else { return }
-        let range = textView.selectedRange()
-        guard range.length > 0 else { return }
-
-        let storage = textView.textStorage!
-        storage.beginEditing()
-        storage.enumerateAttribute(.font, in: range) { value, attrRange, _ in
-            guard let font = value as? NSFont else { return }
-            let manager = NSFontManager.shared
-            let newFont: NSFont
-            if manager.traits(of: font).contains(.boldFontMask) {
-                newFont = manager.convert(font, toNotHaveTrait: .boldFontMask)
-            } else {
-                newFont = manager.convert(font, toHaveTrait: .boldFontMask)
-            }
-            storage.addAttribute(.font, value: newFont, range: attrRange)
-        }
-        storage.endEditing()
-    }
-
-    static func toggleItalic(in textView: NSTextView?) {
-        guard let textView = textView else { return }
-        let range = textView.selectedRange()
-        guard range.length > 0 else { return }
-
-        let storage = textView.textStorage!
-        storage.beginEditing()
-        storage.enumerateAttribute(.font, in: range) { value, attrRange, _ in
-            guard let font = value as? NSFont else { return }
-            let manager = NSFontManager.shared
-            let newFont: NSFont
-            if manager.traits(of: font).contains(.italicFontMask) {
-                newFont = manager.convert(font, toNotHaveTrait: .italicFontMask)
-            } else {
-                newFont = manager.convert(font, toHaveTrait: .italicFontMask)
-            }
-            storage.addAttribute(.font, value: newFont, range: attrRange)
-        }
-        storage.endEditing()
-    }
-
-    static func toggleUnderline(in textView: NSTextView?) {
-        guard let textView = textView else { return }
-        let range = textView.selectedRange()
-        guard range.length > 0 else { return }
-
-        let storage = textView.textStorage!
-        storage.beginEditing()
-        var hasUnderline = false
-        storage.enumerateAttribute(.underlineStyle, in: range) { value, _, _ in
-            if let style = value as? Int, style != 0 { hasUnderline = true }
-        }
-        if hasUnderline {
-            storage.removeAttribute(.underlineStyle, range: range)
-        } else {
-            storage.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: range)
-        }
-        storage.endEditing()
-    }
-
-    static func setHeader(_ level: Int, in textView: NSTextView?) {
-        guard let textView = textView else { return }
-        let range = textView.selectedRange()
-        guard range.length > 0 else { return }
-
-        let size: CGFloat = level == 1 ? 20 : level == 2 ? 16 : 13
-        let weight: NSFont.Weight = level <= 2 ? .bold : .regular
-
-        let storage = textView.textStorage!
-        storage.beginEditing()
-        let font = NSFont.systemFont(ofSize: size, weight: weight)
-        storage.addAttribute(.font, value: font, range: range)
-        storage.endEditing()
-    }
-
-    // MARK: - Coordinator
-
-    class Coordinator: NSObject, NSTextViewDelegate {
+    class Delegate: NSObject, NSTextViewDelegate {
         var parent: RichTextEditor
         var isUpdating = false
         weak var textView: NSTextView?
@@ -170,13 +218,12 @@ struct RichTextEditor: NSViewRepresentable {
             guard !isUpdating, let textView = notification.object as? NSTextView else { return }
             isUpdating = true
             parent.attributedText = textView.attributedString()
-            parent.onTextChange?()
             isUpdating = false
         }
     }
 }
 
-// MARK: - RTF Serialization Helpers
+// MARK: - RTF Serialization
 
 extension NSAttributedString {
     func rtfData() -> Data? {

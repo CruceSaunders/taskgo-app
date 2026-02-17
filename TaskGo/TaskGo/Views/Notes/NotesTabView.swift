@@ -2,7 +2,7 @@ import SwiftUI
 
 struct NotesTabView: View {
     @EnvironmentObject var notesVM: NotesViewModel
-    @State private var editorTextView: NSTextView?
+    @StateObject private var editorCoordinator = RichTextEditorCoordinator()
 
     var body: some View {
         HStack(spacing: 0) {
@@ -16,7 +16,10 @@ struct NotesTabView: View {
                 Divider()
                 formattingToolbar
                 Divider()
-                editorArea
+                RichTextEditor(
+                    attributedText: $notesVM.attributedContent,
+                    coordinator: editorCoordinator
+                )
             }
         }
         .onAppear {
@@ -107,32 +110,26 @@ struct NotesTabView: View {
 
     private var formattingToolbar: some View {
         HStack(spacing: 4) {
-            formatButton("B", weight: .bold) {
-                RichTextEditor.toggleBold(in: editorTextView)
+            toolbarButton("B", font: .system(size: 11, weight: .bold)) {
+                editorCoordinator.toggleBold()
+            }
+            toolbarButton("I", font: .system(size: 11).italic()) {
+                editorCoordinator.toggleItalic()
+            }
+            toolbarButton("U", font: .system(size: 11), underline: true) {
+                editorCoordinator.toggleUnderline()
             }
 
-            formatButton("I", weight: .regular, italic: true) {
-                RichTextEditor.toggleItalic(in: editorTextView)
+            Divider().frame(height: 14).padding(.horizontal, 2)
+
+            toolbarButton("H1", font: .system(size: 9, weight: .bold)) {
+                editorCoordinator.setHeader(1)
             }
-
-            formatButton("U", weight: .regular, underline: true) {
-                RichTextEditor.toggleUnderline(in: editorTextView)
+            toolbarButton("H2", font: .system(size: 9, weight: .semibold)) {
+                editorCoordinator.setHeader(2)
             }
-
-            Divider()
-                .frame(height: 14)
-                .padding(.horizontal, 2)
-
-            formatButton("H1", weight: .bold, fontSize: 9) {
-                RichTextEditor.setHeader(1, in: editorTextView)
-            }
-
-            formatButton("H2", weight: .semibold, fontSize: 9) {
-                RichTextEditor.setHeader(2, in: editorTextView)
-            }
-
-            formatButton("T", weight: .regular, fontSize: 9) {
-                RichTextEditor.setHeader(0, in: editorTextView)
+            toolbarButton("T", font: .system(size: 9)) {
+                editorCoordinator.setHeader(0)
             }
 
             Spacer()
@@ -142,11 +139,10 @@ struct NotesTabView: View {
         .background(Color.secondary.opacity(0.04))
     }
 
-    private func formatButton(_ label: String, weight: Font.Weight = .regular, italic: Bool = false, underline: Bool = false, fontSize: CGFloat = 11, action: @escaping () -> Void) -> some View {
+    private func toolbarButton(_ label: String, font: Font, underline: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
-                .font(.system(size: fontSize, weight: weight))
-                .italic(italic)
+                .font(font)
                 .underline(underline)
                 .foregroundStyle(.primary.opacity(0.6))
                 .frame(width: 24, height: 20)
@@ -154,32 +150,5 @@ struct NotesTabView: View {
                 .cornerRadius(4)
         }
         .buttonStyle(.plain)
-    }
-
-    // MARK: - Editor
-
-    private var editorArea: some View {
-        RichTextEditor(
-            attributedText: $notesVM.attributedContent,
-            onTextChange: nil
-        )
-        .onAppear {
-            // Get the text view reference after a brief delay
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                if let window = NSApp.windows.first(where: { $0.isVisible }),
-                   let textView = findTextView(in: window.contentView) {
-                    editorTextView = textView
-                }
-            }
-        }
-    }
-
-    private func findTextView(in view: NSView?) -> NSTextView? {
-        guard let view = view else { return nil }
-        if let tv = view as? NSTextView, tv.isRichText { return tv }
-        for sub in view.subviews {
-            if let found = findTextView(in: sub) { return found }
-        }
-        return nil
     }
 }
