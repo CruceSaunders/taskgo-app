@@ -271,19 +271,6 @@ struct TaskRowView: View {
                         .fixedSize()
                 }
 
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isExpanded.toggle()
-                    }
-                }) {
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 20, height: 20)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-
                 // Delete entire batch
                 Button(action: {
                     Task {
@@ -303,10 +290,10 @@ struct TaskRowView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
 
-            if isExpanded {
-                VStack(spacing: 0) {
-                    ForEach(batchTasks) { subTask in
-                        HStack(spacing: 6) {
+            // Sub-tasks always visible
+            VStack(spacing: 0) {
+                ForEach(batchTasks) { subTask in
+                    HStack(spacing: 6) {
                             Image(systemName: subTask.isComplete ? "checkmark.circle.fill" : "circle")
                                 .font(.system(size: 13))
                                 .foregroundStyle(subTask.isComplete ? Color.calmTeal : .primary.opacity(0.3))
@@ -326,7 +313,7 @@ struct TaskRowView: View {
                 .padding(.bottom, 4)
             }
         }
-    }
+    
 
     // MARK: - Chain View
 
