@@ -14,7 +14,11 @@ struct TasksTabView: View {
     @State private var editingTaskId: String?
     @State private var isColorMode = false
     @State private var selectedColor: String = "blue"
-    // Drag reorder doesn't work in MenuBarExtra -- using up/down buttons instead
+
+    // Custom drag reorder state (no NSDraggingSession = panel stays open)
+    @State private var draggingTaskId: String?
+    @State private var dragOffset: CGFloat = 0
+    @State private var rowHeight: CGFloat = 60
 
     var body: some View {
         VStack(spacing: 0) {
@@ -321,71 +325,133 @@ struct TasksTabView: View {
                 Divider()
             }
 
-            List {
-                ForEach(Array(taskVM.incompleteTasksForDisplay.enumerated()), id: \.element.id) { index, task in
-                    HStack(spacing: 6) {
-                        // Color mode: tap to apply/remove color
-                        if isColorMode {
-                            Button(action: {
-                                if let id = task.id {
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(taskVM.incompleteTasksForDisplay.enumerated()), id: \.element.id) { index, task in
+                        let isDragging = draggingTaskId == task.id
+
+                        HStack(spacing: 6) {
+                            // Drag handle
+                            if !isSelectMode && !isColorMode {
+                                Image(systemName: "line.3.horizontal")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.primary.opacity(0.25))
+                                    .frame(width: 16)
+                            }
+
+                            // Color mode
+                            if isColorMode {
+                                Button(action: {
+                                    if let id = task.id {
+                                        if selectedColor == "none" {
+                                            Task { await taskVM.setColorTag([id], color: nil) }
+                                        } else {
+                                            Task { await taskVM.setColorTag([id], color: selectedColor) }
+                                        }
+                                    }
+                                }) {
                                     if selectedColor == "none" {
-                                        Task { await taskVM.setColorTag([id], color: nil) }
+                                        Image(systemName: "minus.circle")
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(.red.opacity(0.5))
                                     } else {
-                                        Task { await taskVM.setColorTag([id], color: selectedColor) }
+                                        Circle()
+                                            .fill(colorFromName(selectedColor))
+                                            .frame(width: 12, height: 12)
                                     }
                                 }
-                            }) {
-                                if selectedColor == "none" {
-                                    Image(systemName: "minus.circle")
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(.red.opacity(0.5))
-                                } else {
-                                    Circle()
-                                        .fill(colorFromName(selectedColor))
-                                        .frame(width: 12, height: 12)
-                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
-                        }
 
-                        if isSelectMode, !task.isGrouped {
-                            Button(action: {
-                                if let id = task.id {
-                                    if selectedTaskIds.contains(id) {
-                                        selectedTaskIds.remove(id)
-                                    } else {
-                                        selectedTaskIds.insert(id)
+                            // Select mode
+                            if isSelectMode, !task.isGrouped {
+                                Button(action: {
+                                    if let id = task.id {
+                                        if selectedTaskIds.contains(id) {
+                                            selectedTaskIds.remove(id)
+                                        } else {
+                                            selectedTaskIds.insert(id)
+                                        }
+                                    }
+                                }) {
+                                    Image(systemName: selectedTaskIds.contains(task.id ?? "") ? "checkmark.square.fill" : "square")
+                                        .font(.system(size: 14))
+                                        .foregroundStyle(selectedTaskIds.contains(task.id ?? "") ? Color.calmTeal : .primary.opacity(0.3))
+                                }
+                                .buttonStyle(.plain)
+                            }
+
+                            TaskRowView(task: task, editingTaskId: $editingTaskId, displayIndex: index + 1)
+                        }
+                        .background(
+                            GeometryReader { geo in
+                                Color.clear.onAppear {
+                                    if rowHeight != geo.size.height && geo.size.height > 10 {
+                                        rowHeight = geo.size.height
                                     }
                                 }
-                            }) {
-                                Image(systemName: selectedTaskIds.contains(task.id ?? "") ? "checkmark.square.fill" : "square")
-                                    .font(.system(size: 14))
-                                    .foregroundStyle(selectedTaskIds.contains(task.id ?? "") ? Color.calmTeal : .primary.opacity(0.3))
                             }
-                            .buttonStyle(.plain)
-                        }
+                        )
+                        .offset(y: isDragging ? dragOffset : 0)
+                        .zIndex(isDragging ? 100 : 0)
+                        .opacity(isDragging ? 0.85 : 1.0)
+                        .shadow(color: isDragging ? .black.opacity(0.15) : .clear, radius: isDragging ? 4 : 0, y: isDragging ? 2 : 0)
+                        .background(isDragging ? Color(.windowBackgroundColor) : Color.clear)
+                        .gesture(
+                            DragGesture()
+                                .onChanged { value in
+                                    if draggingTaskId == nil {
+                                        draggingTaskId = task.id
+                                    }
+                                    guard draggingTaskId == task.id else { return }
+                                    dragOffset = value.translation.height
 
-                        TaskRowView(task: task, editingTaskId: $editingTaskId, displayIndex: index + 1)
+                                    // Calculate how many rows we've moved past
+                                    let rowsMoved = Int(round(dragOffset / max(rowHeight, 40)))
+                                    if rowsMoved != 0 {
+                                        let items = taskVM.incompleteTasksForDisplay
+                                        let newIndex = min(max(index + rowsMoved, 0), items.count - 1)
+                                        if newIndex != index {
+                                            Task {
+                                                await taskVM.moveTask(
+                                                    from: IndexSet(integer: index),
+                                                    to: newIndex > index ? newIndex + 1 : newIndex
+                                                )
+                                            }
+                                            dragOffset = 0
+                                        }
+                                    }
+                                }
+                                .onEnded { _ in
+                                    withAnimation(.easeOut(duration: 0.2)) {
+                                        draggingTaskId = nil
+                                        dragOffset = 0
+                                    }
+                                }
+                        )
+
+                        Divider().padding(.leading, 20)
                     }
-                    .listRowInsets(EdgeInsets())
-                    .listRowSeparator(.hidden)
-                }
-                if !taskVM.completedTasksForDisplay.isEmpty {
-                    Section {
+
+                    // Completed section
+                    if !taskVM.completedTasksForDisplay.isEmpty {
+                        HStack {
+                            Text("Completed")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(.primary.opacity(0.5))
+                            Spacer()
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.secondary.opacity(0.08))
+
                         ForEach(taskVM.completedTasksForDisplay) { task in
                             TaskRowView(task: task, editingTaskId: $editingTaskId)
-                                .listRowInsets(EdgeInsets())
-                                .listRowSeparator(.hidden)
+                            Divider().padding(.leading, 20)
                         }
-                    } header: {
-                        Text("Completed")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(.primary.opacity(0.5))
                     }
                 }
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
 
             Divider()
 

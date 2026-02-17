@@ -113,25 +113,7 @@ struct TaskRowView: View {
                         .foregroundStyle(.primary.opacity(0.45))
                         .fixedSize()
 
-                    // Reorder arrows
-                    VStack(spacing: 0) {
-                        Button(action: { Task { await taskVM.moveTaskUp(task) } }) {
-                            Image(systemName: "arrowtriangle.up.fill")
-                                .font(.system(size: 8))
-                                .foregroundStyle(.primary.opacity(0.35))
-                                .frame(width: 22, height: 16)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        Button(action: { Task { await taskVM.moveTaskDown(task) } }) {
-                            Image(systemName: "arrowtriangle.down.fill")
-                                .font(.system(size: 8))
-                                .foregroundStyle(.primary.opacity(0.35))
-                                .frame(width: 22, height: 16)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                    }
+                    // Drag handle in parent view handles reorder
                 }
 
                 // Trash
