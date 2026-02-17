@@ -39,7 +39,6 @@ struct TaskGoApp: App {
                 .environmentObject(taskGoViewModel)
                 .environmentObject(xpViewModel)
                 .environmentObject(notesViewModel)
-                // .environmentObject(socialViewModel)  // v2: Social features deferred
                 .onAppear {
                     appDelegate.timerPanelController?.setViewModel(taskGoViewModel)
                     taskGoViewModel.taskVM = taskViewModel
@@ -49,6 +48,18 @@ struct TaskGoApp: App {
             Image(systemName: "bolt.circle.fill")
         }
         .menuBarExtraStyle(.window)
+
+        Window("TaskGo!", id: "main-window") {
+            MainWindowView()
+                .environmentObject(authViewModel)
+                .environmentObject(taskViewModel)
+                .environmentObject(groupViewModel)
+                .environmentObject(taskGoViewModel)
+                .environmentObject(xpViewModel)
+                .environmentObject(notesViewModel)
+        }
+        .defaultSize(width: 700, height: 550)
+        .defaultPosition(.center)
 
         Settings {
             SettingsView()

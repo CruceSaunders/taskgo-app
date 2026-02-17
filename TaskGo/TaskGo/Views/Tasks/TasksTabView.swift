@@ -12,6 +12,8 @@ struct TasksTabView: View {
     @State private var selectedTaskIds: Set<String> = []
     @State private var batchTimeText = "30"
     @State private var editingTaskId: String?
+    @State private var isColorMode = false
+    @State private var selectedColor: String = "blue"
     // Drag reorder doesn't work in MenuBarExtra -- using up/down buttons instead
 
     var body: some View {
@@ -258,9 +260,62 @@ struct TasksTabView: View {
                 Divider()
             }
 
+            // Color mode bar
+            if isColorMode {
+                HStack(spacing: 6) {
+                    Text("Tap tasks to color:")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.primary.opacity(0.5))
+
+                    ForEach(["red", "blue", "green", "yellow", "purple", "orange", "pink", "teal"], id: \.self) { color in
+                        Button(action: { selectedColor = color }) {
+                            Circle()
+                                .fill(colorFromName(color))
+                                .frame(width: 14, height: 14)
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.primary, lineWidth: selectedColor == color ? 2 : 0)
+                                        .frame(width: 17, height: 17)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    Spacer()
+
+                    Button(action: {
+                        isColorMode = false
+                    }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.red)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Color.secondary.opacity(0.06))
+
+                Divider()
+            }
+
             List {
                 ForEach(taskVM.incompleteTasksForDisplay) { task in
                     HStack(spacing: 6) {
+                        // Color mode: tap to apply color
+                        if isColorMode {
+                            Button(action: {
+                                if let id = task.id {
+                                    Task { await taskVM.setColorTag([id], color: selectedColor) }
+                                }
+                            }) {
+                                Circle()
+                                    .fill(colorFromName(selectedColor))
+                                    .frame(width: 12, height: 12)
+                            }
+                            .buttonStyle(.plain)
+                        }
+
                         if isSelectMode, !task.isGrouped {
                             Button(action: {
                                 if let id = task.id {
@@ -356,6 +411,19 @@ struct TasksTabView: View {
                             .foregroundStyle(.orange)
                         }
                         .buttonStyle(.plain)
+
+                        Button(action: {
+                            isColorMode.toggle()
+                        }) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "paintpalette")
+                                    .font(.system(size: 9))
+                                Text("Color")
+                                    .font(.system(size: 10))
+                            }
+                            .foregroundStyle(isColorMode ? .purple : .purple.opacity(0.6))
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -365,4 +433,18 @@ struct TasksTabView: View {
     }
 }
 
-// Drag reorder removed -- doesn't work in MenuBarExtra (NSPanel loses focus during drag)
+// MARK: - Helpers
+
+private func colorFromName(_ name: String) -> Color {
+    switch name {
+    case "red": return .red
+    case "blue": return .blue
+    case "green": return .green
+    case "yellow": return .yellow
+    case "purple": return .purple
+    case "orange": return .orange
+    case "pink": return .pink
+    case "teal": return .teal
+    default: return .gray
+    }
+}

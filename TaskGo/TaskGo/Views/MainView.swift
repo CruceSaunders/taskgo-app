@@ -13,7 +13,7 @@ struct MainView: View {
     @EnvironmentObject var groupVM: GroupViewModel
     @EnvironmentObject var taskGoVM: TaskGoViewModel
     @EnvironmentObject var xpVM: XPViewModel
-    // @EnvironmentObject var socialVM: SocialViewModel  // v2: Social features deferred
+    @Environment(\.openWindow) private var openWindow
 
     @State private var selectedTab: AppTab = .tasks
 
@@ -128,6 +128,20 @@ struct MainView: View {
             .padding(.vertical, 3)
             .background(Color.amber.opacity(0.15))
             .clipShape(Capsule())
+
+            // Open full window
+            Button(action: {
+                openWindow(id: "main-window")
+                NSApp.activate(ignoringOtherApps: true)
+            }) {
+                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.primary.opacity(0.4))
+                    .frame(width: 20, height: 20)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Open full window")
 
             Spacer()
 

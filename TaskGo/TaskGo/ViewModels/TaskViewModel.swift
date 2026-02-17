@@ -372,6 +372,15 @@ class TaskViewModel: ObservableObject {
         }
     }
 
+    func setColorTag(_ taskIds: [String], color: String?) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        for taskId in taskIds {
+            guard var task = tasks.first(where: { $0.id == taskId }) else { continue }
+            task.colorTag = task.colorTag == color ? nil : color
+            try? await firestoreService.updateTask(task, userId: userId)
+        }
+    }
+
     func deleteTask(_ task: TaskItem) async {
         guard let userId = Auth.auth().currentUser?.uid,
               let taskId = task.id else { return }

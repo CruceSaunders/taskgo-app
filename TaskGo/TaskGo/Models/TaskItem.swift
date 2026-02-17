@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import FirebaseFirestore
 
 struct TaskItem: Identifiable, Codable, Equatable {
@@ -15,6 +16,7 @@ struct TaskItem: Identifiable, Codable, Equatable {
     var batchTimeEstimate: Int? // collective time override for the batch (seconds)
     var chainId: String? // tasks with the same chainId form a dependent chain
     var chainOrder: Int? // step number within the chain (1, 2, 3...)
+    var colorTag: String? // color name for highlighting ("red", "blue", "green", "yellow", "purple", "orange")
 
     var timeEstimateFormatted: String {
         let minutes = timeEstimate / 60
@@ -59,7 +61,8 @@ struct TaskItem: Identifiable, Codable, Equatable {
         batchId: String? = nil,
         batchTimeEstimate: Int? = nil,
         chainId: String? = nil,
-        chainOrder: Int? = nil
+        chainOrder: Int? = nil,
+        colorTag: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -74,5 +77,21 @@ struct TaskItem: Identifiable, Codable, Equatable {
         self.batchTimeEstimate = batchTimeEstimate
         self.chainId = chainId
         self.chainOrder = chainOrder
+        self.colorTag = colorTag
+    }
+
+    var colorTagColor: Color? {
+        guard let tag = colorTag else { return nil }
+        switch tag {
+        case "red": return .red
+        case "blue": return .blue
+        case "green": return .green
+        case "yellow": return .yellow
+        case "purple": return .purple
+        case "orange": return .orange
+        case "pink": return .pink
+        case "teal": return .teal
+        default: return nil
+        }
     }
 }

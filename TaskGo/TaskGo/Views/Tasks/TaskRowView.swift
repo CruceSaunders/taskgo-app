@@ -151,6 +151,7 @@ struct TaskRowView: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        .background(task.colorTagColor?.opacity(0.1) ?? Color.clear)
     }
 
     private var editView: some View {
