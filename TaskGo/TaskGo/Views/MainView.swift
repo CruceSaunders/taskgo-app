@@ -129,21 +129,26 @@ struct MainView: View {
             .background(Color.amber.opacity(0.15))
             .clipShape(Capsule())
 
+            Spacer()
+
             // Open full window
             Button(action: {
                 openWindow(id: "main-window")
                 NSApp.activate(ignoringOtherApps: true)
             }) {
-                Image(systemName: "arrow.up.left.and.arrow.down.right")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.primary.opacity(0.4))
-                    .frame(width: 20, height: 20)
-                    .contentShape(Rectangle())
+                HStack(spacing: 3) {
+                    Image(systemName: "macwindow")
+                        .font(.system(size: 9))
+                    Text("Open")
+                        .font(.system(size: 10))
+                }
+                .foregroundStyle(.primary.opacity(0.5))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(Color.secondary.opacity(0.1))
+                .cornerRadius(4)
             }
             .buttonStyle(.plain)
-            .help("Open full window")
-
-            Spacer()
 
             // Task Go button
             Button(action: {
