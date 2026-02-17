@@ -10,9 +10,23 @@ struct TaskRowView: View {
     @State private var editName = ""
     @State private var editMinutes = ""
     @State private var editDescription = ""
+    @State private var editGroupTitle = ""
+    @State private var editBatchMinutes = ""
 
     private var isEditing: Bool {
         editingTaskId == task.id
+    }
+
+    // Use batchId or chainId as the "group editing" key
+    private var groupEditKey: String? {
+        task.batchId ?? task.chainId
+    }
+
+    private var isGroupEditing: Bool {
+        if let key = groupEditKey {
+            return editingTaskId == "group:\(key)"
+        }
+        return false
     }
 
     var body: some View {
@@ -241,57 +255,77 @@ struct TaskRowView: View {
         let batchMinutes = batchTime / 60
 
         return VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                if !allComplete && displayIndex > 0 {
-                    Text("\(displayIndex)")
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 18, alignment: .trailing)
-                }
-
-                Image(systemName: allComplete ? "checkmark.square.stack.fill" : "square.stack")
-                    .font(.system(size: 15))
-                    .foregroundStyle(allComplete ? Color.calmTeal : Color.calmTeal.opacity(0.7))
-
-                VStack(alignment: .leading, spacing: 1) {
-                    if let title = batchTasks.compactMap({ $0.groupTitle }).first {
-                        Text(title)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(allComplete ? .secondary : .primary)
-                            .lineLimit(1)
+            if isGroupEditing {
+                // Edit mode for batch
+                groupEditView(
+                    title: batchTasks.compactMap({ $0.groupTitle }).first ?? "",
+                    time: batchMinutes,
+                    groupId: batchId,
+                    isBatch: true,
+                    tasks: batchTasks
+                )
+            } else {
+                // Display mode
+                HStack(spacing: 8) {
+                    if !allComplete && displayIndex > 0 {
+                        Text("\(displayIndex)")
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 18, alignment: .trailing)
                     }
-                    Text("Batch (\(batchTasks.count) tasks)")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                }
 
-                Spacer()
+                    Image(systemName: allComplete ? "checkmark.square.stack.fill" : "square.stack")
+                        .font(.system(size: 15))
+                        .foregroundStyle(allComplete ? Color.calmTeal : Color.calmTeal.opacity(0.7))
 
-                if !allComplete {
-                    Text("\(batchMinutes)m")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.primary.opacity(0.45))
-                        .fixedSize()
-                }
-
-                // Delete entire batch
-                Button(action: {
-                    Task {
-                        for subTask in batchTasks {
-                            await taskVM.deleteTask(subTask)
+                    // Tap to edit
+                    Button(action: {
+                        editGroupTitle = batchTasks.compactMap({ $0.groupTitle }).first ?? ""
+                        editBatchMinutes = "\(batchMinutes)"
+                        editingTaskId = "group:\(batchId)"
+                    }) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            if let title = batchTasks.compactMap({ $0.groupTitle }).first {
+                                Text(title)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(allComplete ? .secondary : .primary)
+                                    .lineLimit(1)
+                            }
+                            Text("Batch (\(batchTasks.count) tasks)")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.secondary)
                         }
                     }
-                }) {
-                    Image(systemName: "trash")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.red.opacity(0.5))
-                        .frame(width: 24, height: 24)
-                        .contentShape(Rectangle())
+                    .buttonStyle(.plain)
+
+                    Spacer()
+
+                    if !allComplete {
+                        Text("\(batchMinutes)m")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.primary.opacity(0.45))
+                            .fixedSize()
+                    }
+
+                    // Delete entire batch
+                    Button(action: {
+                        Task {
+                            for subTask in batchTasks {
+                                await taskVM.deleteTask(subTask)
+                            }
+                        }
+                    }) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.red.opacity(0.5))
+                            .frame(width: 24, height: 24)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
 
             // Sub-tasks always visible
             VStack(spacing: 0) {
@@ -327,65 +361,83 @@ struct TaskRowView: View {
         let totalMinutes = chainTasks.reduce(0) { $0 + $1.timeEstimate } / 60
 
         return VStack(alignment: .leading, spacing: 0) {
-            // Chain header with priority number
-            HStack(spacing: 8) {
-                if !allComplete && displayIndex > 0 {
-                    Text("\(displayIndex)")
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 18, alignment: .trailing)
-                }
-
-                Image(systemName: allComplete ? "link.circle.fill" : "link")
-                    .font(.system(size: 15))
-                    .foregroundStyle(allComplete ? .orange : .orange.opacity(0.7))
-
-                VStack(alignment: .leading, spacing: 1) {
-                    if let title = chainTasks.compactMap({ $0.groupTitle }).first {
-                        Text(title)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(allComplete ? .secondary : .primary)
-                            .lineLimit(1)
+            if isGroupEditing {
+                groupEditView(
+                    title: chainTasks.compactMap({ $0.groupTitle }).first ?? "",
+                    time: totalMinutes,
+                    groupId: chainId,
+                    isBatch: false,
+                    tasks: chainTasks
+                )
+            } else {
+                // Chain header with priority number
+                HStack(spacing: 8) {
+                    if !allComplete && displayIndex > 0 {
+                        Text("\(displayIndex)")
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 18, alignment: .trailing)
                     }
-                    Text("Chain (\(chainTasks.count) steps)")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                }
 
-                if !allComplete {
-                    Text("\(completedCount)/\(chainTasks.count)")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundStyle(.orange)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 1)
-                        .background(Color.orange.opacity(0.12))
-                        .cornerRadius(4)
-                }
+                    Image(systemName: allComplete ? "link.circle.fill" : "link")
+                        .font(.system(size: 15))
+                        .foregroundStyle(allComplete ? .orange : .orange.opacity(0.7))
 
-                Spacer()
-
-                if !allComplete {
-                    Text("\(totalMinutes)m")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.primary.opacity(0.45))
-                        .fixedSize()
-                }
-
-                Button(action: {
-                    Task {
-                        for t in chainTasks { await taskVM.deleteTask(t) }
+                    // Tap to edit
+                    Button(action: {
+                        editGroupTitle = chainTasks.compactMap({ $0.groupTitle }).first ?? ""
+                        editBatchMinutes = "\(totalMinutes)"
+                        editingTaskId = "group:\(chainId)"
+                    }) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            if let title = chainTasks.compactMap({ $0.groupTitle }).first {
+                                Text(title)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(allComplete ? .secondary : .primary)
+                                    .lineLimit(1)
+                            }
+                            Text("Chain (\(chainTasks.count) steps)")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.secondary)
+                        }
                     }
-                }) {
-                    Image(systemName: "trash")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.red.opacity(0.5))
-                        .frame(width: 24, height: 24)
+                    .buttonStyle(.plain)
+
+                    if !allComplete {
+                        Text("\(completedCount)/\(chainTasks.count)")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(.orange)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(Color.orange.opacity(0.12))
+                            .cornerRadius(4)
+                    }
+
+                    Spacer()
+
+                    if !allComplete {
+                        Text("\(totalMinutes)m")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.primary.opacity(0.45))
+                            .fixedSize()
+                    }
+
+                    Button(action: {
+                        Task {
+                            for t in chainTasks { await taskVM.deleteTask(t) }
+                        }
+                    }) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.red.opacity(0.5))
+                            .frame(width: 24, height: 24)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 5)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 5)
 
             // Steps -- always visible
             VStack(spacing: 0) {
@@ -418,5 +470,78 @@ struct TaskRowView: View {
             }
             .padding(.bottom, 4)
         }
+    }
+
+    // MARK: - Group Edit View (shared for batch and chain)
+
+    private func groupEditView(title: String, time: Int, groupId: String, isBatch: Bool, tasks: [TaskItem]) -> some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 6) {
+                TextField(isBatch ? "Batch title" : "Chain title", text: $editGroupTitle)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 12))
+
+                if isBatch {
+                    TextField("min", text: $editBatchMinutes)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 40)
+                        .font(.system(size: 11))
+                        .multilineTextAlignment(.center)
+                    Text("m")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.primary.opacity(0.45))
+                }
+            }
+
+            HStack(spacing: 12) {
+                Button("Cancel") {
+                    editingTaskId = nil
+                }
+                .font(.system(size: 11))
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+
+                // Duplicate
+                Button(action: {
+                    Task {
+                        if isBatch {
+                            await taskVM.duplicateBatch(batchId: groupId)
+                        } else {
+                            await taskVM.duplicateChain(chainId: groupId)
+                        }
+                        editingTaskId = nil
+                    }
+                }) {
+                    Image(systemName: "doc.on.doc")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.primary.opacity(0.4))
+                }
+                .buttonStyle(.plain)
+
+                Spacer()
+
+                Button("Save") {
+                    Task {
+                        // Update title on the first task that has groupTitle, or the first task
+                        if let firstTask = tasks.first {
+                            var updated = firstTask
+                            updated.groupTitle = editGroupTitle.isEmpty ? nil : editGroupTitle
+                            if isBatch {
+                                updated.batchTimeEstimate = (Int(editBatchMinutes) ?? time) * 60
+                            }
+                            await taskVM.updateTask(updated)
+                        }
+                        editingTaskId = nil
+                    }
+                }
+                .font(.system(size: 11, weight: .semibold))
+                .buttonStyle(.borderedProminent)
+                .tint(isBatch ? Color.calmTeal : .orange)
+                .controlSize(.small)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background((isBatch ? Color.calmTeal : Color.orange).opacity(0.05))
     }
 }
