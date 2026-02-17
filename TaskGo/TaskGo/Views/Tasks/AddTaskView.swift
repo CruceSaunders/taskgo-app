@@ -41,15 +41,18 @@ struct AddTaskView: View {
                     .font(.system(size: 14, weight: .semibold))
                 Spacer()
 
-                modeButton("Single", icon: "circle", mode: .single)
-                modeButton("Batch", icon: "square.stack", mode: .batch)
-                modeButton("Chain", icon: "link", mode: .chain)
-
                 Button(action: { onDismiss() }) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
+            }
+
+            // Mode selector with labels
+            HStack(spacing: 4) {
+                modeTab("Single", icon: "circle", target: .single, color: Color.calmTeal)
+                modeTab("Batch", icon: "square.stack", target: .batch, color: Color.calmTeal)
+                modeTab("Chain", icon: "link", target: .chain, color: .orange)
             }
 
             switch mode {
@@ -61,17 +64,21 @@ struct AddTaskView: View {
         .padding(14)
     }
 
-    private func modeButton(_ label: String, icon: String, mode target: AddMode) -> some View {
+    private func modeTab(_ label: String, icon: String, target: AddMode, color: Color) -> some View {
         Button(action: { mode = target }) {
-            Image(systemName: mode == target ? "\(icon).fill" : icon)
-                .font(.system(size: 10))
-                .foregroundStyle(mode == target ? (target == .chain ? Color.orange : Color.calmTeal) : .primary.opacity(0.35))
-                .frame(width: 22, height: 22)
-                .background(mode == target ? (target == .chain ? Color.orange.opacity(0.12) : Color.calmTeal.opacity(0.12)) : Color.clear)
-                .cornerRadius(4)
+            HStack(spacing: 3) {
+                Image(systemName: mode == target ? "\(icon).fill" : icon)
+                    .font(.system(size: 9))
+                Text(label)
+                    .font(.system(size: 10, weight: mode == target ? .semibold : .regular))
+            }
+            .foregroundStyle(mode == target ? .white : .primary.opacity(0.5))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(mode == target ? color : Color.secondary.opacity(0.08))
+            .cornerRadius(6)
         }
         .buttonStyle(.plain)
-        .help(label)
     }
 
     // MARK: - Single Task

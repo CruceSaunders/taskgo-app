@@ -320,19 +320,43 @@ struct TasksTabView: View {
                 Spacer()
 
                 if !taskVM.incompleteTasksForDisplay.isEmpty {
-                    Button(action: {
-                        isSelectMode.toggle()
-                        if !isSelectMode { selectedTaskIds.removeAll() }
-                    }) {
-                        HStack(spacing: 3) {
-                            Image(systemName: isSelectMode ? "xmark" : "square.stack")
+                    if isSelectMode {
+                        Button(action: {
+                            isSelectMode = false
+                            selectedTaskIds.removeAll()
+                        }) {
+                            Text("Cancel")
                                 .font(.system(size: 10))
-                            Text(isSelectMode ? "Cancel" : "Batch")
-                                .font(.system(size: 10))
+                                .foregroundStyle(.red)
                         }
-                        .foregroundStyle(isSelectMode ? .red : .primary.opacity(0.5))
+                        .buttonStyle(.plain)
+                    } else {
+                        Button(action: {
+                            isSelectMode = true
+                        }) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "square.stack")
+                                    .font(.system(size: 9))
+                                Text("Batch")
+                                    .font(.system(size: 10))
+                            }
+                            .foregroundStyle(Color.calmTeal)
+                        }
+                        .buttonStyle(.plain)
+
+                        Button(action: {
+                            isSelectMode = true
+                        }) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "link")
+                                    .font(.system(size: 9))
+                                Text("Chain")
+                                    .font(.system(size: 10))
+                            }
+                            .foregroundStyle(.orange)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 12)
