@@ -300,7 +300,7 @@ struct TasksTabView: View {
             }
 
             List {
-                ForEach(taskVM.incompleteTasksForDisplay) { task in
+                ForEach(Array(taskVM.incompleteTasksForDisplay.enumerated()), id: \.element.id) { index, task in
                     HStack(spacing: 6) {
                         // Color mode: tap to apply color
                         if isColorMode {
@@ -333,7 +333,7 @@ struct TasksTabView: View {
                             .buttonStyle(.plain)
                         }
 
-                        TaskRowView(task: task, editingTaskId: $editingTaskId)
+                        TaskRowView(task: task, editingTaskId: $editingTaskId, displayIndex: index + 1)
                     }
                     .listRowInsets(EdgeInsets())
                     .listRowSeparator(.hidden)

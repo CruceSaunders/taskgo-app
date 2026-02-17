@@ -4,6 +4,7 @@ struct TaskRowView: View {
     @EnvironmentObject var taskVM: TaskViewModel
     let task: TaskItem
     @Binding var editingTaskId: String?
+    var displayIndex: Int = 0
 
     @State private var isExpanded = false
     @State private var editName = ""
@@ -69,6 +70,14 @@ struct TaskRowView: View {
     private var displayView: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
+                // Priority number
+                if !task.isComplete && displayIndex > 0 {
+                    Text("\(displayIndex)")
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 18, alignment: .trailing)
+                }
+
                 // Checkbox
                 Button(action: {
                     Task { await taskVM.toggleComplete(task) }
@@ -238,6 +247,13 @@ struct TaskRowView: View {
 
         return VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
+                if !allComplete && displayIndex > 0 {
+                    Text("\(displayIndex)")
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 18, alignment: .trailing)
+                }
+
                 Image(systemName: allComplete ? "checkmark.square.stack.fill" : "square.stack")
                     .font(.system(size: 15))
                     .foregroundStyle(allComplete ? Color.calmTeal : Color.calmTeal.opacity(0.7))
@@ -321,13 +337,20 @@ struct TaskRowView: View {
         let totalMinutes = chainTasks.reduce(0) { $0 + $1.timeEstimate } / 60
 
         return VStack(alignment: .leading, spacing: 0) {
-            // Chain header
+            // Chain header with priority number
             HStack(spacing: 8) {
+                if !allComplete && displayIndex > 0 {
+                    Text("\(displayIndex)")
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 18, alignment: .trailing)
+                }
+
                 Image(systemName: allComplete ? "link.circle.fill" : "link")
                     .font(.system(size: 15))
                     .foregroundStyle(allComplete ? .orange : .orange.opacity(0.7))
 
-                Text("Chain (\(chainTasks.count) steps)")
+                Text("Chain")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(allComplete ? .secondary : .primary)
 
@@ -351,19 +374,6 @@ struct TaskRowView: View {
                 }
 
                 Button(action: {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isExpanded.toggle()
-                    }
-                }) {
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 20, height: 20)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-
-                Button(action: {
                     Task {
                         for t in chainTasks { await taskVM.deleteTask(t) }
                     }
@@ -377,41 +387,38 @@ struct TaskRowView: View {
                 .buttonStyle(.plain)
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 7)
+            .padding(.vertical, 5)
 
-            // Expanded: show steps with progress
-            if isExpanded {
-                VStack(spacing: 0) {
-                    ForEach(chainTasks) { step in
-                        HStack(spacing: 6) {
-                            // Step number
-                            Text("Step \(step.chainOrder ?? 0)")
-                                .font(.system(size: 9, weight: .semibold))
-                                .foregroundColor(step.isComplete ? .secondary : .orange)
-                                .frame(width: 38, alignment: .leading)
+            // Steps -- always visible
+            VStack(spacing: 0) {
+                ForEach(chainTasks) { step in
+                    HStack(spacing: 6) {
+                        Text("\(step.chainOrder ?? 0).")
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .foregroundColor(step.isComplete ? .secondary : .orange)
+                            .frame(width: 20, alignment: .trailing)
 
-                            Image(systemName: step.isComplete ? "checkmark.circle.fill" : "circle")
-                                .font(.system(size: 12))
-                                .foregroundColor(step.isComplete ? .orange : .primary.opacity(0.3))
+                        Image(systemName: step.isComplete ? "checkmark.circle.fill" : "circle")
+                            .font(.system(size: 13))
+                            .foregroundColor(step.isComplete ? .orange : .primary.opacity(0.3))
 
-                            Text(step.name)
-                                .font(.system(size: 11))
-                                .strikethrough(step.isComplete)
-                                .foregroundStyle(step.isComplete ? .secondary : .primary)
-                                .lineLimit(1)
+                        Text(step.name)
+                            .font(.system(size: 12))
+                            .strikethrough(step.isComplete)
+                            .foregroundStyle(step.isComplete ? .secondary : .primary)
+                            .lineLimit(2)
 
-                            Spacer()
+                        Spacer()
 
-                            Text("\(step.timeEstimate / 60)m")
-                                .font(.system(size: 9))
-                                .foregroundStyle(.primary.opacity(0.4))
-                        }
-                        .padding(.horizontal, 40)
-                        .padding(.vertical, 3)
+                        Text("\(step.timeEstimate / 60)m")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.primary.opacity(0.4))
                     }
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 3)
                 }
-                .padding(.bottom, 4)
             }
+            .padding(.bottom, 4)
         }
     }
 }
