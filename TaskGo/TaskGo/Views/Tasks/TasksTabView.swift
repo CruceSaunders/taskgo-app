@@ -21,6 +21,7 @@ struct TasksTabView: View {
     @State private var targetDropIndex: Int?
     @State private var dragStartIndex: Int?
     @State private var rowHeight: CGFloat = 55
+    @State private var justDragged = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -375,7 +376,7 @@ struct TasksTabView: View {
                                 .buttonStyle(.plain)
                             }
 
-                            TaskRowView(task: task, editingTaskId: $editingTaskId, displayIndex: index + 1)
+                            TaskRowView(task: task, editingTaskId: $editingTaskId, displayIndex: index + 1, dragLocked: justDragged)
                         }
                         .background(
                             GeometryReader { geo in
@@ -418,6 +419,11 @@ struct TasksTabView: View {
                                                 to: t > s ? t + 1 : t
                                             )
                                         }
+                                    }
+                                    // Block edit taps briefly after drag
+                                    justDragged = true
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                        justDragged = false
                                     }
                                     withAnimation(.easeOut(duration: 0.15)) {
                                         draggingTaskId = nil

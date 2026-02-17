@@ -6,6 +6,7 @@ struct TaskRowView: View {
     let task: TaskItem
     @Binding var editingTaskId: String?
     var displayIndex: Int = 0
+    var dragLocked: Bool = false
 
     @State private var isExpanded = false
     @State private var editName = ""
@@ -107,6 +108,7 @@ struct TaskRowView: View {
 
                 // Tap name to edit
                 Button(action: {
+                    guard !dragLocked else { return }
                     editName = task.name
                     editMinutes = "\(task.timeEstimate / 60)"
                     editDescription = task.description ?? ""
@@ -307,6 +309,7 @@ struct TaskRowView: View {
 
                     // Tap to edit
                     Button(action: {
+                        guard !dragLocked else { return }
                         editGroupTitle = batchTasks.compactMap({ $0.groupTitle }).first ?? ""
                         editBatchMinutes = "\(batchMinutes)"
                         editingTaskId = "group:\(batchId)"
@@ -398,6 +401,7 @@ struct TaskRowView: View {
 
                     // Tap to edit
                     Button(action: {
+                        guard !dragLocked else { return }
                         editGroupTitle = chainTasks.compactMap({ $0.groupTitle }).first ?? ""
                         editBatchMinutes = "\(totalMinutes)"
                         editingTaskId = "group:\(chainId)"
