@@ -281,19 +281,23 @@ struct TasksTabView: View {
                         .buttonStyle(.plain)
                     }
 
-                    // Clear/remove color
-                    Button(action: { selectedColor = "clear" }) {
+                    // Remove color
+                    Button(action: { selectedColor = "none" }) {
                         ZStack {
                             Circle()
-                                .stroke(Color.primary.opacity(0.3), lineWidth: 1)
+                                .fill(Color(.windowBackgroundColor))
                                 .frame(width: 14, height: 14)
-                            Image(systemName: "xmark")
-                                .font(.system(size: 7, weight: .bold))
-                                .foregroundStyle(.primary.opacity(0.4))
+                                .overlay(
+                                    Circle().stroke(Color.primary.opacity(0.3), lineWidth: 1)
+                                )
+                            Rectangle()
+                                .fill(Color.red)
+                                .frame(width: 12, height: 1.5)
+                                .rotationEffect(.degrees(-45))
                         }
                         .overlay(
                             Circle()
-                                .stroke(Color.primary, lineWidth: selectedColor == "clear" ? 2 : 0)
+                                .stroke(Color.primary, lineWidth: selectedColor == "none" ? 2 : 0)
                                 .frame(width: 17, height: 17)
                         )
                     }
@@ -324,14 +328,17 @@ struct TasksTabView: View {
                         if isColorMode {
                             Button(action: {
                                 if let id = task.id {
-                                    let color: String? = selectedColor == "clear" ? nil : selectedColor
-                                    Task { await taskVM.setColorTag([id], color: color) }
+                                    if selectedColor == "none" {
+                                        Task { await taskVM.setColorTag([id], color: nil) }
+                                    } else {
+                                        Task { await taskVM.setColorTag([id], color: selectedColor) }
+                                    }
                                 }
                             }) {
-                                if selectedColor == "clear" {
-                                    Image(systemName: "xmark.circle")
+                                if selectedColor == "none" {
+                                    Image(systemName: "minus.circle")
                                         .font(.system(size: 12))
-                                        .foregroundStyle(.primary.opacity(0.4))
+                                        .foregroundStyle(.red.opacity(0.5))
                                 } else {
                                     Circle()
                                         .fill(colorFromName(selectedColor))
