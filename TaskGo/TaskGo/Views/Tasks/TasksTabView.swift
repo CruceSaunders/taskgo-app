@@ -12,7 +12,7 @@ struct TasksTabView: View {
     @State private var selectedTaskIds: Set<String> = []
     @State private var batchTimeText = "30"
     @State private var editingTaskId: String?
-    @State private var draggingTaskId: String?
+    // Drag reorder doesn't work in MenuBarExtra -- using up/down buttons instead
 
     var body: some View {
         VStack(spacing: 0) {
@@ -282,16 +282,6 @@ struct TasksTabView: View {
                     }
                     .listRowInsets(EdgeInsets())
                     .listRowSeparator(.hidden)
-                    .onDrag {
-                        draggingTaskId = task.id
-                        return NSItemProvider(object: (task.id ?? "") as NSString)
-                    }
-                    .onDrop(of: [.text], delegate: TaskDropDelegate(
-                        taskId: task.id ?? "",
-                        taskVM: taskVM,
-                        draggingTaskId: $draggingTaskId
-                    ))
-                    .opacity(draggingTaskId == task.id ? 0.4 : 1.0)
                 }
                 if !taskVM.completedTasksForDisplay.isEmpty {
                     Section {
@@ -351,37 +341,4 @@ struct TasksTabView: View {
     }
 }
 
-// MARK: - Drag and Drop
-
-struct TaskDropDelegate: DropDelegate {
-    let taskId: String
-    let taskVM: TaskViewModel
-    @Binding var draggingTaskId: String?
-
-    func performDrop(info: DropInfo) -> Bool {
-        draggingTaskId = nil
-        return true
-    }
-
-    func dropEntered(info: DropInfo) {
-        guard let dragId = draggingTaskId, dragId != taskId else { return }
-
-        let items = taskVM.incompleteTasksForDisplay
-        guard let fromIndex = items.firstIndex(where: { $0.id == dragId }),
-              let toIndex = items.firstIndex(where: { $0.id == taskId }) else { return }
-
-        if fromIndex != toIndex {
-            Task {
-                await taskVM.moveTask(from: IndexSet(integer: fromIndex), to: toIndex > fromIndex ? toIndex + 1 : toIndex)
-            }
-        }
-    }
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        DropProposal(operation: .move)
-    }
-
-    func validateDrop(info: DropInfo) -> Bool {
-        draggingTaskId != nil
-    }
-}
+// Drag reorder removed -- doesn't work in MenuBarExtra (NSPanel loses focus during drag)
