@@ -96,6 +96,7 @@ struct TaskRowView: View {
 
                 // Checkbox
                 Button(action: {
+                    guard !dragLocked else { return }
                     Task { await taskVM.toggleComplete(task) }
                 }) {
                     Image(systemName: task.isComplete ? "checkmark.circle.fill" : "circle")
@@ -151,6 +152,7 @@ struct TaskRowView: View {
 
                 // Trash
                 Button(action: {
+                    guard !dragLocked else { return }
                     Task { await taskVM.deleteTask(task) }
                 }) {
                     Image(systemName: "trash")

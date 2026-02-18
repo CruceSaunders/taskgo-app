@@ -395,6 +395,9 @@ struct TasksTabView: View {
                         .simultaneousGesture(
                             DragGesture(minimumDistance: 8)
                                 .onChanged { value in
+                                    // Block edits from the moment drag starts
+                                    justDragged = true
+
                                     if draggingTaskId == nil {
                                         draggingTaskId = task.id
                                         dragStartIndex = index
@@ -420,16 +423,15 @@ struct TasksTabView: View {
                                             )
                                         }
                                     }
-                                    // Block edit taps briefly after drag
-                                    justDragged = true
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                        justDragged = false
-                                    }
                                     withAnimation(.easeOut(duration: 0.15)) {
                                         draggingTaskId = nil
                                         dragOffset = 0
                                         targetDropIndex = nil
                                         dragStartIndex = nil
+                                    }
+                                    // Keep edit blocked for longer after drop
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                        justDragged = false
                                     }
                                 }
                         )
