@@ -125,43 +125,41 @@ struct TaskRowView: View {
 
                 Spacer(minLength: 4)
 
-                if !task.isComplete {
-                    Text(task.timeEstimateFormatted)
-                        .font(.system(size: 10))
-                        .foregroundStyle(.primary.opacity(0.45))
-                        .fixedSize()
+                // Right-side actions (fixed width for alignment)
+                HStack(spacing: 6) {
+                    if !task.isComplete {
+                        Text(task.timeEstimateFormatted)
+                            .font(.system(size: 10))
+                            .foregroundStyle(.primary.opacity(0.45))
+                            .frame(width: 30, alignment: .trailing)
+                    }
 
-                    // Drag handle in parent view handles reorder
-                }
+                    if task.isComplete {
+                        Button(action: {
+                            Task { await taskVM.toggleComplete(task) }
+                        }) {
+                            Text("Undo")
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundStyle(Color.calmTeal)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(Color.calmTeal.opacity(0.1))
+                                .cornerRadius(3)
+                        }
+                        .buttonStyle(.plain)
+                    }
 
-                // Undo complete
-                if task.isComplete {
                     Button(action: {
-                        Task { await taskVM.toggleComplete(task) }
+                        guard !dragLocked else { return }
+                        Task { await taskVM.deleteTask(task) }
                     }) {
-                        Text("Undo")
-                            .font(.system(size: 9, weight: .medium))
-                            .foregroundStyle(Color.calmTeal)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background(Color.calmTeal.opacity(0.1))
-                            .cornerRadius(3)
+                        Image(systemName: "trash")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.red.opacity(0.4))
                     }
                     .buttonStyle(.plain)
+                    .frame(width: 20, alignment: .center)
                 }
-
-                // Trash
-                Button(action: {
-                    guard !dragLocked else { return }
-                    Task { await taskVM.deleteTask(task) }
-                }) {
-                    Image(systemName: "trash")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.red.opacity(0.4))
-                        .frame(width: 20, height: 20)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
@@ -348,28 +346,28 @@ struct TaskRowView: View {
 
                     Spacer()
 
-                    if !allComplete {
-                        Text("\(batchMinutes)m")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.primary.opacity(0.45))
-                            .fixedSize()
-                    }
-
-                    // Delete entire batch
-                    Button(action: {
-                        Task {
-                            for subTask in batchTasks {
-                                await taskVM.deleteTask(subTask)
-                            }
+                    HStack(spacing: 6) {
+                        if !allComplete {
+                            Text("\(batchMinutes)m")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.primary.opacity(0.45))
+                                .frame(width: 30, alignment: .trailing)
                         }
-                    }) {
-                        Image(systemName: "trash")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.red.opacity(0.5))
-                            .frame(width: 24, height: 24)
-                            .contentShape(Rectangle())
+
+                        Button(action: {
+                            Task {
+                                for subTask in batchTasks {
+                                    await taskVM.deleteTask(subTask)
+                                }
+                            }
+                        }) {
+                            Image(systemName: "trash")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.red.opacity(0.4))
+                        }
+                        .buttonStyle(.plain)
+                        .frame(width: 20, alignment: .center)
                     }
-                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
@@ -450,25 +448,26 @@ struct TaskRowView: View {
 
                     Spacer()
 
-                    if !allComplete {
-                        Text("\(totalMinutes)m")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.primary.opacity(0.45))
-                            .fixedSize()
-                    }
-
-                    Button(action: {
-                        Task {
-                            for t in chainTasks { await taskVM.deleteTask(t) }
+                    HStack(spacing: 6) {
+                        if !allComplete {
+                            Text("\(totalMinutes)m")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.primary.opacity(0.45))
+                                .frame(width: 30, alignment: .trailing)
                         }
-                    }) {
-                        Image(systemName: "trash")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.red.opacity(0.5))
-                            .frame(width: 24, height: 24)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
+
+                        Button(action: {
+                            Task {
+                                for t in chainTasks { await taskVM.deleteTask(t) }
+                            }
+                        }) {
+                            Image(systemName: "trash")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.red.opacity(0.4))
+                        }
+                        .buttonStyle(.plain)
+                        .frame(width: 20, alignment: .center)
+                    }
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 5)
@@ -689,22 +688,24 @@ struct SubTaskRow: View {
 
                 Spacer()
 
-                if showTime {
-                    Text("\(subTask.timeEstimate / 60)m")
-                        .font(.system(size: 9))
-                        .foregroundStyle(.primary.opacity(0.4))
-                }
+                HStack(spacing: 6) {
+                    if showTime {
+                        Text("\(subTask.timeEstimate / 60)m")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.primary.opacity(0.4))
+                            .frame(width: 30, alignment: .trailing)
+                    }
 
-                Button(action: {
-                    Task { await taskVM.deleteTask(subTask) }
-                }) {
-                    Image(systemName: "trash")
-                        .font(.system(size: 9))
-                        .foregroundStyle(.red.opacity(0.3))
-                        .frame(width: 16, height: 16)
-                        .contentShape(Rectangle())
+                    Button(action: {
+                        Task { await taskVM.deleteTask(subTask) }
+                    }) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.red.opacity(0.35))
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: 20, alignment: .center)
                 }
-                .buttonStyle(.plain)
             }
             .padding(.horizontal, showStepNumber ? 32 : 48)
             .padding(.vertical, 3)
