@@ -3,6 +3,7 @@ import SwiftUI
 struct TasksTabView: View {
     @EnvironmentObject var taskVM: TaskViewModel
     @EnvironmentObject var groupVM: GroupViewModel
+    @EnvironmentObject var taskGoVM: TaskGoViewModel
     @State private var showAddTask = false
     @State private var showAddGroup = false
     @State private var newGroupName = ""
@@ -220,8 +221,8 @@ struct TasksTabView: View {
 
     private var taskList: some View {
         VStack(spacing: 0) {
-            // Action bar (when selecting 2+)
-            if isSelectMode && selectedTaskIds.count >= 2 {
+            // Action bar (when selecting 1+)
+            if isSelectMode && !selectedTaskIds.isEmpty {
                 HStack(spacing: 6) {
                     Text("\(selectedTaskIds.count) selected")
                         .font(.system(size: 10, weight: .medium))
@@ -235,29 +236,42 @@ struct TasksTabView: View {
                         .font(.system(size: 10))
                         .multilineTextAlignment(.center)
 
-                    Button("Batch") {
-                        let ids = Array(selectedTaskIds)
-                        let time = (Int(batchTimeText) ?? 30) * 60
-                        Task {
-                            await taskVM.batchTasks(ids, batchTimeEstimate: time)
-                            isSelectMode = false
-                            selectedTaskIds.removeAll()
+                    if selectedTaskIds.count >= 2 {
+                        Button("Batch") {
+                            let ids = Array(selectedTaskIds)
+                            let time = (Int(batchTimeText) ?? 30) * 60
+                            Task {
+                                await taskVM.batchTasks(ids, batchTimeEstimate: time)
+                                isSelectMode = false
+                                selectedTaskIds.removeAll()
+                            }
                         }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Color.calmTeal)
+                        .controlSize(.mini)
+                    }
+
+                    if selectedTaskIds.count >= 2 {
+                        Button("Chain") {
+                            let ids = Array(selectedTaskIds)
+                            Task {
+                                await taskVM.chainTasks(ids)
+                                isSelectMode = false
+                                selectedTaskIds.removeAll()
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.orange)
+                        .controlSize(.mini)
+                    }
+
+                    Button("Task Go!") {
+                        taskGoVM.startTaskGoWithSelected(selectedTaskIds)
+                        isSelectMode = false
+                        selectedTaskIds.removeAll()
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(Color.calmTeal)
-                    .controlSize(.mini)
-
-                    Button("Chain") {
-                        let ids = Array(selectedTaskIds)
-                        Task {
-                            await taskVM.chainTasks(ids)
-                            isSelectMode = false
-                            selectedTaskIds.removeAll()
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.orange)
                     .controlSize(.mini)
                 }
                 .padding(.horizontal, 10)

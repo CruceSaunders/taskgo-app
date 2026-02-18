@@ -19,6 +19,7 @@ class TaskGoViewModel: ObservableObject {
     @Published var elapsedActiveMinutes: Int = 0
     @Published var activityPercentage: Double = 0.0
     @Published var hasActivityPermission = false
+    @Published var selectedTaskIds: Set<String>? // nil = all tasks, set = specific tasks only
 
     private var timer: Timer?
     private var elapsedSeconds: Int = 0
@@ -50,6 +51,15 @@ class TaskGoViewModel: ObservableObject {
     }
 
     // MARK: - Task Go Control
+
+    func startTaskGoWithSelected(_ taskIds: Set<String>) {
+        selectedTaskIds = taskIds
+        // Find the first selected incomplete task
+        let items = taskVM?.incompleteTasksForDisplay ?? []
+        if let first = items.first(where: { taskIds.contains($0.id ?? "") }) {
+            startTaskGo(with: first)
+        }
+    }
 
     func startTaskGo(with task: TaskItem) {
         // If starting a chain leader, begin with the first incomplete step
@@ -93,6 +103,7 @@ class TaskGoViewModel: ObservableObject {
         activityPercentage = 0.0
         isProcessingCompletion = false
         completedTaskIds.removeAll()
+        selectedTaskIds = nil
         stopTimer()
         stopAlarm()
         hideTimerPanel()
@@ -180,7 +191,12 @@ class TaskGoViewModel: ObservableObject {
             if nextTask == nil {
                 nextTask = taskVM?.incompleteTasksForDisplay.first { task in
                     guard let id = task.id else { return false }
-                    return !completedTaskIds.contains(id)
+                    if completedTaskIds.contains(id) { return false }
+                    // If running with selected tasks only, filter to those
+                    if let selected = selectedTaskIds {
+                        return selected.contains(id)
+                    }
+                    return true
                 }
                 // If the next item is a chain leader, start its first incomplete step
                 if let next = nextTask, let chainId = next.chainId {
