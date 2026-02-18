@@ -133,6 +133,22 @@ struct TaskRowView: View {
                     // Drag handle in parent view handles reorder
                 }
 
+                // Undo complete
+                if task.isComplete {
+                    Button(action: {
+                        Task { await taskVM.toggleComplete(task) }
+                    }) {
+                        Text("Undo")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(Color.calmTeal)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(Color.calmTeal.opacity(0.1))
+                            .cornerRadius(3)
+                    }
+                    .buttonStyle(.plain)
+                }
+
                 // Trash
                 Button(action: {
                     Task { await taskVM.deleteTask(task) }
