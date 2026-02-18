@@ -18,7 +18,10 @@ struct NotesTabView: View {
                 Divider()
                 RichTextEditor(
                     attributedText: $notesVM.attributedContent,
-                    coordinator: editorCoordinator
+                    coordinator: editorCoordinator,
+                    onTextChange: {
+                        notesVM.onContentChanged()
+                    }
                 )
             }
         }

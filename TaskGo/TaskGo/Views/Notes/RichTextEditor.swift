@@ -155,6 +155,7 @@ class RichTextEditorCoordinator: ObservableObject {
 struct RichTextEditor: NSViewRepresentable {
     @Binding var attributedText: NSAttributedString
     var coordinator: RichTextEditorCoordinator
+    var onTextChange: (() -> Void)?
 
     func makeCoordinator() -> Delegate {
         Delegate(self)
@@ -251,6 +252,7 @@ struct RichTextEditor: NSViewRepresentable {
             parent.attributedText = textView.attributedString()
             isUpdating = false
             parent.coordinator.updateState()
+            parent.onTextChange?()
         }
 
         func textViewDidChangeSelection(_ notification: Notification) {

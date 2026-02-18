@@ -8,11 +8,7 @@ import Combine
 class NotesViewModel: ObservableObject {
     @Published var notes: [Note] = []
     @Published var selectedDate: String = Note.todayString
-    @Published var attributedContent: NSAttributedString = NSAttributedString(string: "") {
-        didSet {
-            scheduleSave()
-        }
-    }
+    @Published var attributedContent: NSAttributedString = NSAttributedString(string: "")
 
     private let firestoreService = FirestoreService.shared
     private var listener: ListenerRegistration?
@@ -76,6 +72,11 @@ class NotesViewModel: ObservableObject {
                                                     attributes: [.font: NotesViewModel.defaultFont])
         }
         isLoadingNote = false
+    }
+
+    /// Called by the RichTextEditor when content changes
+    func onContentChanged() {
+        scheduleSave()
     }
 
     private func scheduleSave() {
