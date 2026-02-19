@@ -11,7 +11,7 @@ struct AddTaskView: View {
 
     // Single task fields
     @State private var name = ""
-    @State private var minutesText = "25"
+    @State private var minutesText = ""
     @State private var description = ""
     @State private var position = ""
     @State private var showDescription = false
@@ -96,9 +96,9 @@ struct AddTaskView: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.primary.opacity(0.55))
 
-                TextField("25", text: $minutesText)
+                TextField("optional", text: $minutesText)
                     .textFieldStyle(.roundedBorder)
-                    .frame(width: 50)
+                    .frame(width: 55)
                     .font(.system(size: 13))
                     .multilineTextAlignment(.center)
 
@@ -144,10 +144,11 @@ struct AddTaskView: View {
 
             Button(action: {
                 let positionInt = Int(position)
+                let time = minutesText.trimmingCharacters(in: .whitespaces).isEmpty ? 0 : timeEstimateSeconds
                 Task {
                     await taskVM.addTask(
                         name: name,
-                        timeEstimate: timeEstimateSeconds,
+                        timeEstimate: time,
                         description: showDescription && !description.isEmpty ? description : nil,
                         position: showPosition ? positionInt : nil,
                         groupId: groupId
@@ -160,7 +161,7 @@ struct AddTaskView: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(Color.calmTeal)
-            .disabled(name.isEmpty || timeEstimateSeconds == 0)
+            .disabled(name.isEmpty)
         }
     }
 

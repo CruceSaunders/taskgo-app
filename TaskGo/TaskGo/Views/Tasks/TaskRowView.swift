@@ -127,7 +127,7 @@ struct TaskRowView: View {
 
                 // Right-side actions (fixed width for alignment)
                 HStack(spacing: 6) {
-                    if !task.isComplete {
+                    if !task.isComplete && task.timeEstimate > 0 {
                         Text(task.timeEstimateFormatted)
                             .font(.system(size: 10))
                             .foregroundStyle(.primary.opacity(0.45))
