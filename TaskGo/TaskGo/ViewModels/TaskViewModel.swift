@@ -59,7 +59,11 @@ class TaskViewModel: ObservableObject {
             } else if let chainId = task.chainId {
                 if !seenGroups.contains("c:\(chainId)") {
                     seenGroups.insert("c:\(chainId)")
-                    result.append(task)
+                    let chainTasks = tasksInChain(chainId)
+                    let allComplete = chainTasks.allSatisfy { $0.isComplete }
+                    if allComplete, let leader = chainTasks.first {
+                        result.append(leader)
+                    }
                 }
             } else {
                 result.append(task)

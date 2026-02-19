@@ -3,6 +3,7 @@ import SwiftUI
 enum AppTab: String, CaseIterable {
     case tasks = "Tasks"
     case notes = "Notes"
+    case calendar = "Calendar"
     // case social = "Social"  // v2: Social features deferred
     case profile = "Profile"
 }
@@ -40,6 +41,8 @@ struct MainView: View {
                 TasksTabView()
             case .notes:
                 NotesTabView()
+            case .calendar:
+                CalendarTabView()
             // case .social:  // v2: Social features deferred
             //     SocialTabView()
             case .profile:

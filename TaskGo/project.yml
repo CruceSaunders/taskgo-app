@@ -51,11 +51,13 @@ targets:
       properties:
         LSUIElement: true
         SUFeedURL: "https://crucesaunders.github.io/taskgo-app/appcast.xml"
+        NSCalendarsFullAccessUsageDescription: "TaskGo! shows your calendar events alongside your tasks so you can plan your day."
     entitlements:
       path: TaskGo/TaskGo.entitlements
       properties:
         com.apple.security.app-sandbox: false
         com.apple.security.network.client: true
         com.apple.security.files.user-selected.read-write: true
+        com.apple.security.personal-information.calendars: true
         keychain-access-groups:
           - "$(AppIdentifierPrefix)com.cruce.taskgo"

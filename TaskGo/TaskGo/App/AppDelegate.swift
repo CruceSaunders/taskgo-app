@@ -3,12 +3,14 @@ import SwiftUI
 import FirebaseCore
 import UserNotifications
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     var timerPanelController: TimerPanelController?
     var mainWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, error in
+        let notifCenter = UNUserNotificationCenter.current()
+        notifCenter.delegate = self
+        notifCenter.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
             if let error = error {
                 print("Notification permission error: \(error.localizedDescription)")
             }
@@ -60,7 +62,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.post(name: .mainWindowNeedsContent, object: window)
     }
 
-    // Hide dock icon when window closes but keep menu bar
+    // MARK: - UNUserNotificationCenterDelegate
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        // Show notification even when app is in foreground
+        completionHandler([.banner, .sound])
+
+        // Play alarm for reminders
+        if notification.request.content.categoryIdentifier == "REMINDER" {
+            NotificationScheduler.shared.playAlarmSound()
+        }
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        // User tapped the notification -- open the app
+        NSApp.activate(ignoringOtherApps: true)
+        completionHandler()
+    }
+
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !flag {
             openMainWindow()

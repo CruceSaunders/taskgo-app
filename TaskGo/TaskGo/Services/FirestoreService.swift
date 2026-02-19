@@ -284,4 +284,36 @@ class FirestoreService {
                 completion(notes)
             }
     }
+
+    // MARK: - Reminders
+
+    private func remindersRef(_ userId: String) -> CollectionReference {
+        userRef(userId).collection("reminders")
+    }
+
+    func saveReminder(_ reminder: Reminder, userId: String) async throws {
+        if let id = reminder.id {
+            try remindersRef(userId).document(id).setData(from: reminder)
+        } else {
+            _ = try remindersRef(userId).addDocument(from: reminder)
+        }
+    }
+
+    func deleteReminder(_ reminderId: String, userId: String) async throws {
+        try await remindersRef(userId).document(reminderId).delete()
+    }
+
+    func listenToReminders(userId: String, completion: @escaping ([Reminder]) -> Void) -> ListenerRegistration {
+        return remindersRef(userId)
+            .order(by: "scheduledDate", descending: false)
+            .addSnapshotListener { snapshot, error in
+                if let error = error {
+                    print("[Firestore] listenToReminders error: \(error)")
+                    return
+                }
+                guard let documents = snapshot?.documents else { return }
+                let reminders = documents.compactMap { try? $0.data(as: Reminder.self) }
+                completion(reminders)
+            }
+    }
 }

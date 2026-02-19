@@ -29,6 +29,8 @@ struct MainWindowView: View {
                         TasksTabView()
                     case .notes:
                         NotesTabView()
+                    case .calendar:
+                        CalendarTabView()
                     case .profile:
                         ProfileTabView()
                     }
@@ -71,6 +73,7 @@ struct MainWindowView: View {
             VStack(spacing: 2) {
                 sidebarButton("Tasks", icon: "checklist", tab: .tasks)
                 sidebarButton("Notes", icon: "doc.text", tab: .notes)
+                sidebarButton("Calendar", icon: "calendar", tab: .calendar)
                 sidebarButton("Profile", icon: "person.circle", tab: .profile)
             }
             .padding(.horizontal, 8)

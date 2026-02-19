@@ -11,23 +11,21 @@ struct TaskGoApp: App {
     @StateObject private var taskGoViewModel: TaskGoViewModel
     @StateObject private var xpViewModel: XPViewModel
     @StateObject private var notesViewModel: NotesViewModel
-    // @StateObject private var socialViewModel: SocialViewModel  // v2: Social features deferred
+    @StateObject private var calendarViewModel: CalendarViewModel
+    @StateObject private var reminderViewModel: ReminderViewModel
 
     init() {
-        // CRITICAL: Configure Firebase BEFORE any ViewModels that use Firestore
         FirebaseApp.configure()
-
-        // Use default keychain access group for non-App-Store distribution
         try? Auth.auth().useUserAccessGroup(nil)
 
-        // Now safe to initialize ViewModels
         _authViewModel = StateObject(wrappedValue: AuthViewModel())
         _taskViewModel = StateObject(wrappedValue: TaskViewModel())
         _groupViewModel = StateObject(wrappedValue: GroupViewModel())
         _taskGoViewModel = StateObject(wrappedValue: TaskGoViewModel())
         _xpViewModel = StateObject(wrappedValue: XPViewModel())
         _notesViewModel = StateObject(wrappedValue: NotesViewModel())
-        // _socialViewModel = StateObject(wrappedValue: SocialViewModel())  // v2
+        _calendarViewModel = StateObject(wrappedValue: CalendarViewModel())
+        _reminderViewModel = StateObject(wrappedValue: ReminderViewModel())
     }
 
     var body: some Scene {
@@ -39,6 +37,8 @@ struct TaskGoApp: App {
                 .environmentObject(taskGoViewModel)
                 .environmentObject(xpViewModel)
                 .environmentObject(notesViewModel)
+                .environmentObject(calendarViewModel)
+                .environmentObject(reminderViewModel)
                 .onAppear {
                     appDelegate.timerPanelController?.setViewModel(taskGoViewModel)
                     taskGoViewModel.taskVM = taskViewModel
@@ -70,6 +70,8 @@ struct TaskGoApp: App {
                 .environmentObject(self.taskGoViewModel)
                 .environmentObject(self.xpViewModel)
                 .environmentObject(self.notesViewModel)
+                .environmentObject(self.calendarViewModel)
+                .environmentObject(self.reminderViewModel)
             window.contentView = NSHostingView(rootView: contentView)
         }
     }
