@@ -293,15 +293,16 @@ class TaskViewModel: ObservableObject {
 
     /// Mark a single task complete (ignoring batch/chain grouping). Used for chain steps.
     func markSingleComplete(_ task: TaskItem) async {
-        guard let userId = Auth.auth().currentUser?.uid else { return }
+        guard let userId = Auth.auth().currentUser?.uid,
+              let taskId = task.id else { return }
         guard !task.isComplete else { return }
 
-        var updated = task
-        updated.isComplete = true
-        updated.completedAt = Date()
-
         do {
-            try await firestoreService.updateTask(updated, userId: userId)
+            try await firestoreService.updateTaskFields(
+                taskId: taskId,
+                fields: ["isComplete": true, "completedAt": Date()],
+                userId: userId
+            )
         } catch {
             print("[TaskVM] markSingleComplete error: \(error)")
             errorMessage = error.localizedDescription
@@ -349,18 +350,26 @@ class TaskViewModel: ObservableObject {
     }
 
     func toggleComplete(_ task: TaskItem) async {
-        guard let userId = Auth.auth().currentUser?.uid else {
-            print("[TaskVM] toggleComplete: no user")
+        guard let userId = Auth.auth().currentUser?.uid,
+              let taskId = task.id else {
+            print("[TaskVM] toggleComplete: no user or no taskId")
             return
         }
 
-        var updated = task
-        updated.isComplete.toggle()
-        updated.completedAt = updated.isComplete ? Date() : nil
-        print("[TaskVM] toggleComplete: '\(task.name)' -> isComplete=\(updated.isComplete)")
+        let newComplete = !task.isComplete
+        print("[TaskVM] toggleComplete: '\(task.name)' -> isComplete=\(newComplete)")
 
         do {
-            try await firestoreService.updateTask(updated, userId: userId)
+            // Use explicit updateData to guarantee fields are set
+            var data: [String: Any] = [
+                "isComplete": newComplete,
+            ]
+            if newComplete {
+                data["completedAt"] = Date()
+            } else {
+                data["completedAt"] = FieldValue.delete()
+            }
+            try await firestoreService.updateTaskFields(taskId: taskId, fields: data, userId: userId)
         } catch {
             print("[TaskVM] toggleComplete error: \(error)")
             errorMessage = error.localizedDescription
