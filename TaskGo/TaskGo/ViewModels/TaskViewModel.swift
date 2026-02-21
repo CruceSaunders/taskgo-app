@@ -357,10 +357,14 @@ class TaskViewModel: ObservableObject {
         }
 
         let newComplete = !task.isComplete
-        print("[TaskVM] toggleComplete: '\(task.name)' -> isComplete=\(newComplete)")
+
+        // Update local state IMMEDIATELY for instant UI response
+        if let index = tasks.firstIndex(where: { $0.id == taskId }) {
+            tasks[index].isComplete = newComplete
+            tasks[index].completedAt = newComplete ? Date() : nil
+        }
 
         do {
-            // Use explicit updateData to guarantee fields are set
             var data: [String: Any] = [
                 "isComplete": newComplete,
             ]
@@ -372,8 +376,12 @@ class TaskViewModel: ObservableObject {
             try await firestoreService.updateTaskFields(taskId: taskId, fields: data, userId: userId)
         } catch {
             print("[TaskVM] toggleComplete error: \(error)")
+            // Revert local state on failure
+            if let index = tasks.firstIndex(where: { $0.id == taskId }) {
+                tasks[index].isComplete = !newComplete
+                tasks[index].completedAt = !newComplete ? Date() : nil
+            }
             errorMessage = error.localizedDescription
-            ErrorHandler.shared.handle(error)
         }
     }
 
