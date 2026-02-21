@@ -9,6 +9,7 @@ struct TasksTabView: View {
     @State private var newGroupName = ""
     @State private var renamingGroupId: String?
     @State private var renameText = ""
+    @State private var confirmDeleteGroup = false
     @State private var isSelectMode = false
     @State private var selectedTaskIds: Set<String> = []
     @State private var batchTimeText = "30"
@@ -107,15 +108,38 @@ struct TasksTabView: View {
                         }
                         .buttonStyle(.plain)
 
-                        Button(action: {
-                            let groupToDelete = selectedGroup
-                            Task { await groupVM.deleteGroup(groupToDelete) }
-                        }) {
-                            Text("Delete group")
+                        if confirmDeleteGroup {
+                            Text("Delete all tasks?")
                                 .font(.system(size: 10))
-                                .foregroundStyle(.red.opacity(0.7))
+                                .foregroundStyle(.red)
+                            Button(action: {
+                                let groupToDelete = selectedGroup
+                                Task { await groupVM.deleteGroup(groupToDelete) }
+                                confirmDeleteGroup = false
+                            }) {
+                                Text("Yes")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 2)
+                                    .background(Color.red)
+                                    .cornerRadius(4)
+                            }
+                            .buttonStyle(.plain)
+                            Button(action: { confirmDeleteGroup = false }) {
+                                Text("No")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            Button(action: { confirmDeleteGroup = true }) {
+                                Text("Delete group")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.red.opacity(0.7))
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
 
                         Spacer()
                     }
