@@ -30,6 +30,9 @@ struct NotesTabView: View {
                 notesVM.startListening()
             }
         }
+        .onDisappear {
+            notesVM.saveNow()
+        }
     }
 
     // MARK: - Sidebar

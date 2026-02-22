@@ -85,6 +85,10 @@ class NotesViewModel: ObservableObject {
         saveTask?.cancel()
         let date = selectedDate
         let attrText = attributedContent
+
+        // Cache locally immediately so it persists across tab switches
+        cacheLocally(date: date, attrText: attrText)
+
         saveTask = DispatchWorkItem { [weak self] in
             Task { @MainActor in
                 await self?.save(date: date, attributedText: attrText)
@@ -98,11 +102,28 @@ class NotesViewModel: ObservableObject {
         guard !isLoadingNote else { return }
         let date = selectedDate
         let attrText = attributedContent
-        // Save synchronously on current actor
-        Task { @MainActor in
-            await save(date: date, attributedText: attrText)
+
+        // Cache locally
+        cacheLocally(date: date, attrText: attrText)
+
+        // Save to Firestore synchronously (blocking)
+        let plainText = attrText.plainText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !plainText.isEmpty {
+            let rtfBase64 = attrText.rtfBase64()
+            let note = Note(date: date, content: plainText, rtfData: rtfBase64, updatedAt: Date())
+            guard let userId = Auth.auth().currentUser?.uid else { return }
+            // Use a semaphore to ensure this completes before we return
+            let semaphore = DispatchSemaphore(value: 0)
+            Task.detached {
+                try? await FirestoreService.shared.saveNote(note, userId: userId)
+                semaphore.signal()
+            }
+            // Wait up to 2 seconds for save to complete
+            _ = semaphore.wait(timeout: .now() + 2)
         }
-        // Also cache locally so selectNote finds it immediately
+    }
+
+    private func cacheLocally(date: String, attrText: NSAttributedString) {
         let plainText = attrText.plainText.trimmingCharacters(in: .whitespacesAndNewlines)
         if !plainText.isEmpty {
             let rtfBase64 = attrText.rtfBase64()
