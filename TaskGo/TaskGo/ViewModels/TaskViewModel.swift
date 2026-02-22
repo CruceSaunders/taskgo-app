@@ -10,6 +10,7 @@ class TaskViewModel: ObservableObject {
 
     private let firestoreService = FirestoreService.shared
     private var listener: ListenerRegistration?
+    private var pendingToggleIds = Set<String>()
 
     var incompleteTasks: [TaskItem] {
         tasks.filter { !$0.isComplete }.sorted { $0.position < $1.position }
@@ -82,7 +83,21 @@ class TaskViewModel: ObservableObject {
 
         listener = firestoreService.listenToTasks(userId: userId, groupId: groupId) { [weak self] tasks in
             Task { @MainActor in
-                self?.tasks = tasks
+                guard let self = self else { return }
+                // Preserve local state for tasks with pending toggle operations
+                if self.pendingToggleIds.isEmpty {
+                    self.tasks = tasks
+                } else {
+                    var merged = tasks
+                    for (i, task) in merged.enumerated() {
+                        if let id = task.id, self.pendingToggleIds.contains(id),
+                           let localTask = self.tasks.first(where: { $0.id == id }) {
+                            merged[i].isComplete = localTask.isComplete
+                            merged[i].completedAt = localTask.completedAt
+                        }
+                    }
+                    self.tasks = merged
+                }
             }
         }
     }
@@ -352,22 +367,22 @@ class TaskViewModel: ObservableObject {
     func toggleComplete(_ task: TaskItem) async {
         guard let userId = Auth.auth().currentUser?.uid,
               let taskId = task.id else {
-            print("[TaskVM] toggleComplete: no user or no taskId")
             return
         }
 
         let newComplete = !task.isComplete
 
-        // Update local state IMMEDIATELY for instant UI response
+        // Lock this task ID so the listener doesn't overwrite our local change
+        pendingToggleIds.insert(taskId)
+
+        // Optimistic local update for instant UI
         if let index = tasks.firstIndex(where: { $0.id == taskId }) {
             tasks[index].isComplete = newComplete
             tasks[index].completedAt = newComplete ? Date() : nil
         }
 
         do {
-            var data: [String: Any] = [
-                "isComplete": newComplete,
-            ]
+            var data: [String: Any] = ["isComplete": newComplete]
             if newComplete {
                 data["completedAt"] = Date()
             } else {
@@ -376,12 +391,17 @@ class TaskViewModel: ObservableObject {
             try await firestoreService.updateTaskFields(taskId: taskId, fields: data, userId: userId)
         } catch {
             print("[TaskVM] toggleComplete error: \(error)")
-            // Revert local state on failure
+            // Revert on failure
             if let index = tasks.firstIndex(where: { $0.id == taskId }) {
                 tasks[index].isComplete = !newComplete
                 tasks[index].completedAt = !newComplete ? Date() : nil
             }
             errorMessage = error.localizedDescription
+        }
+
+        // Unlock after a delay to let the confirmed listener fire
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            self?.pendingToggleIds.remove(taskId)
         }
     }
 
