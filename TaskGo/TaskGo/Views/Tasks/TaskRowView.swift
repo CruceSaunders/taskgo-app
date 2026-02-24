@@ -387,107 +387,19 @@ struct TaskRowView: View {
     // MARK: - Chain View
 
     private func chainView(chainId: String) -> some View {
-        let chainTasks = taskVM.tasksInChain(chainId)
-        let allComplete = chainTasks.allSatisfy { $0.isComplete }
-        let completedCount = chainTasks.filter { $0.isComplete }.count
-        let totalMinutes = chainTasks.reduce(0) { $0 + $1.timeEstimate } / 60
-
-        return VStack(alignment: .leading, spacing: 0) {
-            if isGroupEditing {
-                groupEditView(
-                    title: chainTasks.compactMap({ $0.groupTitle }).first ?? "",
-                    time: totalMinutes,
-                    groupId: chainId,
-                    isBatch: false,
-                    tasks: chainTasks
-                )
-            } else {
-                // Chain header with priority number
-                HStack(spacing: 8) {
-                    if !allComplete && displayIndex > 0 {
-                        Text("\(displayIndex)")
-                            .font(.system(size: 10, weight: .medium, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                            .frame(width: 18, alignment: .trailing)
-                    }
-
-                    Image(systemName: allComplete ? "link.circle.fill" : "link")
-                        .font(.system(size: 15))
-                        .foregroundStyle(allComplete ? .orange : .orange.opacity(0.7))
-
-                    // Tap to edit
-                    Button(action: {
-                        guard !dragLocked else { return }
-                        editGroupTitle = chainTasks.compactMap({ $0.groupTitle }).first ?? ""
-                        editBatchMinutes = "\(totalMinutes)"
-                        editingTaskId = "group:\(chainId)"
-                    }) {
-                        VStack(alignment: .leading, spacing: 1) {
-                            if let title = chainTasks.compactMap({ $0.groupTitle }).first {
-                                Text(title)
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(allComplete ? .secondary : .primary)
-                                    .lineLimit(1)
-                            }
-                            Text("Chain (\(chainTasks.count) steps)")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .buttonStyle(.plain)
-
-                    if !allComplete {
-                        Text("\(completedCount)/\(chainTasks.count)")
-                            .font(.system(size: 9, weight: .medium))
-                            .foregroundStyle(.orange)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 1)
-                            .background(Color.orange.opacity(0.12))
-                            .cornerRadius(4)
-                    }
-
-                    Spacer()
-
-                    HStack(spacing: 6) {
-                        if !allComplete {
-                            Text("\(totalMinutes)m")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.primary.opacity(0.45))
-                                .frame(width: 30, alignment: .trailing)
-                        }
-
-                        Button(action: {
-                            Task {
-                                for t in chainTasks { await taskVM.deleteTask(t) }
-                            }
-                        }) {
-                            Image(systemName: "trash")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.red.opacity(0.4))
-                        }
-                        .buttonStyle(.plain)
-                        .frame(width: 20, alignment: .center)
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 5)
+        ChainGroupView(
+            chainId: chainId,
+            task: task,
+            editingTaskId: $editingTaskId,
+            displayIndex: displayIndex,
+            dragLocked: dragLocked,
+            editGroupTitle: $editGroupTitle,
+            editBatchMinutes: $editBatchMinutes,
+            isGroupEditing: isGroupEditing,
+            groupEditViewBuilder: { title, time, gid, tasks in
+                groupEditView(title: title, time: time, groupId: gid, isBatch: false, tasks: tasks)
             }
-
-            // Steps -- always visible and editable
-            VStack(spacing: 0) {
-                ForEach(chainTasks) { step in
-                    SubTaskRow(
-                        subTask: step,
-                        editingTaskId: $editingTaskId,
-                        taskVM: taskVM,
-                        accentColor: .orange,
-                        showStepNumber: true,
-                        showTime: true
-                    )
-                }
-            }
-            .padding(.bottom, 4)
-        }
+        )
     }
 
     // MARK: - Group Edit View (shared for batch and chain)
@@ -589,6 +501,172 @@ struct TaskRowView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .background((isBatch ? Color.calmTeal : Color.orange).opacity(0.05))
+    }
+}
+
+// MARK: - Chain Group View (with drag reorder for steps)
+
+struct ChainGroupView<GroupEdit: View>: View {
+    @EnvironmentObject var taskVM: TaskViewModel
+    @EnvironmentObject var groupVM: GroupViewModel
+
+    let chainId: String
+    let task: TaskItem
+    @Binding var editingTaskId: String?
+    var displayIndex: Int
+    var dragLocked: Bool
+    @Binding var editGroupTitle: String
+    @Binding var editBatchMinutes: String
+    var isGroupEditing: Bool
+    var groupEditViewBuilder: (String, Int, String, [TaskItem]) -> GroupEdit
+
+    @State private var draggingStepId: String?
+    @State private var stepDragOffset: CGFloat = 0
+    @State private var stepTargetIndex: Int?
+    @State private var stepStartIndex: Int?
+    @State private var stepRowHeight: CGFloat = 30
+
+    var body: some View {
+        let chainTasks = taskVM.tasksInChain(chainId)
+        let allComplete = chainTasks.allSatisfy { $0.isComplete }
+        let completedCount = chainTasks.filter { $0.isComplete }.count
+        let totalMinutes = chainTasks.reduce(0) { $0 + $1.timeEstimate } / 60
+
+        VStack(alignment: .leading, spacing: 0) {
+            if isGroupEditing {
+                groupEditViewBuilder(
+                    chainTasks.compactMap({ $0.groupTitle }).first ?? "",
+                    totalMinutes,
+                    chainId,
+                    chainTasks
+                )
+            } else {
+                HStack(spacing: 8) {
+                    if !allComplete && displayIndex > 0 {
+                        Text("\(displayIndex)")
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 18, alignment: .trailing)
+                    }
+
+                    Image(systemName: allComplete ? "link.circle.fill" : "link")
+                        .font(.system(size: 15))
+                        .foregroundStyle(allComplete ? .orange : .orange.opacity(0.7))
+
+                    Button(action: {
+                        guard !dragLocked else { return }
+                        editGroupTitle = chainTasks.compactMap({ $0.groupTitle }).first ?? ""
+                        editBatchMinutes = "\(totalMinutes)"
+                        editingTaskId = "group:\(chainId)"
+                    }) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            if let title = chainTasks.compactMap({ $0.groupTitle }).first {
+                                Text(title)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(allComplete ? .secondary : .primary)
+                                    .lineLimit(1)
+                            }
+                            Text("Chain (\(chainTasks.count) steps)")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+
+                    if !allComplete {
+                        Text("\(completedCount)/\(chainTasks.count)")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(.orange)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(Color.orange.opacity(0.12))
+                            .cornerRadius(4)
+                    }
+
+                    Spacer()
+
+                    HStack(spacing: 6) {
+                        if !allComplete {
+                            Text("\(totalMinutes)m")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.primary.opacity(0.45))
+                                .frame(width: 30, alignment: .trailing)
+                        }
+
+                        Button(action: {
+                            Task {
+                                for t in chainTasks { await taskVM.deleteTask(t) }
+                            }
+                        }) {
+                            Image(systemName: "trash")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.red.opacity(0.4))
+                        }
+                        .buttonStyle(.plain)
+                        .frame(width: 20, alignment: .center)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 5)
+            }
+
+            VStack(spacing: 0) {
+                ForEach(Array(chainTasks.enumerated()), id: \.element.id) { stepIndex, step in
+                    let isDraggingStep = draggingStepId == step.id
+
+                    SubTaskRow(
+                        subTask: step,
+                        editingTaskId: $editingTaskId,
+                        taskVM: taskVM,
+                        accentColor: .orange,
+                        showStepNumber: true,
+                        showTime: true
+                    )
+                    .background(
+                        GeometryReader { geo in
+                            Color.clear.onAppear {
+                                if geo.size.height > 10 { stepRowHeight = geo.size.height }
+                            }
+                        }
+                    )
+                    .offset(y: isDraggingStep ? stepDragOffset : 0)
+                    .zIndex(isDraggingStep ? 100 : 0)
+                    .opacity(isDraggingStep ? 0.85 : 1.0)
+                    .shadow(color: isDraggingStep ? .black.opacity(0.12) : .clear, radius: isDraggingStep ? 3 : 0, y: isDraggingStep ? 1 : 0)
+                    .background(isDraggingStep ? Color(.windowBackgroundColor) : Color.clear)
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 6)
+                            .onChanged { value in
+                                if draggingStepId == nil {
+                                    draggingStepId = step.id
+                                    stepStartIndex = stepIndex
+                                }
+                                guard draggingStepId == step.id else { return }
+                                stepDragOffset = value.translation.height
+                                let rowsMoved = Int(round(stepDragOffset / max(stepRowHeight, 28)))
+                                let newIdx = min(max(stepIndex + rowsMoved, 0), chainTasks.count - 1)
+                                stepTargetIndex = newIdx
+                            }
+                            .onEnded { _ in
+                                if let startIdx = stepStartIndex,
+                                   let targetIdx = stepTargetIndex,
+                                   startIdx != targetIdx {
+                                    Task {
+                                        await taskVM.reorderChainStep(chainId: chainId, from: startIdx, to: targetIdx)
+                                    }
+                                }
+                                withAnimation(.easeOut(duration: 0.15)) {
+                                    draggingStepId = nil
+                                    stepDragOffset = 0
+                                    stepTargetIndex = nil
+                                    stepStartIndex = nil
+                                }
+                            }
+                    )
+                }
+            }
+            .padding(.bottom, 4)
+        }
     }
 }
 

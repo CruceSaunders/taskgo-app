@@ -247,20 +247,61 @@ struct TasksTabView: View {
         VStack(spacing: 0) {
             // Action bar (when selecting 1+)
             if isSelectMode && !selectedTaskIds.isEmpty {
-                HStack(spacing: 6) {
-                    Text("\(selectedTaskIds.count) selected")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.primary.opacity(0.6))
+                let resolvedTaskIds = resolveSelectedToTaskIds()
+                let hasGrouped = selectedTaskIds.contains(where: { id in
+                    taskVM.tasks.contains { $0.batchId == id || $0.chainId == id }
+                })
+                let allUngrouped = !hasGrouped
+
+                HStack(spacing: 5) {
+                    Text("\(selectedTaskIds.count)")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Color.calmTeal)
+
+                    Button {
+                        taskGoVM.startTaskGoWithSelected(Set(resolvedTaskIds))
+                        isSelectMode = false
+                        selectedTaskIds.removeAll()
+                    } label: {
+                        HStack(spacing: 2) {
+                            Image(systemName: "bolt.fill")
+                                .font(.system(size: 8))
+                            Text("Task Go!")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color.calmTeal)
+                    .controlSize(.mini)
 
                     Spacer()
 
-                    TextField("min", text: $batchTimeText)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 36)
-                        .font(.system(size: 10))
-                        .multilineTextAlignment(.center)
+                    // Unbatch/Unchain when grouped items are selected
+                    if hasGrouped {
+                        Button("Ungroup") {
+                            Task {
+                                for id in selectedTaskIds {
+                                    let batchTasks = taskVM.tasksInBatch(id)
+                                    for t in batchTasks { await taskVM.unbatchTask(t) }
+                                    let chainTasks = taskVM.tasksInChain(id)
+                                    for t in chainTasks { await taskVM.unchainTask(t) }
+                                }
+                                isSelectMode = false
+                                selectedTaskIds.removeAll()
+                            }
+                        }
+                        .font(.system(size: 9))
+                        .buttonStyle(.bordered)
+                        .controlSize(.mini)
+                    }
 
-                    if selectedTaskIds.count >= 2 {
+                    if allUngrouped && selectedTaskIds.count >= 2 {
+                        TextField("min", text: $batchTimeText)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 30)
+                            .font(.system(size: 9))
+                            .multilineTextAlignment(.center)
+
                         Button("Batch") {
                             let ids = Array(selectedTaskIds)
                             let time = (Int(batchTimeText) ?? 30) * 60
@@ -270,12 +311,10 @@ struct TasksTabView: View {
                                 selectedTaskIds.removeAll()
                             }
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(Color.calmTeal)
+                        .font(.system(size: 9))
+                        .buttonStyle(.bordered)
                         .controlSize(.mini)
-                    }
 
-                    if selectedTaskIds.count >= 2 {
                         Button("Chain") {
                             let ids = Array(selectedTaskIds)
                             Task {
@@ -284,22 +323,13 @@ struct TasksTabView: View {
                                 selectedTaskIds.removeAll()
                             }
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.orange)
+                        .font(.system(size: 9))
+                        .buttonStyle(.bordered)
                         .controlSize(.mini)
                     }
-
-                    Button("Task Go!") {
-                        taskGoVM.startTaskGoWithSelected(selectedTaskIds)
-                        isSelectMode = false
-                        selectedTaskIds.removeAll()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color.calmTeal)
-                    .controlSize(.mini)
                 }
                 .padding(.horizontal, 10)
-                .padding(.vertical, 6)
+                .padding(.vertical, 5)
                 .background(Color.secondary.opacity(0.06))
 
                 Divider()
@@ -397,19 +427,19 @@ struct TasksTabView: View {
                             }
 
                             // Select mode
-                            if isSelectMode, !task.isGrouped {
+                            if isSelectMode {
+                                let selectId = task.batchId ?? task.chainId ?? task.id ?? ""
+                                let isSelected = selectedTaskIds.contains(selectId)
                                 Button(action: {
-                                    if let id = task.id {
-                                        if selectedTaskIds.contains(id) {
-                                            selectedTaskIds.remove(id)
-                                        } else {
-                                            selectedTaskIds.insert(id)
-                                        }
+                                    if isSelected {
+                                        selectedTaskIds.remove(selectId)
+                                    } else {
+                                        selectedTaskIds.insert(selectId)
                                     }
                                 }) {
-                                    Image(systemName: selectedTaskIds.contains(task.id ?? "") ? "checkmark.square.fill" : "square")
+                                    Image(systemName: isSelected ? "checkmark.square.fill" : "square")
                                         .font(.system(size: 14))
-                                        .foregroundStyle(selectedTaskIds.contains(task.id ?? "") ? Color.calmTeal : .primary.opacity(0.3))
+                                        .foregroundStyle(isSelected ? Color.calmTeal : .primary.opacity(0.3))
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -532,25 +562,12 @@ struct TasksTabView: View {
                             isSelectMode = true
                         }) {
                             HStack(spacing: 3) {
-                                Image(systemName: "square.stack")
+                                Image(systemName: "checkmark.circle")
                                     .font(.system(size: 9))
-                                Text("Batch")
+                                Text("Select")
                                     .font(.system(size: 10))
                             }
-                            .foregroundStyle(Color.calmTeal)
-                        }
-                        .buttonStyle(.plain)
-
-                        Button(action: {
-                            isSelectMode = true
-                        }) {
-                            HStack(spacing: 3) {
-                                Image(systemName: "link")
-                                    .font(.system(size: 9))
-                                Text("Chain")
-                                    .font(.system(size: 10))
-                            }
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(.primary.opacity(0.5))
                         }
                         .buttonStyle(.plain)
 
@@ -572,6 +589,25 @@ struct TasksTabView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
         }
+    }
+
+    /// Resolve selected IDs (which may be batchId/chainId) to individual task IDs
+    private func resolveSelectedToTaskIds() -> [String] {
+        var taskIds: [String] = []
+        for id in selectedTaskIds {
+            let batchTasks = taskVM.tasksInBatch(id)
+            if !batchTasks.isEmpty {
+                taskIds.append(contentsOf: batchTasks.compactMap { $0.id })
+                continue
+            }
+            let chainTasks = taskVM.tasksInChain(id)
+            if !chainTasks.isEmpty {
+                taskIds.append(contentsOf: chainTasks.compactMap { $0.id })
+                continue
+            }
+            taskIds.append(id)
+        }
+        return taskIds
     }
 }
 

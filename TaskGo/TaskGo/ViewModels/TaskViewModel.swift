@@ -289,6 +289,27 @@ class TaskViewModel: ObservableObject {
         tasksInChain(chainId).first { !$0.isComplete }
     }
 
+    func reorderChainStep(chainId: String, from sourceIndex: Int, to destIndex: Int) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        var steps = tasksInChain(chainId)
+        guard sourceIndex >= 0, sourceIndex < steps.count,
+              destIndex >= 0, destIndex < steps.count,
+              sourceIndex != destIndex else { return }
+
+        let moved = steps.remove(at: sourceIndex)
+        steps.insert(moved, at: destIndex)
+
+        do {
+            for (i, var step) in steps.enumerated() {
+                step.chainOrder = i + 1
+                try await firestoreService.updateTask(step, userId: userId)
+            }
+        } catch {
+            print("[TaskVM] reorderChainStep error: \(error)")
+            errorMessage = error.localizedDescription
+        }
+    }
+
     /// For Task Go: get the next "item" (single task or batch leader)
     var taskGoItems: [TaskItem] {
         var seen = Set<String>()
