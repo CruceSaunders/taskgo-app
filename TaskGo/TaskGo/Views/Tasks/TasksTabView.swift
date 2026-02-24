@@ -481,7 +481,7 @@ struct TasksTabView: View {
                         .simultaneousGesture(
                             DragGesture(minimumDistance: 8)
                                 .onChanged { value in
-                                    // Block edits from the moment drag starts
+                                    guard !task.isGrouped else { return }
                                     justDragged = true
 
                                     if draggingTaskId == nil {
@@ -497,6 +497,7 @@ struct TasksTabView: View {
                                     targetDropIndex = newIdx
                                 }
                                 .onEnded { _ in
+                                    guard !task.isGrouped else { return }
                                     if let startIdx = dragStartIndex,
                                        let targetIdx = targetDropIndex,
                                        startIdx != targetIdx {
@@ -515,7 +516,6 @@ struct TasksTabView: View {
                                         targetDropIndex = nil
                                         dragStartIndex = nil
                                     }
-                                    // Keep edit blocked for longer after drop
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                                         justDragged = false
                                     }

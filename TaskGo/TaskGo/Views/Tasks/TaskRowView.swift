@@ -334,11 +334,13 @@ struct TaskRowView: View {
                             if let title = batchTasks.compactMap({ $0.groupTitle }).first {
                                 Text(title)
                                     .font(.system(size: 12, weight: .semibold))
+                                    .strikethrough(allComplete)
                                     .foregroundStyle(allComplete ? .secondary : .primary)
                                     .lineLimit(1)
                             }
                             Text("Batch (\(batchTasks.count) tasks)")
                                 .font(.system(size: 10))
+                                .strikethrough(allComplete)
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -352,6 +354,25 @@ struct TaskRowView: View {
                                 .font(.system(size: 10))
                                 .foregroundStyle(.primary.opacity(0.45))
                                 .frame(width: 30, alignment: .trailing)
+                        }
+
+                        if allComplete {
+                            Button(action: {
+                                Task {
+                                    for subTask in batchTasks {
+                                        await taskVM.toggleComplete(subTask)
+                                    }
+                                }
+                            }) {
+                                Text("Undo")
+                                    .font(.system(size: 9, weight: .medium))
+                                    .foregroundStyle(Color.calmTeal)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2)
+                                    .background(Color.calmTeal.opacity(0.1))
+                                    .cornerRadius(3)
+                            }
+                            .buttonStyle(.plain)
                         }
 
                         Button(action: {
@@ -563,11 +584,13 @@ struct ChainGroupView<GroupEdit: View>: View {
                             if let title = chainTasks.compactMap({ $0.groupTitle }).first {
                                 Text(title)
                                     .font(.system(size: 12, weight: .semibold))
+                                    .strikethrough(allComplete)
                                     .foregroundStyle(allComplete ? .secondary : .primary)
                                     .lineLimit(1)
                             }
                             Text("Chain (\(chainTasks.count) steps)")
                                 .font(.system(size: 10))
+                                .strikethrough(allComplete)
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -591,6 +614,23 @@ struct ChainGroupView<GroupEdit: View>: View {
                                 .font(.system(size: 10))
                                 .foregroundStyle(.primary.opacity(0.45))
                                 .frame(width: 30, alignment: .trailing)
+                        }
+
+                        if allComplete {
+                            Button(action: {
+                                Task {
+                                    for t in chainTasks { await taskVM.toggleComplete(t) }
+                                }
+                            }) {
+                                Text("Undo")
+                                    .font(.system(size: 9, weight: .medium))
+                                    .foregroundStyle(.orange)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2)
+                                    .background(Color.orange.opacity(0.1))
+                                    .cornerRadius(3)
+                            }
+                            .buttonStyle(.plain)
                         }
 
                         Button(action: {
@@ -634,7 +674,7 @@ struct ChainGroupView<GroupEdit: View>: View {
                     .opacity(isDraggingStep ? 0.85 : 1.0)
                     .shadow(color: isDraggingStep ? .black.opacity(0.12) : .clear, radius: isDraggingStep ? 3 : 0, y: isDraggingStep ? 1 : 0)
                     .background(isDraggingStep ? Color(.windowBackgroundColor) : Color.clear)
-                    .simultaneousGesture(
+                    .highPriorityGesture(
                         DragGesture(minimumDistance: 6)
                             .onChanged { value in
                                 if draggingStepId == nil {
