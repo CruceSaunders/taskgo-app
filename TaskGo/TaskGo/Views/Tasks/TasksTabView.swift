@@ -478,49 +478,17 @@ struct TasksTabView: View {
                         .opacity(isDragging ? 0.85 : 1.0)
                         .shadow(color: isDragging ? .black.opacity(0.15) : .clear, radius: isDragging ? 4 : 0, y: isDragging ? 2 : 0)
                         .background(isDragging ? Color(.windowBackgroundColor) : Color.clear)
-                        .simultaneousGesture(
-                            DragGesture(minimumDistance: 8)
-                                .onChanged { value in
-                                    guard !task.isGrouped else { return }
-                                    justDragged = true
-
-                                    if draggingTaskId == nil {
-                                        draggingTaskId = task.id
-                                        dragStartIndex = index
-                                    }
-                                    guard draggingTaskId == task.id else { return }
-                                    dragOffset = value.translation.height
-
-                                    let rowsMoved = Int(round(dragOffset / max(rowHeight, 40)))
-                                    let items = taskVM.incompleteTasksForDisplay
-                                    let newIdx = min(max(index + rowsMoved, 0), items.count - 1)
-                                    targetDropIndex = newIdx
-                                }
-                                .onEnded { _ in
-                                    guard !task.isGrouped else { return }
-                                    if let startIdx = dragStartIndex,
-                                       let targetIdx = targetDropIndex,
-                                       startIdx != targetIdx {
-                                        let s = startIdx
-                                        let t = targetIdx
-                                        Task {
-                                            await taskVM.moveTask(
-                                                from: IndexSet(integer: s),
-                                                to: t > s ? t + 1 : t
-                                            )
-                                        }
-                                    }
-                                    withAnimation(.easeOut(duration: 0.15)) {
-                                        draggingTaskId = nil
-                                        dragOffset = 0
-                                        targetDropIndex = nil
-                                        dragStartIndex = nil
-                                    }
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                        justDragged = false
-                                    }
-                                }
-                        )
+                        .modifier(TaskDragModifier(
+                            task: task,
+                            index: index,
+                            draggingTaskId: $draggingTaskId,
+                            dragOffset: $dragOffset,
+                            dragStartIndex: $dragStartIndex,
+                            targetDropIndex: $targetDropIndex,
+                            justDragged: $justDragged,
+                            rowHeight: rowHeight,
+                            taskVM: taskVM
+                        ))
 
                         Divider().padding(.leading, 10)
                     }
@@ -626,6 +594,69 @@ struct TasksTabView: View {
             taskIds.append(id)
         }
         return taskIds
+    }
+}
+
+// MARK: - Conditional drag modifier (only for ungrouped tasks)
+
+private struct TaskDragModifier: ViewModifier {
+    let task: TaskItem
+    let index: Int
+    @Binding var draggingTaskId: String?
+    @Binding var dragOffset: CGFloat
+    @Binding var dragStartIndex: Int?
+    @Binding var targetDropIndex: Int?
+    @Binding var justDragged: Bool
+    let rowHeight: CGFloat
+    let taskVM: TaskViewModel
+
+    func body(content: Content) -> some View {
+        if task.isGrouped {
+            content
+        } else {
+            content
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 8)
+                        .onChanged { value in
+                            justDragged = true
+
+                            if draggingTaskId == nil {
+                                draggingTaskId = task.id
+                                dragStartIndex = index
+                            }
+                            guard draggingTaskId == task.id else { return }
+                            dragOffset = value.translation.height
+
+                            let rowsMoved = Int(round(dragOffset / max(rowHeight, 40)))
+                            let items = taskVM.incompleteTasksForDisplay
+                            let newIdx = min(max(index + rowsMoved, 0), items.count - 1)
+                            targetDropIndex = newIdx
+                        }
+                        .onEnded { _ in
+                            if let startIdx = dragStartIndex,
+                               let targetIdx = targetDropIndex,
+                               startIdx != targetIdx {
+                                let s = startIdx
+                                let t = targetIdx
+                                Task {
+                                    await taskVM.moveTask(
+                                        from: IndexSet(integer: s),
+                                        to: t > s ? t + 1 : t
+                                    )
+                                }
+                            }
+                            withAnimation(.easeOut(duration: 0.15)) {
+                                draggingTaskId = nil
+                                dragOffset = 0
+                                targetDropIndex = nil
+                                dragStartIndex = nil
+                            }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                justDragged = false
+                            }
+                        }
+                )
+        }
     }
 }
 

@@ -674,7 +674,7 @@ struct ChainGroupView<GroupEdit: View>: View {
                     .opacity(isDraggingStep ? 0.85 : 1.0)
                     .shadow(color: isDraggingStep ? .black.opacity(0.12) : .clear, radius: isDraggingStep ? 3 : 0, y: isDraggingStep ? 1 : 0)
                     .background(isDraggingStep ? Color(.windowBackgroundColor) : Color.clear)
-                    .highPriorityGesture(
+                    .gesture(
                         DragGesture(minimumDistance: 6)
                             .onChanged { value in
                                 if draggingStepId == nil {
