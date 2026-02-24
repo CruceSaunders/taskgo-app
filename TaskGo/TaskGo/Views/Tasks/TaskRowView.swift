@@ -7,7 +7,6 @@ struct TaskRowView: View {
     @Binding var editingTaskId: String?
     var displayIndex: Int = 0
     var dragLocked: Bool = false
-    @Binding var draggingChainStepId: String?
 
     @State private var isExpanded = false
     @State private var editName = ""
@@ -335,13 +334,11 @@ struct TaskRowView: View {
                             if let title = batchTasks.compactMap({ $0.groupTitle }).first {
                                 Text(title)
                                     .font(.system(size: 12, weight: .semibold))
-                                    .strikethrough(allComplete)
                                     .foregroundStyle(allComplete ? .secondary : .primary)
                                     .lineLimit(1)
                             }
                             Text("Batch (\(batchTasks.count) tasks)")
                                 .font(.system(size: 10))
-                                .strikethrough(allComplete)
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -355,25 +352,6 @@ struct TaskRowView: View {
                                 .font(.system(size: 10))
                                 .foregroundStyle(.primary.opacity(0.45))
                                 .frame(width: 30, alignment: .trailing)
-                        }
-
-                        if allComplete {
-                            Button(action: {
-                                Task {
-                                    for subTask in batchTasks {
-                                        await taskVM.toggleComplete(subTask)
-                                    }
-                                }
-                            }) {
-                                Text("Undo")
-                                    .font(.system(size: 9, weight: .medium))
-                                    .foregroundStyle(Color.calmTeal)
-                                    .padding(.horizontal, 5)
-                                    .padding(.vertical, 2)
-                                    .background(Color.calmTeal.opacity(0.1))
-                                    .cornerRadius(3)
-                            }
-                            .buttonStyle(.plain)
                         }
 
                         Button(action: {
@@ -418,7 +396,6 @@ struct TaskRowView: View {
             editGroupTitle: $editGroupTitle,
             editBatchMinutes: $editBatchMinutes,
             isGroupEditing: isGroupEditing,
-            draggingStepId: $draggingChainStepId,
             groupEditViewBuilder: { title, time, gid, tasks in
                 groupEditView(title: title, time: time, groupId: gid, isBatch: false, tasks: tasks)
             }
@@ -541,9 +518,9 @@ struct ChainGroupView<GroupEdit: View>: View {
     @Binding var editGroupTitle: String
     @Binding var editBatchMinutes: String
     var isGroupEditing: Bool
-    @Binding var draggingStepId: String?
     var groupEditViewBuilder: (String, Int, String, [TaskItem]) -> GroupEdit
 
+    @State private var draggingStepId: String?
     @State private var stepDragOffset: CGFloat = 0
     @State private var stepTargetIndex: Int?
     @State private var stepStartIndex: Int?
@@ -586,13 +563,11 @@ struct ChainGroupView<GroupEdit: View>: View {
                             if let title = chainTasks.compactMap({ $0.groupTitle }).first {
                                 Text(title)
                                     .font(.system(size: 12, weight: .semibold))
-                                    .strikethrough(allComplete)
                                     .foregroundStyle(allComplete ? .secondary : .primary)
                                     .lineLimit(1)
                             }
                             Text("Chain (\(chainTasks.count) steps)")
                                 .font(.system(size: 10))
-                                .strikethrough(allComplete)
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -616,23 +591,6 @@ struct ChainGroupView<GroupEdit: View>: View {
                                 .font(.system(size: 10))
                                 .foregroundStyle(.primary.opacity(0.45))
                                 .frame(width: 30, alignment: .trailing)
-                        }
-
-                        if allComplete {
-                            Button(action: {
-                                Task {
-                                    for t in chainTasks { await taskVM.toggleComplete(t) }
-                                }
-                            }) {
-                                Text("Undo")
-                                    .font(.system(size: 9, weight: .medium))
-                                    .foregroundStyle(.orange)
-                                    .padding(.horizontal, 5)
-                                    .padding(.vertical, 2)
-                                    .background(Color.orange.opacity(0.1))
-                                    .cornerRadius(3)
-                            }
-                            .buttonStyle(.plain)
                         }
 
                         Button(action: {
@@ -662,33 +620,7 @@ struct ChainGroupView<GroupEdit: View>: View {
                         taskVM: taskVM,
                         accentColor: .orange,
                         showStepNumber: true,
-                        showTime: true,
-                        onDrag: { translationHeight in
-                            if draggingStepId == nil {
-                                draggingStepId = step.id
-                                stepStartIndex = stepIndex
-                            }
-                            guard draggingStepId == step.id else { return }
-                            stepDragOffset = translationHeight
-                            let rowsMoved = Int(round(translationHeight / max(stepRowHeight, 28)))
-                            let newIdx = min(max(stepIndex + rowsMoved, 0), chainTasks.count - 1)
-                            stepTargetIndex = newIdx
-                        },
-                        onDragEnd: {
-                            if let startIdx = stepStartIndex,
-                               let targetIdx = stepTargetIndex,
-                               startIdx != targetIdx {
-                                Task {
-                                    await taskVM.reorderChainStep(chainId: chainId, from: startIdx, to: targetIdx)
-                                }
-                            }
-                            withAnimation(.easeOut(duration: 0.15)) {
-                                draggingStepId = nil
-                                stepDragOffset = 0
-                                stepTargetIndex = nil
-                                stepStartIndex = nil
-                            }
-                        }
+                        showTime: true
                     )
                     .background(
                         GeometryReader { geo in
@@ -702,6 +634,35 @@ struct ChainGroupView<GroupEdit: View>: View {
                     .opacity(isDraggingStep ? 0.85 : 1.0)
                     .shadow(color: isDraggingStep ? .black.opacity(0.12) : .clear, radius: isDraggingStep ? 3 : 0, y: isDraggingStep ? 1 : 0)
                     .background(isDraggingStep ? Color(.windowBackgroundColor) : Color.clear)
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 6)
+                            .onChanged { value in
+                                if draggingStepId == nil {
+                                    draggingStepId = step.id
+                                    stepStartIndex = stepIndex
+                                }
+                                guard draggingStepId == step.id else { return }
+                                stepDragOffset = value.translation.height
+                                let rowsMoved = Int(round(stepDragOffset / max(stepRowHeight, 28)))
+                                let newIdx = min(max(stepIndex + rowsMoved, 0), chainTasks.count - 1)
+                                stepTargetIndex = newIdx
+                            }
+                            .onEnded { _ in
+                                if let startIdx = stepStartIndex,
+                                   let targetIdx = stepTargetIndex,
+                                   startIdx != targetIdx {
+                                    Task {
+                                        await taskVM.reorderChainStep(chainId: chainId, from: startIdx, to: targetIdx)
+                                    }
+                                }
+                                withAnimation(.easeOut(duration: 0.15)) {
+                                    draggingStepId = nil
+                                    stepDragOffset = 0
+                                    stepTargetIndex = nil
+                                    stepStartIndex = nil
+                                }
+                            }
+                    )
                 }
             }
             .padding(.bottom, 4)
@@ -718,8 +679,6 @@ struct SubTaskRow: View {
     var accentColor: Color = .calmTeal
     var showStepNumber: Bool = false
     var showTime: Bool = false
-    var onDrag: ((_ translation: CGFloat) -> Void)? = nil
-    var onDragEnd: (() -> Void)? = nil
 
     @State private var editName = ""
     @State private var editMinutes = ""
@@ -730,6 +689,7 @@ struct SubTaskRow: View {
 
     var body: some View {
         if isEditing {
+            // Edit mode
             HStack(spacing: 6) {
                 if showStepNumber {
                     Text("\(subTask.chainOrder ?? 0).")
@@ -773,24 +733,8 @@ struct SubTaskRow: View {
             .padding(.vertical, 4)
             .background(accentColor.opacity(0.05))
         } else {
+            // Display mode -- tap to edit
             HStack(spacing: 6) {
-                if showStepNumber, let onDrag, let onDragEnd {
-                    Image(systemName: "line.3.horizontal")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.primary.opacity(0.25))
-                        .frame(width: 24, height: 30)
-                        .contentShape(Rectangle())
-                        .gesture(
-                            DragGesture(minimumDistance: 4)
-                                .onChanged { value in
-                                    onDrag(value.translation.height)
-                                }
-                                .onEnded { _ in
-                                    onDragEnd()
-                                }
-                        )
-                }
-
                 if showStepNumber {
                     Text("\(subTask.chainOrder ?? 0).")
                         .font(.system(size: 10, weight: .semibold, design: .monospaced))
@@ -841,7 +785,7 @@ struct SubTaskRow: View {
                     .frame(width: 20, alignment: .center)
                 }
             }
-            .padding(.horizontal, showStepNumber ? 20 : 48)
+            .padding(.horizontal, showStepNumber ? 32 : 48)
             .padding(.vertical, 3)
         }
     }

@@ -24,7 +24,6 @@ struct TasksTabView: View {
     @State private var dragStartIndex: Int?
     @State private var rowHeight: CGFloat = 55
     @State private var justDragged = false
-    @State private var draggingChainStepId: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -463,12 +462,12 @@ struct TasksTabView: View {
                                 .buttonStyle(.plain)
                             }
 
-                            TaskRowView(task: task, editingTaskId: $editingTaskId, displayIndex: index + 1, dragLocked: justDragged, draggingChainStepId: $draggingChainStepId)
+                            TaskRowView(task: task, editingTaskId: $editingTaskId, displayIndex: index + 1, dragLocked: justDragged)
                         }
                         .background(
                             GeometryReader { geo in
                                 Color.clear.onAppear {
-                                    if !task.isGrouped && geo.size.height > 10 {
+                                    if rowHeight != geo.size.height && geo.size.height > 10 {
                                         rowHeight = geo.size.height
                                     }
                                 }
@@ -479,43 +478,48 @@ struct TasksTabView: View {
                         .opacity(isDragging ? 0.85 : 1.0)
                         .shadow(color: isDragging ? .black.opacity(0.15) : .clear, radius: isDragging ? 4 : 0, y: isDragging ? 2 : 0)
                         .background(isDragging ? Color(.windowBackgroundColor) : Color.clear)
-                        .simultaneousGesture(task.isGrouped ? nil : DragGesture(minimumDistance: 8)
-                            .onChanged { value in
-                                justDragged = true
-                                if draggingTaskId == nil {
-                                    draggingTaskId = task.id
-                                    dragStartIndex = index
+                        .simultaneousGesture(
+                            DragGesture(minimumDistance: 8)
+                                .onChanged { value in
+                                    // Block edits from the moment drag starts
+                                    justDragged = true
+
+                                    if draggingTaskId == nil {
+                                        draggingTaskId = task.id
+                                        dragStartIndex = index
+                                    }
+                                    guard draggingTaskId == task.id else { return }
+                                    dragOffset = value.translation.height
+
+                                    let rowsMoved = Int(round(dragOffset / max(rowHeight, 40)))
+                                    let items = taskVM.incompleteTasksForDisplay
+                                    let newIdx = min(max(index + rowsMoved, 0), items.count - 1)
+                                    targetDropIndex = newIdx
                                 }
-                                guard draggingTaskId == task.id else { return }
-                                dragOffset = value.translation.height
-                                let rowsMoved = Int(round(dragOffset / max(rowHeight, 40)))
-                                let items = taskVM.incompleteTasksForDisplay
-                                let newIdx = min(max(index + rowsMoved, 0), items.count - 1)
-                                targetDropIndex = newIdx
-                            }
-                            .onEnded { _ in
-                                if let startIdx = dragStartIndex,
-                                   let targetIdx = targetDropIndex,
-                                   startIdx != targetIdx {
-                                    let s = startIdx
-                                    let t = targetIdx
-                                    Task {
-                                        await taskVM.moveTask(
-                                            from: IndexSet(integer: s),
-                                            to: t > s ? t + 1 : t
-                                        )
+                                .onEnded { _ in
+                                    if let startIdx = dragStartIndex,
+                                       let targetIdx = targetDropIndex,
+                                       startIdx != targetIdx {
+                                        let s = startIdx
+                                        let t = targetIdx
+                                        Task {
+                                            await taskVM.moveTask(
+                                                from: IndexSet(integer: s),
+                                                to: t > s ? t + 1 : t
+                                            )
+                                        }
+                                    }
+                                    withAnimation(.easeOut(duration: 0.15)) {
+                                        draggingTaskId = nil
+                                        dragOffset = 0
+                                        targetDropIndex = nil
+                                        dragStartIndex = nil
+                                    }
+                                    // Keep edit blocked for longer after drop
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                        justDragged = false
                                     }
                                 }
-                                withAnimation(.easeOut(duration: 0.15)) {
-                                    draggingTaskId = nil
-                                    dragOffset = 0
-                                    targetDropIndex = nil
-                                    dragStartIndex = nil
-                                }
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                    justDragged = false
-                                }
-                            }
                         )
 
                         Divider().padding(.leading, 10)
@@ -534,13 +538,12 @@ struct TasksTabView: View {
                         .background(Color.secondary.opacity(0.08))
 
                         ForEach(taskVM.completedTasksForDisplay) { task in
-                            TaskRowView(task: task, editingTaskId: $editingTaskId, draggingChainStepId: $draggingChainStepId)
+                            TaskRowView(task: task, editingTaskId: $editingTaskId)
                             Divider().padding(.leading, 20)
                         }
                     }
                 }
             }
-            .scrollDisabled(draggingChainStepId != nil)
 
             Divider()
 
