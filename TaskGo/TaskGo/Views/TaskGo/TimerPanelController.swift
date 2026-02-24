@@ -2,7 +2,6 @@ import AppKit
 import SwiftUI
 import Combine
 
-/// Controls the floating NSPanel that displays the Task Go timer
 class TimerPanelController: NSObject, NSWindowDelegate {
     private var panel: NSPanel?
     private var bounceTimer: Timer?
@@ -10,6 +9,10 @@ class TimerPanelController: NSObject, NSWindowDelegate {
     private var originalFrame: NSRect?
     private var cancellables = Set<AnyCancellable>()
     private var taskGoVM: TaskGoViewModel?
+
+    private let panelWidth: CGFloat = 215
+    private let laneHeight: CGFloat = 100
+    private let minPanelHeight: CGFloat = 110
 
     override init() {
         super.init()
@@ -22,26 +25,26 @@ class TimerPanelController: NSObject, NSWindowDelegate {
 
     private func setupNotifications() {
         NotificationCenter.default.publisher(for: .taskGoShowPanel)
-            .sink { [weak self] _ in
-                self?.show()
-            }
+            .sink { [weak self] _ in self?.show() }
             .store(in: &cancellables)
 
         NotificationCenter.default.publisher(for: .taskGoHidePanel)
-            .sink { [weak self] _ in
-                self?.close()
-            }
+            .sink { [weak self] _ in self?.close() }
             .store(in: &cancellables)
 
         NotificationCenter.default.publisher(for: .taskGoTimerExpired)
-            .sink { [weak self] _ in
-                self?.startBouncing()
-            }
+            .sink { [weak self] _ in self?.startBouncing() }
             .store(in: &cancellables)
 
         NotificationCenter.default.publisher(for: .taskGoStopBounce)
-            .sink { [weak self] _ in
-                self?.stopBouncing()
+            .sink { [weak self] _ in self?.stopBouncing() }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: .taskGoPanelResize)
+            .sink { [weak self] notification in
+                if let count = notification.object as? Int {
+                    self?.resizePanel(laneCount: count)
+                }
             }
             .store(in: &cancellables)
     }
@@ -59,19 +62,20 @@ class TimerPanelController: NSObject, NSWindowDelegate {
         panel = nil
     }
 
+    private func heightForLanes(_ count: Int) -> CGFloat {
+        max(minPanelHeight, CGFloat(max(count, 1)) * laneHeight + 10)
+    }
+
     private func createPanel() {
-        // Restore saved position or use default (top-right)
         let savedX = UserDefaults.standard.double(forKey: "timerPanelX")
         let savedY = UserDefaults.standard.double(forKey: "timerPanelY")
 
-        let panelWidth: CGFloat = 185
-        let panelHeight: CGFloat = 110
+        let panelHeight = heightForLanes(1)
 
         let frame: NSRect
         if savedX != 0 || savedY != 0 {
             frame = NSRect(x: savedX, y: savedY, width: panelWidth, height: panelHeight)
         } else {
-            // Default: top-right of main screen
             guard let screen = NSScreen.main else { return }
             let screenFrame = screen.visibleFrame
             frame = NSRect(
@@ -98,7 +102,6 @@ class TimerPanelController: NSObject, NSWindowDelegate {
         panel.isOpaque = false
         panel.hasShadow = true
 
-        // Save position when moved
         NotificationCenter.default.publisher(for: NSWindow.didMoveNotification, object: panel)
             .sink { [weak panel] _ in
                 guard let panel = panel else { return }
@@ -121,13 +124,24 @@ class TimerPanelController: NSObject, NSWindowDelegate {
         self.panel = panel
     }
 
+    private func resizePanel(laneCount: Int) {
+        guard let panel = panel else { return }
+        let newHeight = heightForLanes(laneCount)
+        var frame = panel.frame
+        let heightDelta = newHeight - frame.height
+        frame.origin.y -= heightDelta
+        frame.size.height = newHeight
+        panel.animator().setFrame(frame, display: true, animate: true)
+        originalFrame = nil
+    }
+
     // MARK: - NSWindowDelegate
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         Task { @MainActor in
             taskGoVM?.stopTaskGo()
         }
-        return false // stopTaskGo will call hideTimerPanel which closes properly
+        return false
     }
 
     // MARK: - Bounce Animation
@@ -141,7 +155,6 @@ class TimerPanelController: NSObject, NSWindowDelegate {
             self?.performBounce()
         }
 
-        // Auto-stop bouncing after 5 seconds
         DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
             self?.stopBouncing()
         }
@@ -152,7 +165,6 @@ class TimerPanelController: NSObject, NSWindowDelegate {
         bounceTimer?.invalidate()
         bounceTimer = nil
 
-        // Restore original position
         if let original = originalFrame {
             panel?.setFrame(original, display: true, animate: true)
         }
@@ -161,7 +173,6 @@ class TimerPanelController: NSObject, NSWindowDelegate {
     private func performBounce() {
         guard let panel = panel, let original = originalFrame else { return }
 
-        // Small bounce animation
         let bounceHeight: CGFloat = 6
         let bounceFrame = NSRect(
             x: original.origin.x + CGFloat.random(in: -2...2),

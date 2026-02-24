@@ -89,13 +89,13 @@ struct MainView: View {
         if taskGoVM.isActive {
             taskGoVM.stopTaskGo()
         } else {
-            // Check activity permission first time
             if !taskGoVM.hasActivityPermission && !UserDefaults.standard.bool(forKey: "hasSeenActivityPermission") {
                 UserDefaults.standard.set(true, forKey: "hasSeenActivityPermission")
                 showActivityPermission = true
             }
-            if let firstTask = taskVM.firstIncompleteTask {
-                taskGoVM.startTaskGo(with: firstTask)
+            let allIds = Set(taskVM.incompleteTasksForDisplay.compactMap { $0.id })
+            if !allIds.isEmpty {
+                taskGoVM.startTaskGoWithSelected(allIds)
             }
         }
     }

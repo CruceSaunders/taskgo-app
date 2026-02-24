@@ -86,8 +86,9 @@ struct MainWindowView: View {
                 if taskGoVM.isActive {
                     taskGoVM.stopTaskGo()
                 } else {
-                    if let firstTask = taskVM.firstIncompleteTask {
-                        taskGoVM.startTaskGo(with: firstTask)
+                    let allIds = Set(taskVM.incompleteTasksForDisplay.compactMap { $0.id })
+                    if !allIds.isEmpty {
+                        taskGoVM.startTaskGoWithSelected(allIds)
                     }
                 }
             }) {

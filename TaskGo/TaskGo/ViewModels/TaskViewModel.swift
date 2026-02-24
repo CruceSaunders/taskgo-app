@@ -196,14 +196,19 @@ class TaskViewModel: ObservableObject {
 
     /// Unbatch a task (remove from its batch)
     func unbatchTask(_ task: TaskItem) async {
-        guard let userId = Auth.auth().currentUser?.uid else { return }
-
-        var updated = task
-        updated.batchId = nil
-        updated.batchTimeEstimate = nil
+        guard let userId = Auth.auth().currentUser?.uid,
+              let taskId = task.id else { return }
 
         do {
-            try await firestoreService.updateTask(updated, userId: userId)
+            try await firestoreService.updateTaskFields(
+                taskId: taskId,
+                fields: [
+                    "batchId": FieldValue.delete(),
+                    "batchTimeEstimate": FieldValue.delete(),
+                    "groupTitle": FieldValue.delete()
+                ],
+                userId: userId
+            )
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -269,12 +274,19 @@ class TaskViewModel: ObservableObject {
     }
 
     func unchainTask(_ task: TaskItem) async {
-        guard let userId = Auth.auth().currentUser?.uid else { return }
-        var updated = task
-        updated.chainId = nil
-        updated.chainOrder = nil
+        guard let userId = Auth.auth().currentUser?.uid,
+              let taskId = task.id else { return }
+
         do {
-            try await firestoreService.updateTask(updated, userId: userId)
+            try await firestoreService.updateTaskFields(
+                taskId: taskId,
+                fields: [
+                    "chainId": FieldValue.delete(),
+                    "chainOrder": FieldValue.delete(),
+                    "groupTitle": FieldValue.delete()
+                ],
+                userId: userId
+            )
         } catch {
             errorMessage = error.localizedDescription
         }
