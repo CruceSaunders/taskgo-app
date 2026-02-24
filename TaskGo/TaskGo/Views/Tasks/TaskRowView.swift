@@ -7,6 +7,7 @@ struct TaskRowView: View {
     @Binding var editingTaskId: String?
     var displayIndex: Int = 0
     var dragLocked: Bool = false
+    @Binding var draggingChainStepId: String?
 
     @State private var isExpanded = false
     @State private var editName = ""
@@ -417,6 +418,7 @@ struct TaskRowView: View {
             editGroupTitle: $editGroupTitle,
             editBatchMinutes: $editBatchMinutes,
             isGroupEditing: isGroupEditing,
+            draggingStepId: $draggingChainStepId,
             groupEditViewBuilder: { title, time, gid, tasks in
                 groupEditView(title: title, time: time, groupId: gid, isBatch: false, tasks: tasks)
             }
@@ -539,9 +541,9 @@ struct ChainGroupView<GroupEdit: View>: View {
     @Binding var editGroupTitle: String
     @Binding var editBatchMinutes: String
     var isGroupEditing: Bool
+    @Binding var draggingStepId: String?
     var groupEditViewBuilder: (String, Int, String, [TaskItem]) -> GroupEdit
 
-    @State private var draggingStepId: String?
     @State private var stepDragOffset: CGFloat = 0
     @State private var stepTargetIndex: Int?
     @State private var stepStartIndex: Int?
@@ -774,9 +776,9 @@ struct SubTaskRow: View {
             HStack(spacing: 6) {
                 if showStepNumber, let onDrag, let onDragEnd {
                     Image(systemName: "line.3.horizontal")
-                        .font(.system(size: 9))
-                        .foregroundStyle(.primary.opacity(0.2))
-                        .frame(width: 16, height: 24)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.primary.opacity(0.25))
+                        .frame(width: 24, height: 30)
                         .contentShape(Rectangle())
                         .gesture(
                             DragGesture(minimumDistance: 4)
