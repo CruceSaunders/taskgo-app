@@ -7,7 +7,6 @@ struct TaskRowView: View {
     @Binding var editingTaskId: String?
     var displayIndex: Int = 0
     var dragLocked: Bool = false
-    var onShiftClick: (() -> Void)? = nil
 
     @State private var isExpanded = false
     @State private var editName = ""
@@ -97,7 +96,6 @@ struct TaskRowView: View {
 
                 // Checkbox
                 Button(action: {
-                    if NSEvent.modifierFlags.contains(.shift), let onShiftClick { onShiftClick(); return }
                     guard !dragLocked else { return }
                     Task { await taskVM.toggleComplete(task) }
                 }) {
@@ -111,7 +109,6 @@ struct TaskRowView: View {
 
                 // Tap name to edit
                 Button(action: {
-                    if NSEvent.modifierFlags.contains(.shift), let onShiftClick { onShiftClick(); return }
                     guard !dragLocked else { return }
                     editName = task.name
                     editMinutes = "\(task.timeEstimate / 60)"

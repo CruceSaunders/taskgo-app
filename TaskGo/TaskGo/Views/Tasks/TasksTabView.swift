@@ -24,6 +24,7 @@ struct TasksTabView: View {
     @State private var dragStartIndex: Int?
     @State private var rowHeight: CGFloat = 55
     @State private var justDragged = false
+    @State private var shiftHeld = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -54,6 +55,10 @@ struct TasksTabView: View {
         .onAppear {
             if let groupId = groupVM.selectedGroupId {
                 taskVM.startListening(groupId: groupId)
+            }
+            NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
+                shiftHeld = event.modifierFlags.contains(.shift)
+                return event
             }
         }
     }
@@ -462,16 +467,24 @@ struct TasksTabView: View {
                                 .buttonStyle(.plain)
                             }
 
-                            TaskRowView(task: task, editingTaskId: $editingTaskId, displayIndex: index + 1, dragLocked: justDragged, onShiftClick: {
+                            TaskRowView(task: task, editingTaskId: $editingTaskId, displayIndex: index + 1, dragLocked: justDragged)
+                        }
+                        .overlay {
+                            if shiftHeld {
                                 let selectId = task.batchId ?? task.chainId ?? task.id ?? ""
-                                if selectedTaskIds.contains(selectId) {
-                                    selectedTaskIds.remove(selectId)
-                                    if selectedTaskIds.isEmpty { isSelectMode = false }
-                                } else {
-                                    selectedTaskIds.insert(selectId)
-                                    isSelectMode = true
-                                }
-                            })
+                                let isShiftSelected = selectedTaskIds.contains(selectId)
+                                Color.calmTeal.opacity(isShiftSelected ? 0.12 : 0.001)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        if isShiftSelected {
+                                            selectedTaskIds.remove(selectId)
+                                            if selectedTaskIds.isEmpty { isSelectMode = false }
+                                        } else {
+                                            selectedTaskIds.insert(selectId)
+                                            isSelectMode = true
+                                        }
+                                    }
+                            }
                         }
                         .background(
                             GeometryReader { geo in
