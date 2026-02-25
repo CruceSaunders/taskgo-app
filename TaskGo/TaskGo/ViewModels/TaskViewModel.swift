@@ -345,6 +345,15 @@ class TaskViewModel: ObservableObject {
               let taskId = task.id else { return }
         guard !task.isComplete else { return }
 
+        if let index = tasks.firstIndex(where: { $0.id == taskId }) {
+            pendingToggleIds.insert(taskId)
+            tasks[index].isComplete = true
+            tasks[index].completedAt = Date()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                self?.pendingToggleIds.remove(taskId)
+            }
+        }
+
         do {
             try await firestoreService.updateTaskFields(
                 taskId: taskId,
@@ -362,10 +371,18 @@ class TaskViewModel: ObservableObject {
         guard let userId = Auth.auth().currentUser?.uid else { return }
         guard !task.isComplete else { return }
 
-        // If task is part of a batch, complete all tasks in the batch
         if let batchId = task.batchId {
             await markBatchComplete(batchId: batchId)
             return
+        }
+
+        if let taskId = task.id, let index = tasks.firstIndex(where: { $0.id == taskId }) {
+            pendingToggleIds.insert(taskId)
+            tasks[index].isComplete = true
+            tasks[index].completedAt = Date()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                self?.pendingToggleIds.remove(taskId)
+            }
         }
 
         var updated = task
@@ -387,6 +404,14 @@ class TaskViewModel: ObservableObject {
 
         for var task in batchTasks {
             guard !task.isComplete else { continue }
+            if let taskId = task.id, let index = tasks.firstIndex(where: { $0.id == taskId }) {
+                pendingToggleIds.insert(taskId)
+                tasks[index].isComplete = true
+                tasks[index].completedAt = Date()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                    self?.pendingToggleIds.remove(taskId)
+                }
+            }
             task.isComplete = true
             task.completedAt = Date()
             do {
