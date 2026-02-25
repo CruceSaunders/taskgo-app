@@ -464,6 +464,17 @@ struct TasksTabView: View {
 
                             TaskRowView(task: task, editingTaskId: $editingTaskId, displayIndex: index + 1, dragLocked: justDragged)
                         }
+                        .simultaneousGesture(TapGesture().onEnded {
+                            guard NSEvent.modifierFlags.contains(.shift) else { return }
+                            let selectId = task.batchId ?? task.chainId ?? task.id ?? ""
+                            if selectedTaskIds.contains(selectId) {
+                                selectedTaskIds.remove(selectId)
+                                if selectedTaskIds.isEmpty { isSelectMode = false }
+                            } else {
+                                selectedTaskIds.insert(selectId)
+                                isSelectMode = true
+                            }
+                        })
                         .background(
                             GeometryReader { geo in
                                 Color.clear.onAppear {
