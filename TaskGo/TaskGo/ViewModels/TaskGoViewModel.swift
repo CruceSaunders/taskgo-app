@@ -150,7 +150,10 @@ class TaskGoViewModel: ObservableObject {
     }
 
     private func startLane(taskIds: Set<String>) {
-        let lane = TaskGoLane(taskIds: taskIds, colorIndex: lanes.count)
+        let filtered = taskIds.subtracting(allTaskIdsInUse)
+        guard !filtered.isEmpty else { return }
+
+        let lane = TaskGoLane(taskIds: filtered, colorIndex: lanes.count)
 
         let firstTask = resolveFirstTask(for: lane)
         guard let task = firstTask else { return }
