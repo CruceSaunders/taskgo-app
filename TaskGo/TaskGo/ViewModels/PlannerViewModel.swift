@@ -46,7 +46,20 @@ class PlannerViewModel: ObservableObject {
 
     func startListening() {
         guard !isListening else { return }
-        guard let userId = Auth.auth().currentUser?.uid else { return }
+        if let userId = Auth.auth().currentUser?.uid {
+            beginListening(userId: userId)
+        } else {
+            Auth.auth().addStateDidChangeListener { [weak self] _, user in
+                guard let self, let userId = user?.uid, !self.isListening else { return }
+                Task { @MainActor in
+                    self.beginListening(userId: userId)
+                }
+            }
+        }
+    }
+
+    private func beginListening(userId: String) {
+        guard !isListening else { return }
         isListening = true
 
         listener = firestoreService.listenToPlans(userId: userId) { [weak self] plans in
@@ -255,7 +268,22 @@ class PlannerViewModel: ObservableObject {
     // MARK: - One-time data recovery
 
     func recoverPlan() {
-        guard let userId = Auth.auth().currentUser?.uid else { return }
+        Task {
+            var userId: String?
+            for _ in 0..<20 {
+                userId = Auth.auth().currentUser?.uid
+                if userId != nil { break }
+                try? await Task.sleep(nanoseconds: 500_000_000)
+            }
+            guard let userId else {
+                print("[Planner] RECOVERY: no user after 10s wait")
+                return
+            }
+            await doRecover(userId: userId)
+        }
+    }
+
+    private func doRecover(userId: String) async {
         let plan = Plan(
             title: "Session 4 Week 1",
             startDate: "2026-03-02",
@@ -296,17 +324,15 @@ class PlannerViewModel: ObservableObject {
                 ],
             ]
         )
-        Task {
-            do {
-                var saved = plan
-                let docId = try await firestoreService.savePlan(plan, userId: userId)
-                saved.id = docId
-                self.plans.insert(saved, at: 0)
-                self.selectedPlan = saved
-                print("[Planner] RECOVERED plan successfully")
-            } catch {
-                print("[Planner] RECOVERY FAILED: \(error)")
-            }
+        do {
+            var saved = plan
+            let docId = try await firestoreService.savePlan(plan, userId: userId)
+            saved.id = docId
+            self.plans.insert(saved, at: 0)
+            self.selectedPlan = saved
+            print("[Planner] RECOVERED plan successfully with id: \(docId)")
+        } catch {
+            print("[Planner] RECOVERY FAILED: \(error)")
         }
     }
 
