@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PlanDetailView: View {
     @EnvironmentObject var plannerVM: PlannerViewModel
+    @State private var confirmDelete = false
 
     var body: some View {
         if let plan = plannerVM.selectedPlan {
@@ -43,36 +44,68 @@ struct PlanDetailView: View {
                     }
                 }
                 Spacer()
-                if plan.isComplete {
-                    Button(action: { plannerVM.reopenPlan() }) {
-                        HStack(spacing: 3) {
-                            Image(systemName: "arrow.uturn.backward")
-                                .font(.system(size: 9))
-                            Text("Reopen")
-                                .font(.system(size: 10, weight: .medium))
-                        }
-                        .foregroundStyle(Color.calmTeal)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.calmTeal.opacity(0.12))
-                        .cornerRadius(5)
+                if confirmDelete {
+                    Text("Delete?")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.red)
+                    Button(action: {
+                        plannerVM.deletePlan(plan)
+                        confirmDelete = false
+                    }) {
+                        Text("Yes")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.red)
+                            .cornerRadius(5)
+                    }
+                    .buttonStyle(.plain)
+                    Button(action: { confirmDelete = false }) {
+                        Text("No")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
                 } else {
-                    Button(action: { plannerVM.completePlan() }) {
-                        HStack(spacing: 3) {
-                            Image(systemName: "checkmark.circle")
-                                .font(.system(size: 9))
-                            Text("Complete")
-                                .font(.system(size: 10, weight: .medium))
-                        }
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.calmTeal)
-                        .cornerRadius(5)
+                    Button(action: { confirmDelete = true }) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.red.opacity(0.5))
                     }
                     .buttonStyle(.plain)
+
+                    if plan.isComplete {
+                        Button(action: { plannerVM.reopenPlan() }) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "arrow.uturn.backward")
+                                    .font(.system(size: 9))
+                                Text("Reopen")
+                                    .font(.system(size: 10, weight: .medium))
+                            }
+                            .foregroundStyle(Color.calmTeal)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.calmTeal.opacity(0.12))
+                            .cornerRadius(5)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Button(action: { plannerVM.completePlan() }) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "checkmark.circle")
+                                    .font(.system(size: 9))
+                                Text("Complete")
+                                    .font(.system(size: 10, weight: .medium))
+                            }
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.calmTeal)
+                            .cornerRadius(5)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
 
