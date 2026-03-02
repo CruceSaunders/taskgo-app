@@ -182,6 +182,30 @@ class FirestoreService {
             }
     }
 
+    func listenToAllTasks(userId: String, completion: @escaping ([TaskItem]) -> Void) -> ListenerRegistration {
+        return tasksRef(userId)
+            .order(by: "createdAt", descending: false)
+            .addSnapshotListener { snapshot, error in
+                if let error = error {
+                    print("[Firestore] listenToAllTasks error: \(error)")
+                    return
+                }
+                guard let documents = snapshot?.documents else { return }
+                let tasks = documents.compactMap { try? $0.data(as: TaskItem.self) }
+                completion(tasks)
+            }
+    }
+
+    func getRecurringTasks(userId: String) async throws -> [TaskItem] {
+        let snapshot = try await tasksRef(userId)
+            .whereField("nextOccurrence", isLessThanOrEqualTo: Date())
+            .getDocuments()
+        return snapshot.documents.compactMap { doc in
+            let task = try? doc.data(as: TaskItem.self)
+            return task?.recurrence != nil ? task : nil
+        }
+    }
+
     // MARK: - Social Groups
 
     func createSocialGroup(_ group: SocialGroup) async throws -> String {
@@ -286,6 +310,38 @@ class FirestoreService {
                 guard let documents = snapshot?.documents else { return }
                 let notes = documents.compactMap { try? $0.data(as: Note.self) }
                 completion(notes)
+            }
+    }
+
+    // MARK: - Plans
+
+    private func plansRef(_ userId: String) -> CollectionReference {
+        userRef(userId).collection("plans")
+    }
+
+    func savePlan(_ plan: Plan, userId: String) async throws {
+        if let planId = plan.id {
+            try plansRef(userId).document(planId).setData(from: plan, merge: true)
+        } else {
+            _ = try plansRef(userId).addDocument(from: plan)
+        }
+    }
+
+    func deletePlan(_ planId: String, userId: String) async throws {
+        try await plansRef(userId).document(planId).delete()
+    }
+
+    func listenToPlans(userId: String, completion: @escaping ([Plan]) -> Void) -> ListenerRegistration {
+        return plansRef(userId)
+            .order(by: "createdAt", descending: true)
+            .addSnapshotListener { snapshot, error in
+                if let error = error {
+                    print("[Firestore] listenToPlans error: \(error)")
+                    return
+                }
+                guard let documents = snapshot?.documents else { return }
+                let plans = documents.compactMap { try? $0.data(as: Plan.self) }
+                completion(plans)
             }
     }
 

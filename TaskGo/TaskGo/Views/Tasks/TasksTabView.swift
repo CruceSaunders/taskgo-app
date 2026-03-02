@@ -37,7 +37,7 @@ struct TasksTabView: View {
                 Divider()
             }
 
-            if showAddTask {
+            if showAddTask && !groupVM.isAllGroupSelected {
                 AddTaskView(groupId: groupVM.selectedGroupId ?? "", onDismiss: {
                     showAddTask = false
                 })
@@ -49,12 +49,20 @@ struct TasksTabView: View {
         }
         .onChange(of: groupVM.selectedGroupId) { _, newGroupId in
             if let groupId = newGroupId {
-                taskVM.startListening(groupId: groupId)
+                if groupId == GroupViewModel.allGroupId {
+                    taskVM.startListeningAll()
+                } else {
+                    taskVM.startListening(groupId: groupId)
+                }
             }
         }
         .onAppear {
             if let groupId = groupVM.selectedGroupId {
-                taskVM.startListening(groupId: groupId)
+                if groupId == GroupViewModel.allGroupId {
+                    taskVM.startListeningAll()
+                } else {
+                    taskVM.startListening(groupId: groupId)
+                }
             }
             NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
                 shiftHeld = event.modifierFlags.contains(.shift)
@@ -67,6 +75,17 @@ struct TasksTabView: View {
         VStack(spacing: 0) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 4) {
+                    Button(action: { groupVM.selectAllGroup() }) {
+                        Text("All")
+                            .font(.system(size: 11, weight: groupVM.isAllGroupSelected ? .semibold : .regular))
+                            .foregroundStyle(groupVM.isAllGroupSelected ? Color.calmTeal : .primary.opacity(0.6))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(groupVM.isAllGroupSelected ? Color.calmTeal.opacity(0.12) : Color.clear)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+
                     ForEach(groupVM.groups) { group in
                         Button(action: { groupVM.selectGroup(group) }) {
                             Text(group.name)
@@ -503,7 +522,7 @@ struct TasksTabView: View {
                         .simultaneousGesture(
                             DragGesture(minimumDistance: 8)
                                 .onChanged { value in
-                                    // Block edits from the moment drag starts
+                                    guard !groupVM.isAllGroupSelected else { return }
                                     justDragged = true
 
                                     if draggingTaskId == nil {
@@ -519,6 +538,7 @@ struct TasksTabView: View {
                                     targetDropIndex = newIdx
                                 }
                                 .onEnded { _ in
+                                    guard !groupVM.isAllGroupSelected else { return }
                                     if let startIdx = dragStartIndex,
                                        let targetIdx = targetDropIndex,
                                        startIdx != targetIdx {
@@ -537,7 +557,6 @@ struct TasksTabView: View {
                                         targetDropIndex = nil
                                         dragStartIndex = nil
                                     }
-                                    // Keep edit blocked for longer after drop
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                                         justDragged = false
                                     }
@@ -571,18 +590,20 @@ struct TasksTabView: View {
 
             // Bottom bar: Add task + Select mode toggle
             HStack {
-                Button(action: {
-                    showAddTask = true
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus.circle.fill")
-                            .foregroundStyle(Color.calmTeal)
-                        Text("Add task")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.primary.opacity(0.6))
+                if !groupVM.isAllGroupSelected {
+                    Button(action: {
+                        showAddTask = true
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "plus.circle.fill")
+                                .foregroundStyle(Color.calmTeal)
+                            Text("Add task")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.primary.opacity(0.6))
+                        }
                     }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
 
                 Spacer()
 

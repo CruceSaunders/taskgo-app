@@ -4,16 +4,23 @@ import FirebaseFirestore
 
 @MainActor
 class GroupViewModel: ObservableObject {
+    static let allGroupId = "__all__"
+
     @Published var groups: [TaskGroup] = []
-    @Published var selectedGroupId: String?
+    @Published var selectedGroupId: String? = GroupViewModel.allGroupId
     @Published var isLoading = false
     @Published var errorMessage: String?
 
     private let firestoreService = FirestoreService.shared
     private var listener: ListenerRegistration?
 
+    var isAllGroupSelected: Bool {
+        selectedGroupId == GroupViewModel.allGroupId
+    }
+
     var selectedGroup: TaskGroup? {
-        groups.first { $0.id == selectedGroupId }
+        if isAllGroupSelected { return nil }
+        return groups.first { $0.id == selectedGroupId }
     }
 
     func startListening() {
@@ -23,15 +30,13 @@ class GroupViewModel: ObservableObject {
         listener = firestoreService.listenToGroups(userId: userId) { [weak self] groups in
             Task { @MainActor in
                 self?.groups = groups
-                // Auto-select the first group if none selected
-                if self?.selectedGroupId == nil, let firstGroup = groups.first {
-                    self?.selectedGroupId = firstGroup.id
+                if self?.selectedGroupId == nil {
+                    self?.selectedGroupId = GroupViewModel.allGroupId
                 }
-                // If selected group was deleted, select the first one
                 if let selectedId = self?.selectedGroupId,
-                   !groups.contains(where: { $0.id == selectedId }),
-                   let firstGroup = groups.first {
-                    self?.selectedGroupId = firstGroup.id
+                   selectedId != GroupViewModel.allGroupId,
+                   !groups.contains(where: { $0.id == selectedId }) {
+                    self?.selectedGroupId = GroupViewModel.allGroupId
                 }
             }
         }
@@ -92,5 +97,9 @@ class GroupViewModel: ObservableObject {
 
     func selectGroup(_ group: TaskGroup) {
         selectedGroupId = group.id
+    }
+
+    func selectAllGroup() {
+        selectedGroupId = GroupViewModel.allGroupId
     }
 }

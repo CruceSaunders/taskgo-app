@@ -8,6 +8,7 @@ struct MainWindowView: View {
     @EnvironmentObject var taskGoVM: TaskGoViewModel
     @EnvironmentObject var xpVM: XPViewModel
     @EnvironmentObject var notesVM: NotesViewModel
+    @EnvironmentObject var plannerVM: PlannerViewModel
 
     @State private var selectedTab: AppTab = .tasks
 
@@ -29,6 +30,8 @@ struct MainWindowView: View {
                         TasksTabView()
                     case .notes:
                         NotesTabView()
+                    case .planner:
+                        PlannerTabView()
                     case .calendar:
                         CalendarTabView()
                     case .profile:
@@ -73,6 +76,7 @@ struct MainWindowView: View {
             VStack(spacing: 2) {
                 sidebarButton("Tasks", icon: "checklist", tab: .tasks)
                 sidebarButton("Notes", icon: "doc.text", tab: .notes)
+                sidebarButton("Planner", icon: "calendar.day.timeline.leading", tab: .planner)
                 sidebarButton("Calendar", icon: "calendar", tab: .calendar)
                 sidebarButton("Profile", icon: "person.circle", tab: .profile)
             }

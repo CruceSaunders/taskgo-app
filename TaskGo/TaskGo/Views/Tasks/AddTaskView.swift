@@ -16,6 +16,13 @@ struct AddTaskView: View {
     @State private var position = ""
     @State private var showDescription = false
     @State private var showPosition = false
+    @State private var showRecurrence = false
+    @State private var recFrequency = "daily"
+    @State private var recInterval = "1"
+    @State private var recDaysOfWeek: Set<Int> = []
+    @State private var recTimes: [String] = ["09:00"]
+    @State private var recHasEndDate = false
+    @State private var recEndDate = Calendar.current.date(byAdding: .month, value: 1, to: Date()) ?? Date()
 
     // Batch fields
     @State private var batchTitle = ""
@@ -121,6 +128,13 @@ struct AddTaskView: View {
                         .foregroundStyle(showPosition ? Color.calmTeal : .primary.opacity(0.4))
                 }
                 .buttonStyle(.plain)
+
+                Button(action: { showRecurrence.toggle() }) {
+                    Image(systemName: "repeat")
+                        .font(.system(size: 11))
+                        .foregroundStyle(showRecurrence ? Color.calmTeal : .primary.opacity(0.4))
+                }
+                .buttonStyle(.plain)
             }
 
             if showDescription {
@@ -142,27 +156,161 @@ struct AddTaskView: View {
                 }
             }
 
+            if showRecurrence {
+                recurrenceSection
+            }
+
             Button(action: {
                 let positionInt = Int(position)
                 let time = minutesText.trimmingCharacters(in: .whitespaces).isEmpty ? 0 : timeEstimateSeconds
+                let rule: RecurrenceRule? = showRecurrence ? buildRecurrenceRule() : nil
                 Task {
                     await taskVM.addTask(
                         name: name,
                         timeEstimate: time,
                         description: showDescription && !description.isEmpty ? description : nil,
                         position: showPosition ? positionInt : nil,
-                        groupId: groupId
+                        groupId: groupId,
+                        recurrence: rule
                     )
                     onDismiss()
                 }
             }) {
-                Text("Add Task")
+                Text(showRecurrence ? "Add Recurring Task" : "Add Task")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
             .tint(Color.calmTeal)
             .disabled(name.isEmpty)
         }
+    }
+
+    // MARK: - Recurrence
+
+    private var recurrenceSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 4) {
+                Image(systemName: "repeat")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color.calmTeal)
+                Text("Repeat")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.calmTeal)
+            }
+
+            HStack(spacing: 6) {
+                ForEach(["daily", "weekly", "custom"], id: \.self) { freq in
+                    Button(action: { recFrequency = freq }) {
+                        Text(freq.capitalized)
+                            .font(.system(size: 10, weight: recFrequency == freq ? .semibold : .regular))
+                            .foregroundStyle(recFrequency == freq ? .white : .primary.opacity(0.5))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(recFrequency == freq ? Color.calmTeal : Color.secondary.opacity(0.08))
+                            .cornerRadius(5)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            HStack(spacing: 4) {
+                Text("Every")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.primary.opacity(0.55))
+                TextField("1", text: $recInterval)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 30)
+                    .font(.system(size: 10))
+                    .multilineTextAlignment(.center)
+                Text(recFrequency == "weekly" ? "week(s)" : "day(s)")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.primary.opacity(0.55))
+            }
+
+            if recFrequency == "weekly" || recFrequency == "custom" {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Days")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.primary.opacity(0.55))
+                    HStack(spacing: 3) {
+                        ForEach([(1, "S"), (2, "M"), (3, "T"), (4, "W"), (5, "T"), (6, "F"), (7, "S")], id: \.0) { day, label in
+                            Button(action: {
+                                if recDaysOfWeek.contains(day) {
+                                    recDaysOfWeek.remove(day)
+                                } else {
+                                    recDaysOfWeek.insert(day)
+                                }
+                            }) {
+                                Text(label)
+                                    .font(.system(size: 9, weight: .semibold))
+                                    .foregroundStyle(recDaysOfWeek.contains(day) ? .white : .primary.opacity(0.5))
+                                    .frame(width: 22, height: 22)
+                                    .background(recDaysOfWeek.contains(day) ? Color.calmTeal : Color.secondary.opacity(0.1))
+                                    .cornerRadius(4)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Times")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.primary.opacity(0.55))
+                    Spacer()
+                    Button(action: { recTimes.append("09:00") }) {
+                        Image(systemName: "plus.circle")
+                            .font(.system(size: 10))
+                            .foregroundStyle(Color.calmTeal)
+                    }
+                    .buttonStyle(.plain)
+                }
+                ForEach(recTimes.indices, id: \.self) { index in
+                    HStack(spacing: 4) {
+                        TextField("HH:mm", text: $recTimes[index])
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 60)
+                            .font(.system(size: 10))
+                            .multilineTextAlignment(.center)
+                        if recTimes.count > 1 {
+                            Button(action: { recTimes.remove(at: index) }) {
+                                Image(systemName: "minus.circle")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.red.opacity(0.5))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+
+            HStack(spacing: 4) {
+                Toggle("End date", isOn: $recHasEndDate)
+                    .toggleStyle(.checkbox)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.primary.opacity(0.55))
+                if recHasEndDate {
+                    DatePicker("", selection: $recEndDate, displayedComponents: .date)
+                        .labelsHidden()
+                        .controlSize(.small)
+                }
+            }
+        }
+        .padding(8)
+        .background(Color.calmTeal.opacity(0.05))
+        .cornerRadius(8)
+    }
+
+    private func buildRecurrenceRule() -> RecurrenceRule {
+        RecurrenceRule(
+            frequency: recFrequency,
+            interval: Int(recInterval) ?? 1,
+            daysOfWeek: (recFrequency == "weekly" || recFrequency == "custom") && !recDaysOfWeek.isEmpty ? Array(recDaysOfWeek) : nil,
+            timesOfDay: recTimes.filter { !$0.isEmpty },
+            endDate: recHasEndDate ? recEndDate : nil
+        )
     }
 
     // MARK: - Batch Mode

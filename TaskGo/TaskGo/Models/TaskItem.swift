@@ -2,6 +2,72 @@ import Foundation
 import SwiftUI
 import FirebaseFirestore
 
+struct RecurrenceRule: Codable, Equatable {
+    var frequency: String       // "daily", "weekly", "monthly", "custom"
+    var interval: Int           // e.g. every 2 days, every 3 weeks
+    var daysOfWeek: [Int]?      // 1=Sun..7=Sat (for weekly/custom)
+    var timesOfDay: [String]    // ["09:00", "14:30"] -- HH:mm format
+    var endDate: Date?
+
+    init(
+        frequency: String = "daily",
+        interval: Int = 1,
+        daysOfWeek: [Int]? = nil,
+        timesOfDay: [String] = ["09:00"],
+        endDate: Date? = nil
+    ) {
+        self.frequency = frequency
+        self.interval = interval
+        self.daysOfWeek = daysOfWeek
+        self.timesOfDay = timesOfDay
+        self.endDate = endDate
+    }
+
+    var summaryLabel: String {
+        var parts: [String] = []
+        switch frequency {
+        case "daily":
+            parts.append(interval == 1 ? "Daily" : "Every \(interval) days")
+        case "weekly":
+            if let days = daysOfWeek, !days.isEmpty {
+                let names = days.sorted().compactMap { dayAbbreviation($0) }
+                parts.append(interval == 1 ? "Weekly" : "Every \(interval) weeks")
+                parts.append(names.joined(separator: ", "))
+            } else {
+                parts.append(interval == 1 ? "Weekly" : "Every \(interval) weeks")
+            }
+        case "monthly":
+            parts.append(interval == 1 ? "Monthly" : "Every \(interval) months")
+        case "custom":
+            if let days = daysOfWeek, !days.isEmpty {
+                let names = days.sorted().compactMap { dayAbbreviation($0) }
+                parts.append(names.joined(separator: ", "))
+            } else {
+                parts.append("Custom")
+            }
+        default:
+            parts.append(frequency.capitalized)
+        }
+        if !timesOfDay.isEmpty {
+            parts.append("at \(timesOfDay.joined(separator: ", "))")
+        }
+        return parts.joined(separator: " ")
+    }
+
+    private func dayAbbreviation(_ day: Int) -> String? {
+        switch day {
+        case 1: return "Sun"
+        case 2: return "Mon"
+        case 3: return "Tue"
+        case 4: return "Wed"
+        case 5: return "Thu"
+        case 6: return "Fri"
+        case 7: return "Sat"
+        default: return nil
+        }
+    }
+}
+
 struct TaskItem: Identifiable, Codable, Equatable {
     @DocumentID var id: String?
     var name: String
@@ -18,6 +84,9 @@ struct TaskItem: Identifiable, Codable, Equatable {
     var chainOrder: Int? // step number within the chain (1, 2, 3...)
     var colorTag: String? // color name for highlighting
     var groupTitle: String? // title for batch or chain groups ("red", "blue", "green", "yellow", "purple", "orange")
+    var recurrence: RecurrenceRule?
+    var sourceTaskId: String?
+    var nextOccurrence: Date?
 
     var timeEstimateFormatted: String {
         let minutes = timeEstimate / 60
@@ -49,6 +118,14 @@ struct TaskItem: Identifiable, Codable, Equatable {
         batchTimeEstimate ?? timeEstimate
     }
 
+    var isRecurring: Bool {
+        recurrence != nil
+    }
+
+    var isSpawnedInstance: Bool {
+        sourceTaskId != nil
+    }
+
     init(
         id: String? = nil,
         name: String,
@@ -64,7 +141,10 @@ struct TaskItem: Identifiable, Codable, Equatable {
         chainId: String? = nil,
         chainOrder: Int? = nil,
         colorTag: String? = nil,
-        groupTitle: String? = nil
+        groupTitle: String? = nil,
+        recurrence: RecurrenceRule? = nil,
+        sourceTaskId: String? = nil,
+        nextOccurrence: Date? = nil
     ) {
         self.id = id
         self.name = name
@@ -81,6 +161,9 @@ struct TaskItem: Identifiable, Codable, Equatable {
         self.chainOrder = chainOrder
         self.colorTag = colorTag
         self.groupTitle = groupTitle
+        self.recurrence = recurrence
+        self.sourceTaskId = sourceTaskId
+        self.nextOccurrence = nextOccurrence
     }
 
     var colorTagColor: Color? {

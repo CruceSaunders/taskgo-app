@@ -102,12 +102,36 @@ class TaskViewModel: ObservableObject {
         }
     }
 
+    func startListeningAll() {
+        stopListening()
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+
+        listener = firestoreService.listenToAllTasks(userId: userId) { [weak self] tasks in
+            Task { @MainActor in
+                guard let self = self else { return }
+                if self.pendingToggleIds.isEmpty {
+                    self.tasks = tasks
+                } else {
+                    var merged = tasks
+                    for (i, task) in merged.enumerated() {
+                        if let id = task.id, self.pendingToggleIds.contains(id),
+                           let localTask = self.tasks.first(where: { $0.id == id }) {
+                            merged[i].isComplete = localTask.isComplete
+                            merged[i].completedAt = localTask.completedAt
+                        }
+                    }
+                    self.tasks = merged
+                }
+            }
+        }
+    }
+
     func stopListening() {
         listener?.remove()
         listener = nil
     }
 
-    func addTask(name: String, timeEstimate: Int, description: String? = nil, position: Int? = nil, groupId: String) async {
+    func addTask(name: String, timeEstimate: Int, description: String? = nil, position: Int? = nil, groupId: String, recurrence: RecurrenceRule? = nil) async {
         guard let userId = Auth.auth().currentUser?.uid else {
             print("[TaskVM] addTask: no authenticated user")
             return
@@ -123,12 +147,19 @@ class TaskViewModel: ObservableObject {
                 fromPosition: targetPosition
             )
 
+            var nextOcc: Date? = nil
+            if let rule = recurrence {
+                nextOcc = RecurrenceService.shared.computeInitialNextOccurrence(rule: rule)
+            }
+
             let task = TaskItem(
                 name: name,
                 description: description,
                 timeEstimate: timeEstimate,
                 position: targetPosition,
-                groupId: groupId
+                groupId: groupId,
+                recurrence: recurrence,
+                nextOccurrence: nextOcc
             )
 
             let taskId = try await firestoreService.createTask(task, userId: userId)
@@ -447,9 +478,17 @@ class TaskViewModel: ObservableObject {
                 data["completedAt"] = FieldValue.delete()
             }
             try await firestoreService.updateTaskFields(taskId: taskId, fields: data, userId: userId)
+
+            if newComplete, let recurrence = task.recurrence {
+                let nextOcc = RecurrenceService.shared.computeNextOccurrence(from: Date(), rule: recurrence)
+                var recurringUpdate = task
+                recurringUpdate.isComplete = false
+                recurringUpdate.completedAt = nil
+                recurringUpdate.nextOccurrence = nextOcc
+                try await firestoreService.updateTask(recurringUpdate, userId: userId)
+            }
         } catch {
             print("[TaskVM] toggleComplete error: \(error)")
-            // Revert on failure
             if let index = tasks.firstIndex(where: { $0.id == taskId }) {
                 tasks[index].isComplete = !newComplete
                 tasks[index].completedAt = !newComplete ? Date() : nil
@@ -710,6 +749,37 @@ class TaskViewModel: ObservableObject {
             var updated = task
             updated.position = newPosition
             try await firestoreService.updateTask(updated, userId: userId)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func updateRecurrence(_ task: TaskItem, rule: RecurrenceRule?) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+
+        var updated = task
+        updated.recurrence = rule
+        if let rule = rule {
+            updated.nextOccurrence = RecurrenceService.shared.computeInitialNextOccurrence(rule: rule)
+        } else {
+            updated.nextOccurrence = nil
+        }
+
+        do {
+            if rule == nil {
+                if let taskId = task.id {
+                    try await firestoreService.updateTaskFields(
+                        taskId: taskId,
+                        fields: [
+                            "recurrence": FieldValue.delete(),
+                            "nextOccurrence": FieldValue.delete()
+                        ],
+                        userId: userId
+                    )
+                }
+            } else {
+                try await firestoreService.updateTask(updated, userId: userId)
+            }
         } catch {
             errorMessage = error.localizedDescription
         }

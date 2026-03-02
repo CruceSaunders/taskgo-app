@@ -14,6 +14,13 @@ struct TaskRowView: View {
     @State private var editDescription = ""
     @State private var editGroupTitle = ""
     @State private var editBatchMinutes = ""
+    @State private var showRecurrenceEdit = false
+    @State private var editRecFrequency = "daily"
+    @State private var editRecInterval = "1"
+    @State private var editRecDaysOfWeek: Set<Int> = []
+    @State private var editRecTimes: [String] = ["09:00"]
+    @State private var editRecHasEndDate = false
+    @State private var editRecEndDate = Date()
 
     private var isEditing: Bool {
         editingTaskId == task.id
@@ -113,13 +120,31 @@ struct TaskRowView: View {
                     editName = task.name
                     editMinutes = "\(task.timeEstimate / 60)"
                     editDescription = task.description ?? ""
+                    if let rec = task.recurrence {
+                        showRecurrenceEdit = true
+                        editRecFrequency = rec.frequency
+                        editRecInterval = "\(rec.interval)"
+                        editRecDaysOfWeek = Set(rec.daysOfWeek ?? [])
+                        editRecTimes = rec.timesOfDay
+                        editRecHasEndDate = rec.endDate != nil
+                        editRecEndDate = rec.endDate ?? Date()
+                    } else {
+                        showRecurrenceEdit = false
+                    }
                     editingTaskId = task.id
                 }) {
-                    Text(task.name)
-                        .font(.system(size: 13))
-                        .strikethrough(task.isComplete)
-                        .foregroundStyle(task.isComplete ? .secondary : .primary)
-                        .lineLimit(2)
+                    HStack(spacing: 3) {
+                        Text(task.name)
+                            .font(.system(size: 13))
+                            .strikethrough(task.isComplete)
+                            .foregroundStyle(task.isComplete ? .secondary : .primary)
+                            .lineLimit(2)
+                        if task.isRecurring {
+                            Image(systemName: "repeat")
+                                .font(.system(size: 8))
+                                .foregroundStyle(Color.calmTeal.opacity(0.6))
+                        }
+                    }
                 }
                 .buttonStyle(.plain)
 
@@ -227,6 +252,38 @@ struct TaskRowView: View {
                 }
             }
 
+            // Recurrence toggle
+            HStack(spacing: 4) {
+                Button(action: { showRecurrenceEdit.toggle() }) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "repeat")
+                            .font(.system(size: 9))
+                        Text(showRecurrenceEdit ? "Recurring" : "Make recurring")
+                            .font(.system(size: 9))
+                    }
+                    .foregroundStyle(showRecurrenceEdit ? Color.calmTeal : .primary.opacity(0.4))
+                }
+                .buttonStyle(.plain)
+
+                if showRecurrenceEdit && task.isRecurring {
+                    Button(action: {
+                        showRecurrenceEdit = false
+                        Task {
+                            await taskVM.updateRecurrence(task, rule: nil)
+                        }
+                    }) {
+                        Text("Remove")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.red.opacity(0.6))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if showRecurrenceEdit {
+                editRecurrenceSection
+            }
+
             HStack(spacing: 12) {
                 Button("Cancel") {
                     editingTaskId = nil
@@ -235,7 +292,6 @@ struct TaskRowView: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
 
-                // Reorder in edit mode
                 if !task.isComplete {
                     HStack(spacing: 4) {
                         Button(action: { Task { await taskVM.moveTaskUp(task) } }) {
@@ -254,7 +310,6 @@ struct TaskRowView: View {
                     }
                 }
 
-                // Duplicate
                 Button(action: {
                     Task {
                         await taskVM.duplicateTask(task)
@@ -274,8 +329,18 @@ struct TaskRowView: View {
                     updated.name = editName
                     updated.timeEstimate = (Int(editMinutes) ?? task.timeEstimate / 60) * 60
                     updated.description = editDescription.isEmpty ? nil : editDescription
+
+                    let newRule: RecurrenceRule? = showRecurrenceEdit ? RecurrenceRule(
+                        frequency: editRecFrequency,
+                        interval: Int(editRecInterval) ?? 1,
+                        daysOfWeek: (editRecFrequency == "weekly" || editRecFrequency == "custom") && !editRecDaysOfWeek.isEmpty ? Array(editRecDaysOfWeek) : nil,
+                        timesOfDay: editRecTimes.filter { !$0.isEmpty },
+                        endDate: editRecHasEndDate ? editRecEndDate : nil
+                    ) : nil
+
                     Task {
                         await taskVM.updateTask(updated)
+                        await taskVM.updateRecurrence(updated, rule: newRule)
                         editingTaskId = nil
                     }
                 }
@@ -289,6 +354,103 @@ struct TaskRowView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .background(Color.calmTeal.opacity(0.05))
+    }
+
+    private var editRecurrenceSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 4) {
+                ForEach(["daily", "weekly", "custom"], id: \.self) { freq in
+                    Button(action: { editRecFrequency = freq }) {
+                        Text(freq.capitalized)
+                            .font(.system(size: 9, weight: editRecFrequency == freq ? .semibold : .regular))
+                            .foregroundStyle(editRecFrequency == freq ? .white : .primary.opacity(0.5))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(editRecFrequency == freq ? Color.calmTeal : Color.secondary.opacity(0.08))
+                            .cornerRadius(4)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            HStack(spacing: 3) {
+                Text("Every")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.primary.opacity(0.5))
+                TextField("1", text: $editRecInterval)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 25)
+                    .font(.system(size: 9))
+                    .multilineTextAlignment(.center)
+                Text(editRecFrequency == "weekly" ? "week(s)" : "day(s)")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.primary.opacity(0.5))
+            }
+
+            if editRecFrequency == "weekly" || editRecFrequency == "custom" {
+                HStack(spacing: 2) {
+                    ForEach([(1, "S"), (2, "M"), (3, "T"), (4, "W"), (5, "T"), (6, "F"), (7, "S")], id: \.0) { day, label in
+                        Button(action: {
+                            if editRecDaysOfWeek.contains(day) {
+                                editRecDaysOfWeek.remove(day)
+                            } else {
+                                editRecDaysOfWeek.insert(day)
+                            }
+                        }) {
+                            Text(label)
+                                .font(.system(size: 8, weight: .semibold))
+                                .foregroundStyle(editRecDaysOfWeek.contains(day) ? .white : .primary.opacity(0.5))
+                                .frame(width: 18, height: 18)
+                                .background(editRecDaysOfWeek.contains(day) ? Color.calmTeal : Color.secondary.opacity(0.1))
+                                .cornerRadius(3)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
+            HStack(spacing: 3) {
+                Text("At")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.primary.opacity(0.5))
+                ForEach(editRecTimes.indices, id: \.self) { index in
+                    TextField("HH:mm", text: $editRecTimes[index])
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 48)
+                        .font(.system(size: 9))
+                        .multilineTextAlignment(.center)
+                    if editRecTimes.count > 1 {
+                        Button(action: { editRecTimes.remove(at: index) }) {
+                            Image(systemName: "minus.circle")
+                                .font(.system(size: 8))
+                                .foregroundStyle(.red.opacity(0.5))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                Button(action: { editRecTimes.append("09:00") }) {
+                    Image(systemName: "plus.circle")
+                        .font(.system(size: 8))
+                        .foregroundStyle(Color.calmTeal)
+                }
+                .buttonStyle(.plain)
+            }
+
+            HStack(spacing: 3) {
+                Toggle("End", isOn: $editRecHasEndDate)
+                    .toggleStyle(.checkbox)
+                    .font(.system(size: 9))
+                    .foregroundStyle(.primary.opacity(0.5))
+                if editRecHasEndDate {
+                    DatePicker("", selection: $editRecEndDate, displayedComponents: .date)
+                        .labelsHidden()
+                        .controlSize(.mini)
+                }
+            }
+        }
+        .padding(6)
+        .background(Color.calmTeal.opacity(0.05))
+        .cornerRadius(6)
     }
 
     // MARK: - Batch View

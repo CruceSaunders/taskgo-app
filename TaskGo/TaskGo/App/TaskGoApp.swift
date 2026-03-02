@@ -13,6 +13,7 @@ struct TaskGoApp: App {
     @StateObject private var notesViewModel: NotesViewModel
     @StateObject private var calendarViewModel: CalendarViewModel
     @StateObject private var reminderViewModel: ReminderViewModel
+    @StateObject private var plannerViewModel: PlannerViewModel
 
     init() {
         FirebaseApp.configure()
@@ -26,6 +27,7 @@ struct TaskGoApp: App {
         _notesViewModel = StateObject(wrappedValue: NotesViewModel())
         _calendarViewModel = StateObject(wrappedValue: CalendarViewModel())
         _reminderViewModel = StateObject(wrappedValue: ReminderViewModel())
+        _plannerViewModel = StateObject(wrappedValue: PlannerViewModel())
     }
 
     var body: some Scene {
@@ -39,10 +41,12 @@ struct TaskGoApp: App {
                 .environmentObject(notesViewModel)
                 .environmentObject(calendarViewModel)
                 .environmentObject(reminderViewModel)
+                .environmentObject(plannerViewModel)
                 .onAppear {
                     appDelegate.timerPanelController?.setViewModel(taskGoViewModel)
                     taskGoViewModel.taskVM = taskViewModel
                     taskGoViewModel.xpVM = xpViewModel
+                    RecurrenceService.shared.start()
                     setupMainWindowContentHandler()
                 }
         } label: {
@@ -72,6 +76,7 @@ struct TaskGoApp: App {
                 .environmentObject(self.notesViewModel)
                 .environmentObject(self.calendarViewModel)
                 .environmentObject(self.reminderViewModel)
+                .environmentObject(self.plannerViewModel)
             window.contentView = NSHostingView(rootView: contentView)
         }
     }
