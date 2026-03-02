@@ -29,6 +29,7 @@ class CalendarViewModel: ObservableObject {
     }
 
     func refreshEvents() {
+        selectedDate = Date()
         todayEvents = calendarService.fetchEvents(for: selectedDate)
     }
 
