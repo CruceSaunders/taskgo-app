@@ -33,6 +33,9 @@ struct CalendarTabView: View {
             calendarVM.checkAccess()
             reminderVM.startListening()
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            calendarVM.refreshEvents()
+        }
     }
 
     // MARK: - Calendar Access Prompt
@@ -76,6 +79,15 @@ struct CalendarTabView: View {
                     .foregroundStyle(.primary.opacity(0.3))
 
                 Spacer()
+
+                Button(action: {
+                    calendarVM.refreshEvents()
+                }) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color.calmTeal)
+                }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)

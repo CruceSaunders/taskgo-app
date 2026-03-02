@@ -28,6 +28,10 @@ class CalendarService: ObservableObject {
         }
     }
 
+    func resetStore() {
+        store.reset()
+    }
+
     func fetchEvents(for date: Date) -> [CalendarEvent] {
         guard hasAccess else { return [] }
 

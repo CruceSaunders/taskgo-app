@@ -9,12 +9,14 @@ class CalendarViewModel: ObservableObject {
 
     private let calendarService = CalendarService.shared
     private var observer: NSObjectProtocol?
+    private var refreshTimer: Timer?
 
     func checkAccess() {
         hasAccess = calendarService.hasAccess
         if hasAccess {
             refreshEvents()
             startMonitoring()
+            startPeriodicRefresh()
         }
     }
 
@@ -24,18 +26,21 @@ class CalendarViewModel: ObservableObject {
         if granted {
             refreshEvents()
             startMonitoring()
+            startPeriodicRefresh()
             scheduleCalendarAlerts()
         }
     }
 
     func refreshEvents() {
         selectedDate = Date()
+        calendarService.resetStore()
         todayEvents = calendarService.fetchEvents(for: selectedDate)
     }
 
     func selectDate(_ date: Date) {
         selectedDate = date
-        refreshEvents()
+        calendarService.resetStore()
+        todayEvents = calendarService.fetchEvents(for: date)
     }
 
     private func startMonitoring() {
@@ -43,6 +48,15 @@ class CalendarViewModel: ObservableObject {
             Task { @MainActor in
                 self?.refreshEvents()
                 self?.scheduleCalendarAlerts()
+            }
+        }
+    }
+
+    private func startPeriodicRefresh() {
+        refreshTimer?.invalidate()
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.refreshEvents()
             }
         }
     }
@@ -58,5 +72,6 @@ class CalendarViewModel: ObservableObject {
         if let observer = observer {
             NotificationCenter.default.removeObserver(observer)
         }
+        refreshTimer?.invalidate()
     }
 }
