@@ -19,7 +19,7 @@ struct PlannerTabView: View {
             plannerVM.startListening()
         }
         .onDisappear {
-            plannerVM.saveNow()
+            plannerVM.flushSave()
         }
     }
 

@@ -48,6 +48,7 @@ struct TaskGoApp: App {
                     taskGoViewModel.xpVM = xpViewModel
                     RecurrenceService.shared.start()
                     setupMainWindowContentHandler()
+                    plannerViewModel.startListening()
                 }
         } label: {
             Image(systemName: "bolt.circle.fill")

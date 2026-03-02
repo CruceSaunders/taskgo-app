@@ -18,8 +18,10 @@ class PlannerViewModel: ObservableObject {
 
     private let firestoreService = FirestoreService.shared
     private var listener: ListenerRegistration?
-    private var saveTask: DispatchWorkItem?
+    private var isSaving = false
+    private var pendingSave: Plan?
     private var terminationObserver: NSObjectProtocol?
+    private var isListening = false
 
     var filteredPlans: [Plan] {
         let filtered: [Plan]
@@ -43,8 +45,9 @@ class PlannerViewModel: ObservableObject {
     // MARK: - Listening
 
     func startListening() {
-        stopListening()
+        guard !isListening else { return }
         guard let userId = Auth.auth().currentUser?.uid else { return }
+        isListening = true
 
         listener = firestoreService.listenToPlans(userId: userId) { [weak self] plans in
             Task { @MainActor in
@@ -57,19 +60,22 @@ class PlannerViewModel: ObservableObject {
             }
         }
 
-        terminationObserver = NotificationCenter.default.addObserver(
-            forName: NSApplication.willTerminateNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.saveNow()
+        if terminationObserver == nil {
+            terminationObserver = NotificationCenter.default.addObserver(
+                forName: NSApplication.willTerminateNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.flushSave()
+            }
         }
     }
 
     func stopListening() {
-        saveNow()
+        flushSave()
         listener?.remove()
         listener = nil
+        isListening = false
         if let terminationObserver {
             NotificationCenter.default.removeObserver(terminationObserver)
         }
@@ -112,13 +118,14 @@ class PlannerViewModel: ObservableObject {
     }
 
     func selectPlan(_ plan: Plan) {
-        saveNow()
+        flushSave()
         selectedPlan = plan
     }
 
     func deletePlan(_ plan: Plan) {
         guard let planId = plan.id else { return }
         if selectedPlan?.id == planId { selectedPlan = nil }
+        plans.removeAll { $0.id == planId }
         Task {
             guard let userId = Auth.auth().currentUser?.uid else { return }
             try? await firestoreService.deletePlan(planId, userId: userId)
@@ -129,14 +136,14 @@ class PlannerViewModel: ObservableObject {
         guard selectedPlan != nil else { return }
         selectedPlan?.isComplete = true
         selectedPlan?.updatedAt = Date()
-        scheduleSave()
+        save()
     }
 
     func reopenPlan() {
         guard selectedPlan != nil else { return }
         selectedPlan?.isComplete = false
         selectedPlan?.updatedAt = Date()
-        scheduleSave()
+        save()
     }
 
     // MARK: - Objectives
@@ -146,7 +153,7 @@ class PlannerViewModel: ObservableObject {
         let obj = PlanObjective(text: text.trimmingCharacters(in: .whitespaces))
         selectedPlan?.overallObjectives.append(obj)
         selectedPlan?.updatedAt = Date()
-        scheduleSave()
+        save()
     }
 
     func addDailyObjective(date: String, text: String) {
@@ -157,7 +164,7 @@ class PlannerViewModel: ObservableObject {
         }
         selectedPlan?.dailyObjectives[date]?.append(obj)
         selectedPlan?.updatedAt = Date()
-        scheduleSave()
+        save()
     }
 
     func toggleObjective(objectiveId: String, date: String?) {
@@ -172,7 +179,7 @@ class PlannerViewModel: ObservableObject {
             }
         }
         selectedPlan?.updatedAt = Date()
-        scheduleSave()
+        save()
     }
 
     func removeObjective(objectiveId: String, date: String?) {
@@ -183,7 +190,7 @@ class PlannerViewModel: ObservableObject {
             selectedPlan?.overallObjectives.removeAll { $0.id == objectiveId }
         }
         selectedPlan?.updatedAt = Date()
-        scheduleSave()
+        save()
     }
 
     func updateObjectiveText(objectiveId: String, date: String?, newText: String) {
@@ -198,59 +205,114 @@ class PlannerViewModel: ObservableObject {
             }
         }
         selectedPlan?.updatedAt = Date()
-        scheduleSave()
+        save()
     }
 
     func updatePlanTitle(_ newTitle: String) {
         guard selectedPlan != nil, !newTitle.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         selectedPlan?.title = newTitle.trimmingCharacters(in: .whitespaces)
         selectedPlan?.updatedAt = Date()
-        scheduleSave()
+        save()
     }
 
     // MARK: - Save
 
-    private func scheduleSave() {
-        saveTask?.cancel()
+    private func save() {
         guard let plan = selectedPlan else { return }
 
         if let idx = plans.firstIndex(where: { $0.id == plan.id }) {
             plans[idx] = plan
         }
 
-        let workItem = DispatchWorkItem { [weak self] in
-            Task { @MainActor in
-                await self?.save(plan)
-            }
+        Task {
+            await persistPlan(plan)
         }
-        saveTask = workItem
-        DispatchQueue.main.async(execute: workItem)
     }
 
-    func saveNow() {
-        saveTask?.cancel()
+    private func persistPlan(_ plan: Plan) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        do {
+            try await firestoreService.savePlan(plan, userId: userId)
+        } catch {
+            print("[Planner] SAVE ERROR: \(error)")
+        }
+    }
+
+    func flushSave() {
         guard let plan = selectedPlan else { return }
         if let idx = plans.firstIndex(where: { $0.id == plan.id }) {
             plans[idx] = plan
         }
+        guard let userId = Auth.auth().currentUser?.uid else { return }
         let semaphore = DispatchSemaphore(value: 0)
         Task.detached {
-            guard let userId = Auth.auth().currentUser?.uid else {
-                semaphore.signal()
-                return
-            }
             try? await FirestoreService.shared.savePlan(plan, userId: userId)
             semaphore.signal()
         }
         _ = semaphore.wait(timeout: .now() + 3)
     }
 
-    private func save(_ plan: Plan) async {
+    // MARK: - One-time data recovery
+
+    func recoverPlan() {
         guard let userId = Auth.auth().currentUser?.uid else { return }
-        do {
-            try await firestoreService.savePlan(plan, userId: userId)
-        } catch {
-            print("[Planner] SAVE ERROR: \(error)")
+        let plan = Plan(
+            title: "Session 4 Week 1",
+            startDate: "2026-03-02",
+            endDate: "2026-03-06",
+            overallObjectives: [
+                PlanObjective(text: "21 Carousel posts ready to post"),
+                PlanObjective(text: "3 Fully warm TikTok accounts"),
+                PlanObjective(text: "Monetized/Completed Ippo Update on the app store"),
+                PlanObjective(text: "Have 21 carousels"),
+            ],
+            dailyObjectives: [
+                "2026-03-02": [
+                    PlanObjective(text: "Set up 3 TikTok Accounts"),
+                    PlanObjective(text: "Warm Up TikTok accounts on metro"),
+                    PlanObjective(text: "Add evolutions to Ippo"),
+                    PlanObjective(text: "Debug/Test Ippo x3"),
+                ],
+                "2026-03-03": [
+                    PlanObjective(text: "Debug/Test Ippo"),
+                    PlanObjective(text: "Monetize Ippo"),
+                    PlanObjective(text: "Warm up TikTok accounts on the Metro"),
+                    PlanObjective(text: "Create 3 carousels"),
+                    PlanObjective(text: "Insight/SPOV that I will defend"),
+                ],
+                "2026-03-04": [
+                    PlanObjective(text: "Warm Up TikTok Accounts"),
+                    PlanObjective(text: "Create 9 carousels"),
+                ],
+                "2026-03-05": [
+                    PlanObjective(text: "Post one carousel on each TikTok account"),
+                    PlanObjective(text: "Create 9 carousels"),
+                ],
+                "2026-03-06": [
+                    PlanObjective(text: "Ensure: 3 solid themes, 21 carousels, complete app on the app store and monetized"),
+                    PlanObjective(text: "Plan: how to automate carousel marketing? ClawdBot? Overseas Freelancer? How do we scale?"),
+                    PlanObjective(text: "Plan: How can I get x3 committed beta testers?"),
+                    PlanObjective(text: "Accountability Presentation"),
+                ],
+            ]
+        )
+        Task {
+            do {
+                var saved = plan
+                let docId = try await firestoreService.savePlan(plan, userId: userId)
+                saved.id = docId
+                self.plans.insert(saved, at: 0)
+                self.selectedPlan = saved
+                print("[Planner] RECOVERED plan successfully")
+            } catch {
+                print("[Planner] RECOVERY FAILED: \(error)")
+            }
+        }
+    }
+
+    deinit {
+        if let terminationObserver {
+            NotificationCenter.default.removeObserver(terminationObserver)
         }
     }
 }
