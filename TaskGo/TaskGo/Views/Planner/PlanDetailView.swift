@@ -258,7 +258,7 @@ struct ObjectiveRow: View {
                 Text(objective.text)
                     .font(.system(size: 11))
                     .strikethrough(objective.isComplete, color: .primary.opacity(0.3))
-                    .foregroundStyle(objective.isComplete ? .primary.opacity(0.4) : .primary.opacity(0.8))
+                    .foregroundStyle(Color.primary.opacity(objective.isComplete ? 0.4 : 0.8))
                     .onTapGesture(count: 2) {
                         guard !isComplete else { return }
                         editText = objective.text
