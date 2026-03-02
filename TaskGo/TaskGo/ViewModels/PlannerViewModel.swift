@@ -19,6 +19,7 @@ class PlannerViewModel: ObservableObject {
     private let firestoreService = FirestoreService.shared
     private var listener: ListenerRegistration?
     private var saveTask: DispatchWorkItem?
+    private var terminationObserver: NSObjectProtocol?
 
     var filteredPlans: [Plan] {
         let filtered: [Plan]
@@ -55,12 +56,24 @@ class PlannerViewModel: ObservableObject {
                 }
             }
         }
+
+        terminationObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.saveNow()
+        }
     }
 
     func stopListening() {
         saveNow()
         listener?.remove()
         listener = nil
+        if let terminationObserver {
+            NotificationCenter.default.removeObserver(terminationObserver)
+        }
+        terminationObserver = nil
     }
 
     // MARK: - Plan CRUD
@@ -201,17 +214,17 @@ class PlannerViewModel: ObservableObject {
         saveTask?.cancel()
         guard let plan = selectedPlan else { return }
 
-        // Optimistic local cache
         if let idx = plans.firstIndex(where: { $0.id == plan.id }) {
             plans[idx] = plan
         }
 
-        saveTask = DispatchWorkItem { [weak self] in
+        let workItem = DispatchWorkItem { [weak self] in
             Task { @MainActor in
                 await self?.save(plan)
             }
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: saveTask!)
+        saveTask = workItem
+        DispatchQueue.main.async(execute: workItem)
     }
 
     func saveNow() {
@@ -229,14 +242,13 @@ class PlannerViewModel: ObservableObject {
             try? await FirestoreService.shared.savePlan(plan, userId: userId)
             semaphore.signal()
         }
-        _ = semaphore.wait(timeout: .now() + 2)
+        _ = semaphore.wait(timeout: .now() + 3)
     }
 
     private func save(_ plan: Plan) async {
         guard let userId = Auth.auth().currentUser?.uid else { return }
         do {
             try await firestoreService.savePlan(plan, userId: userId)
-            print("[Planner] saved plan \(plan.title)")
         } catch {
             print("[Planner] SAVE ERROR: \(error)")
         }
