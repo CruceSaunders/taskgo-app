@@ -21,7 +21,25 @@ class PlannerViewModel: ObservableObject {
     private var isSaving = false
     private var pendingSave: Plan?
     private var terminationObserver: NSObjectProtocol?
+    private var authListener: AuthStateDidChangeListenerHandle?
     private var isListening = false
+    private var hasRecovered = false
+
+    init() {
+        authListener = Auth.auth().addStateDidChangeListener { [weak self] _, user in
+            guard let self, let userId = user?.uid else { return }
+            Task { @MainActor in
+                self.beginListening(userId: userId)
+            }
+        }
+        terminationObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.flushSave()
+        }
+    }
 
     var filteredPlans: [Plan] {
         let filtered: [Plan]
@@ -48,23 +66,18 @@ class PlannerViewModel: ObservableObject {
         guard !isListening else { return }
         if let userId = Auth.auth().currentUser?.uid {
             beginListening(userId: userId)
-        } else {
-            Auth.auth().addStateDidChangeListener { [weak self] _, user in
-                guard let self, let userId = user?.uid, !self.isListening else { return }
-                Task { @MainActor in
-                    self.beginListening(userId: userId)
-                }
-            }
         }
     }
 
     private func beginListening(userId: String) {
         guard !isListening else { return }
         isListening = true
+        print("[Planner] beginListening for userId=\(userId)")
 
         listener = firestoreService.listenToPlans(userId: userId) { [weak self] plans in
             Task { @MainActor in
                 guard let self else { return }
+                print("[Planner] listener received \(plans.count) plans")
                 self.plans = plans
                 if let selected = self.selectedPlan,
                    let updated = plans.first(where: { $0.id == selected.id }) {
@@ -267,78 +280,13 @@ class PlannerViewModel: ObservableObject {
 
     // MARK: - One-time data recovery
 
-    func recoverPlan() {
-        Task {
-            var userId: String?
-            for _ in 0..<20 {
-                userId = Auth.auth().currentUser?.uid
-                if userId != nil { break }
-                try? await Task.sleep(nanoseconds: 500_000_000)
-            }
-            guard let userId else {
-                print("[Planner] RECOVERY: no user after 10s wait")
-                return
-            }
-            await doRecover(userId: userId)
-        }
-    }
-
-    private func doRecover(userId: String) async {
-        let plan = Plan(
-            title: "Session 4 Week 1",
-            startDate: "2026-03-02",
-            endDate: "2026-03-06",
-            overallObjectives: [
-                PlanObjective(text: "21 Carousel posts ready to post"),
-                PlanObjective(text: "3 Fully warm TikTok accounts"),
-                PlanObjective(text: "Monetized/Completed Ippo Update on the app store"),
-                PlanObjective(text: "Have 21 carousels"),
-            ],
-            dailyObjectives: [
-                "2026-03-02": [
-                    PlanObjective(text: "Set up 3 TikTok Accounts"),
-                    PlanObjective(text: "Warm Up TikTok accounts on metro"),
-                    PlanObjective(text: "Add evolutions to Ippo"),
-                    PlanObjective(text: "Debug/Test Ippo x3"),
-                ],
-                "2026-03-03": [
-                    PlanObjective(text: "Debug/Test Ippo"),
-                    PlanObjective(text: "Monetize Ippo"),
-                    PlanObjective(text: "Warm up TikTok accounts on the Metro"),
-                    PlanObjective(text: "Create 3 carousels"),
-                    PlanObjective(text: "Insight/SPOV that I will defend"),
-                ],
-                "2026-03-04": [
-                    PlanObjective(text: "Warm Up TikTok Accounts"),
-                    PlanObjective(text: "Create 9 carousels"),
-                ],
-                "2026-03-05": [
-                    PlanObjective(text: "Post one carousel on each TikTok account"),
-                    PlanObjective(text: "Create 9 carousels"),
-                ],
-                "2026-03-06": [
-                    PlanObjective(text: "Ensure: 3 solid themes, 21 carousels, complete app on the app store and monetized"),
-                    PlanObjective(text: "Plan: how to automate carousel marketing? ClawdBot? Overseas Freelancer? How do we scale?"),
-                    PlanObjective(text: "Plan: How can I get x3 committed beta testers?"),
-                    PlanObjective(text: "Accountability Presentation"),
-                ],
-            ]
-        )
-        do {
-            var saved = plan
-            let docId = try await firestoreService.savePlan(plan, userId: userId)
-            saved.id = docId
-            self.plans.insert(saved, at: 0)
-            self.selectedPlan = saved
-            print("[Planner] RECOVERED plan successfully with id: \(docId)")
-        } catch {
-            print("[Planner] RECOVERY FAILED: \(error)")
-        }
-    }
 
     deinit {
         if let terminationObserver {
             NotificationCenter.default.removeObserver(terminationObserver)
+        }
+        if let authListener {
+            Auth.auth().removeStateDidChangeListener(authListener)
         }
     }
 }
