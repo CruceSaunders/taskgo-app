@@ -77,7 +77,7 @@ class PlannerViewModel: ObservableObject {
             current = next
         }
 
-        let plan = Plan(
+        var plan = Plan(
             title: title,
             startDate: fmt.string(from: startDate),
             endDate: fmt.string(from: endDate),
@@ -88,7 +88,10 @@ class PlannerViewModel: ObservableObject {
         Task {
             guard let userId = Auth.auth().currentUser?.uid else { return }
             do {
-                try await firestoreService.savePlan(plan, userId: userId)
+                let docId = try await firestoreService.savePlan(plan, userId: userId)
+                plan.id = docId
+                self.plans.insert(plan, at: 0)
+                self.selectedPlan = plan
             } catch {
                 print("[Planner] create error: \(error)")
             }

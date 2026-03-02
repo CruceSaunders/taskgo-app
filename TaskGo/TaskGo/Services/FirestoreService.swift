@@ -319,11 +319,14 @@ class FirestoreService {
         userRef(userId).collection("plans")
     }
 
-    func savePlan(_ plan: Plan, userId: String) async throws {
+    @discardableResult
+    func savePlan(_ plan: Plan, userId: String) async throws -> String {
         if let planId = plan.id {
             try plansRef(userId).document(planId).setData(from: plan, merge: true)
+            return planId
         } else {
-            _ = try plansRef(userId).addDocument(from: plan)
+            let ref = try plansRef(userId).addDocument(from: plan)
+            return ref.documentID
         }
     }
 

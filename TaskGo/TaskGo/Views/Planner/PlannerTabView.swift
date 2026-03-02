@@ -16,9 +16,7 @@ struct PlannerTabView: View {
             CreatePlanView()
         }
         .onAppear {
-            if plannerVM.plans.isEmpty {
-                plannerVM.startListening()
-            }
+            plannerVM.startListening()
         }
         .onDisappear {
             plannerVM.saveNow()
