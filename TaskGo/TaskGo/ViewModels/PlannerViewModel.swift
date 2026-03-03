@@ -22,19 +22,6 @@ class PlannerViewModel: ObservableObject {
     private var authListener: AuthStateDidChangeListenerHandle?
     private var isListening = false
 
-    // #region agent log
-    private nonisolated func _log(_ msg: String, _ data: [String: String] = [:], hyp: String = "") {
-        let _lp = "/Users/crucegauntlet/Desktop/TaskGo!/.cursor/debug-0502e1.log"
-        let ts = Int(Date().timeIntervalSince1970 * 1000)
-        var obj: [String: Any] = ["sessionId":"0502e1","location":"PlannerViewModel","message":msg,"timestamp":ts]
-        if !hyp.isEmpty { obj["hypothesisId"] = hyp }
-        if !data.isEmpty { obj["data"] = data }
-        let line = (try? JSONSerialization.data(withJSONObject: obj)).flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
-        if let fh = FileHandle(forWritingAtPath: _lp) { fh.seekToEndOfFile(); fh.write((line + "\n").data(using: .utf8)!); fh.closeFile() }
-        else { FileManager.default.createFile(atPath: _lp, contents: (line + "\n").data(using: .utf8)) }
-    }
-    // #endregion
-
     /// Tracks IDs of plans with local edits not yet confirmed by the listener.
     /// When the listener fires, plans in this set keep their LOCAL version
     /// instead of being overwritten by potentially stale Firestore data.
@@ -161,20 +148,8 @@ class PlannerViewModel: ObservableObject {
             dailyObjectives: dailyObjectives
         )
 
-        // #region agent log
-        _log("createPlan called", ["title": title], hyp: "H5")
-        // #endregion
         Task {
-            // #region agent log
-            let userId = Auth.auth().currentUser?.uid
-            _log("createPlan Task body", ["userId": userId ?? "NIL", "isListening": "\(isListening)", "plansCount": "\(plans.count)"], hyp: "H5")
-            // #endregion
-            guard let userId else {
-                // #region agent log
-                _log("createPlan ABORTED: no userId", hyp: "H5")
-                // #endregion
-                return
-            }
+            guard let userId = Auth.auth().currentUser?.uid else { return }
             do {
                 let docId = try await firestoreService.savePlan(plan, userId: userId)
                 var savedPlan = plan
@@ -182,16 +157,10 @@ class PlannerViewModel: ObservableObject {
                 self.recentlyCreatedIds.insert(docId)
                 self.plans.insert(savedPlan, at: 0)
                 self.selectedPlan = savedPlan
-                // #region agent log
-                _log("createPlan SUCCESS", ["docId": docId, "plansCount": "\(self.plans.count)"], hyp: "H5")
-                // #endregion
 
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
                 self.recentlyCreatedIds.remove(docId)
             } catch {
-                // #region agent log
-                _log("createPlan ERROR", ["error": "\(error)"], hyp: "H5")
-                // #endregion
                 print("[Planner] create error: \(error)")
             }
         }

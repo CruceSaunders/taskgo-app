@@ -7,19 +7,6 @@ struct CreatePlanView: View {
     @State private var startDate = Date()
     @State private var endDate = Calendar.current.date(byAdding: .day, value: 6, to: Date()) ?? Date()
 
-    // #region agent log
-    private let _lp = "/Users/crucegauntlet/Desktop/TaskGo!/.cursor/debug-0502e1.log"
-    private func _log(_ msg: String, _ data: [String: String] = [:], hyp: String = "") {
-        let ts = Int(Date().timeIntervalSince1970 * 1000)
-        var obj: [String: Any] = ["sessionId":"0502e1","location":"CreatePlanView","message":msg,"timestamp":ts]
-        if !hyp.isEmpty { obj["hypothesisId"] = hyp }
-        if !data.isEmpty { obj["data"] = data }
-        let line = (try? JSONSerialization.data(withJSONObject: obj)).flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
-        if let fh = FileHandle(forWritingAtPath: _lp) { fh.seekToEndOfFile(); fh.write((line + "\n").data(using: .utf8)!); fh.closeFile() }
-        else { FileManager.default.createFile(atPath: _lp, contents: (line + "\n").data(using: .utf8)) }
-    }
-    // #endregion
-
     private var dayCount: Int {
         max(0, (Calendar.current.dateComponents([.day], from: startDate, to: endDate).day ?? 0) + 1)
     }
@@ -38,9 +25,6 @@ struct CreatePlanView: View {
         }
         .background(Color(.windowBackgroundColor))
         .onAppear {
-            // #region agent log
-            _log("CreatePlanView onAppear (inline)", hyp: "H2")
-            // #endregion
             let suggestion = Plan.suggestedTitle(start: startDate, end: endDate)
             if !suggestion.isEmpty { title = suggestion }
         }
@@ -142,9 +126,6 @@ struct CreatePlanView: View {
     }
 
     private func create() {
-        // #region agent log
-        _log("create() called", ["title": title, "valid": "\(isValid)"], hyp: "H2")
-        // #endregion
         guard isValid else { return }
         plannerVM.createPlan(
             title: title.trimmingCharacters(in: .whitespaces),
