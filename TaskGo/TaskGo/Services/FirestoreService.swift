@@ -322,10 +322,12 @@ class FirestoreService {
     @discardableResult
     func savePlan(_ plan: Plan, userId: String) async throws -> String {
         if let planId = plan.id {
-            try plansRef(userId).document(planId).setData(from: plan)
+            let encoded = try Firestore.Encoder().encode(plan)
+            try await plansRef(userId).document(planId).setData(encoded)
             return planId
         } else {
-            let ref = try plansRef(userId).addDocument(from: plan)
+            let encoded = try Firestore.Encoder().encode(plan)
+            let ref = try await plansRef(userId).addDocument(data: encoded)
             return ref.documentID
         }
     }

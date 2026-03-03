@@ -18,12 +18,18 @@ class PlannerViewModel: ObservableObject {
 
     private let firestoreService = FirestoreService.shared
     private var listener: ListenerRegistration?
-    private var isSaving = false
-    private var pendingSave: Plan?
     private var terminationObserver: NSObjectProtocol?
     private var authListener: AuthStateDidChangeListenerHandle?
     private var isListening = false
-    private var hasRecovered = false
+
+    /// Tracks IDs of plans with local edits not yet confirmed by the listener.
+    /// When the listener fires, plans in this set keep their LOCAL version
+    /// instead of being overwritten by potentially stale Firestore data.
+    private var dirtyPlanIds = Set<String>()
+
+    /// Prevents listener overwrites during the brief window between
+    /// createPlan saving to Firestore and the listener echoing it back.
+    private var recentlyCreatedIds = Set<String>()
 
     init() {
         authListener = Auth.auth().addStateDidChangeListener { [weak self] _, user in
@@ -74,25 +80,41 @@ class PlannerViewModel: ObservableObject {
         isListening = true
         print("[Planner] beginListening for userId=\(userId)")
 
-        listener = firestoreService.listenToPlans(userId: userId) { [weak self] plans in
+        listener = firestoreService.listenToPlans(userId: userId) { [weak self] incomingPlans in
             Task { @MainActor in
                 guard let self else { return }
-                print("[Planner] listener received \(plans.count) plans")
-                self.plans = plans
-                if let selected = self.selectedPlan,
-                   let updated = plans.first(where: { $0.id == selected.id }) {
-                    self.selectedPlan = updated
-                }
-            }
-        }
+                print("[Planner] listener received \(incomingPlans.count) plans")
 
-        if terminationObserver == nil {
-            terminationObserver = NotificationCenter.default.addObserver(
-                forName: NSApplication.willTerminateNotification,
-                object: nil,
-                queue: .main
-            ) { [weak self] _ in
-                self?.flushSave()
+                // Merge: keep local versions for plans we've edited but haven't
+                // had confirmed by a round-trip yet.
+                var merged = incomingPlans
+                for dirtyId in self.dirtyPlanIds {
+                    if let localPlan = self.plans.first(where: { $0.id == dirtyId }) {
+                        if let idx = merged.firstIndex(where: { $0.id == dirtyId }) {
+                            // Only keep local if our updatedAt is newer
+                            if localPlan.updatedAt >= merged[idx].updatedAt {
+                                merged[idx] = localPlan
+                            } else {
+                                // Server has newer data (confirmed our write), clear dirty
+                                self.dirtyPlanIds.remove(dirtyId)
+                            }
+                        }
+                    } else {
+                        self.dirtyPlanIds.remove(dirtyId)
+                    }
+                }
+
+                self.plans = merged
+
+                // Update selectedPlan, but respect dirty state
+                if let selected = self.selectedPlan,
+                   let selectedId = selected.id {
+                    if self.dirtyPlanIds.contains(selectedId) {
+                        // Don't overwrite -- we have local edits pending
+                    } else if let updated = merged.first(where: { $0.id == selectedId }) {
+                        self.selectedPlan = updated
+                    }
+                }
             }
         }
     }
@@ -102,10 +124,6 @@ class PlannerViewModel: ObservableObject {
         listener?.remove()
         listener = nil
         isListening = false
-        if let terminationObserver {
-            NotificationCenter.default.removeObserver(terminationObserver)
-        }
-        terminationObserver = nil
     }
 
     // MARK: - Plan CRUD
@@ -122,7 +140,7 @@ class PlannerViewModel: ObservableObject {
             current = next
         }
 
-        var plan = Plan(
+        let plan = Plan(
             title: title,
             startDate: fmt.string(from: startDate),
             endDate: fmt.string(from: endDate),
@@ -134,9 +152,16 @@ class PlannerViewModel: ObservableObject {
             guard let userId = Auth.auth().currentUser?.uid else { return }
             do {
                 let docId = try await firestoreService.savePlan(plan, userId: userId)
-                plan.id = docId
-                self.plans.insert(plan, at: 0)
-                self.selectedPlan = plan
+                var savedPlan = plan
+                savedPlan.id = docId
+                self.recentlyCreatedIds.insert(docId)
+                self.plans.insert(savedPlan, at: 0)
+                self.selectedPlan = savedPlan
+                print("[Planner] created plan '\(title)' with id=\(docId)")
+
+                // Clear the recently-created flag after the listener has had time to echo
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                self.recentlyCreatedIds.remove(docId)
             } catch {
                 print("[Planner] create error: \(error)")
             }
@@ -152,6 +177,7 @@ class PlannerViewModel: ObservableObject {
         guard let planId = plan.id else { return }
         if selectedPlan?.id == planId { selectedPlan = nil }
         plans.removeAll { $0.id == planId }
+        dirtyPlanIds.remove(planId)
         Task {
             guard let userId = Auth.auth().currentUser?.uid else { return }
             try? await firestoreService.deletePlan(planId, userId: userId)
@@ -162,14 +188,14 @@ class PlannerViewModel: ObservableObject {
         guard selectedPlan != nil else { return }
         selectedPlan?.isComplete = true
         selectedPlan?.updatedAt = Date()
-        save()
+        markDirtyAndSave()
     }
 
     func reopenPlan() {
         guard selectedPlan != nil else { return }
         selectedPlan?.isComplete = false
         selectedPlan?.updatedAt = Date()
-        save()
+        markDirtyAndSave()
     }
 
     // MARK: - Objectives
@@ -179,7 +205,7 @@ class PlannerViewModel: ObservableObject {
         let obj = PlanObjective(text: text.trimmingCharacters(in: .whitespaces))
         selectedPlan?.overallObjectives.append(obj)
         selectedPlan?.updatedAt = Date()
-        save()
+        markDirtyAndSave()
     }
 
     func addDailyObjective(date: String, text: String) {
@@ -190,7 +216,7 @@ class PlannerViewModel: ObservableObject {
         }
         selectedPlan?.dailyObjectives[date]?.append(obj)
         selectedPlan?.updatedAt = Date()
-        save()
+        markDirtyAndSave()
     }
 
     func toggleObjective(objectiveId: String, date: String?) {
@@ -205,7 +231,7 @@ class PlannerViewModel: ObservableObject {
             }
         }
         selectedPlan?.updatedAt = Date()
-        save()
+        markDirtyAndSave()
     }
 
     func removeObjective(objectiveId: String, date: String?) {
@@ -216,7 +242,7 @@ class PlannerViewModel: ObservableObject {
             selectedPlan?.overallObjectives.removeAll { $0.id == objectiveId }
         }
         selectedPlan?.updatedAt = Date()
-        save()
+        markDirtyAndSave()
     }
 
     func updateObjectiveText(objectiveId: String, date: String?, newText: String) {
@@ -231,34 +257,46 @@ class PlannerViewModel: ObservableObject {
             }
         }
         selectedPlan?.updatedAt = Date()
-        save()
+        markDirtyAndSave()
     }
 
     func updatePlanTitle(_ newTitle: String) {
         guard selectedPlan != nil, !newTitle.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         selectedPlan?.title = newTitle.trimmingCharacters(in: .whitespaces)
         selectedPlan?.updatedAt = Date()
-        save()
+        markDirtyAndSave()
     }
 
     // MARK: - Save
 
-    private func save() {
-        guard let plan = selectedPlan, plan.id != nil else { return }
+    /// Marks the selected plan as dirty (protecting it from listener overwrites)
+    /// and immediately persists it to Firestore.
+    private func markDirtyAndSave() {
+        guard let plan = selectedPlan, let planId = plan.id else { return }
 
-        if let idx = plans.firstIndex(where: { $0.id == plan.id }) {
+        dirtyPlanIds.insert(planId)
+
+        if let idx = plans.firstIndex(where: { $0.id == planId }) {
             plans[idx] = plan
         }
 
         Task {
             await persistPlan(plan)
+            // After successful persist, the listener will eventually echo back
+            // the confirmed data. We clear dirty after a delay to let that happen.
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            self.dirtyPlanIds.remove(planId)
         }
     }
 
     private func persistPlan(_ plan: Plan) async {
-        guard let userId = Auth.auth().currentUser?.uid else { return }
+        guard let userId = Auth.auth().currentUser?.uid else {
+            print("[Planner] save skipped: no authenticated user")
+            return
+        }
         do {
             try await firestoreService.savePlan(plan, userId: userId)
+            print("[Planner] saved plan '\(plan.title)' (\(plan.totalObjectives) objectives)")
         } catch {
             print("[Planner] SAVE ERROR: \(error)")
         }
@@ -272,14 +310,16 @@ class PlannerViewModel: ObservableObject {
         guard let userId = Auth.auth().currentUser?.uid else { return }
         let semaphore = DispatchSemaphore(value: 0)
         Task.detached {
-            try? await FirestoreService.shared.savePlan(plan, userId: userId)
+            do {
+                try await FirestoreService.shared.savePlan(plan, userId: userId)
+                print("[Planner] flushSave completed for '\(plan.title)'")
+            } catch {
+                print("[Planner] flushSave ERROR: \(error)")
+            }
             semaphore.signal()
         }
         _ = semaphore.wait(timeout: .now() + 3)
     }
-
-    // MARK: - One-time data recovery
-
 
     deinit {
         if let terminationObserver {
