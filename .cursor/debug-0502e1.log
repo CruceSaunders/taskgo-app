@@ -1,0 +1,21 @@
+{"sessionId":"0502e1","location":"PlannerTabView","message":"PlannerTabView onAppear","hypothesisId":"H4","timestamp":1772513620131}
+{"message":"CreatePlanView shown INLINE","hypothesisId":"H2","sessionId":"0502e1","location":"PlannerTabView","timestamp":1772513621286}
+{"sessionId":"0502e1","location":"CreatePlanView","message":"CreatePlanView onAppear (inline)","timestamp":1772513621412,"hypothesisId":"H2"}
+{"timestamp":1772513651219,"location":"CreatePlanView","data":{"valid":"true","title":"Session 4 Week 1"},"sessionId":"0502e1","message":"create() called","hypothesisId":"H2"}
+{"timestamp":1772513651224,"location":"PlannerViewModel","data":{"title":"Session 4 Week 1"},"sessionId":"0502e1","message":"createPlan called","hypothesisId":"H5"}
+{"sessionId":"0502e1","location":"PlannerViewModel","hypothesisId":"H5","timestamp":1772513651279,"data":{"plansCount":"0","isListening":"true","userId":"9yhr2lfrDZOi0odMbrNhmy5pU703"},"message":"createPlan Task body"}
+{"hypothesisId":"H5","message":"createPlan SUCCESS","location":"PlannerViewModel","data":{"docId":"2Ty7141VEGUrKMRFSFHC","plansCount":"2"},"sessionId":"0502e1","timestamp":1772513651617}
+{"hypothesisId":"H4","sessionId":"0502e1","location":"PlannerTabView","message":"PlannerTabView onDisappear","timestamp":1772513663714}
+{"message":"PlannerTabView onAppear","sessionId":"0502e1","location":"PlannerTabView","hypothesisId":"H4","timestamp":1772513668283}
+{"message":"PlannerTabView onDisappear","timestamp":1772513670272,"hypothesisId":"H4","sessionId":"0502e1","location":"PlannerTabView"}
+{"message":"PlannerTabView onAppear","location":"PlannerTabView","timestamp":1772513678634,"sessionId":"0502e1","hypothesisId":"H4"}
+{"location":"PlannerTabView","sessionId":"0502e1","timestamp":1772513679999,"message":"PlannerTabView onDisappear","hypothesisId":"H4"}
+{"hypothesisId":"H4","message":"PlannerTabView onAppear","timestamp":1772513785474,"location":"PlannerTabView","sessionId":"0502e1"}
+{"message":"PlannerTabView onDisappear","location":"PlannerTabView","timestamp":1772513788125,"hypothesisId":"H4","sessionId":"0502e1"}
+{"sessionId":"0502e1","hypothesisId":"H4","location":"PlannerTabView","message":"PlannerTabView onAppear","timestamp":1772513806421}
+{"timestamp":1772513813784,"message":"PlannerTabView onDisappear","sessionId":"0502e1","location":"PlannerTabView","hypothesisId":"H4"}
+{"message":"PlannerTabView onAppear","sessionId":"0502e1","timestamp":1772515590431,"hypothesisId":"H4","location":"PlannerTabView"}
+{"location":"PlannerTabView","hypothesisId":"H4","message":"PlannerTabView onDisappear","sessionId":"0502e1","timestamp":1772515598267}
+{"timestamp":1772515700553,"hypothesisId":"H4","location":"PlannerTabView","sessionId":"0502e1","message":"PlannerTabView onAppear"}
+{"sessionId":"0502e1","location":"PlannerTabView","hypothesisId":"H4","timestamp":1772515705572,"message":"PlannerTabView onDisappear"}
+{"hypothesisId":"H4","message":"PlannerTabView onAppear","sessionId":"0502e1","location":"PlannerTabView","timestamp":1772516032674}

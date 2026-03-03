@@ -3,6 +3,19 @@ import SwiftUI
 struct PlannerTabView: View {
     @EnvironmentObject var plannerVM: PlannerViewModel
 
+    // #region agent log
+    private let _lp = "/Users/crucegauntlet/Desktop/TaskGo!/.cursor/debug-0502e1.log"
+    private func _log(_ msg: String, _ data: [String: String] = [:], hyp: String = "", loc: String = "PlannerTabView") {
+        let ts = Int(Date().timeIntervalSince1970 * 1000)
+        var obj: [String: Any] = ["sessionId":"0502e1","location":loc,"message":msg,"timestamp":ts]
+        if !hyp.isEmpty { obj["hypothesisId"] = hyp }
+        if !data.isEmpty { obj["data"] = data }
+        let line = (try? JSONSerialization.data(withJSONObject: obj)).flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
+        if let fh = FileHandle(forWritingAtPath: _lp) { fh.seekToEndOfFile(); fh.write((line + "\n").data(using: .utf8)!); fh.closeFile() }
+        else { FileManager.default.createFile(atPath: _lp, contents: (line + "\n").data(using: .utf8)) }
+    }
+    // #endregion
+
     var body: some View {
         HStack(spacing: 0) {
             plannerSidebar
@@ -10,15 +23,25 @@ struct PlannerTabView: View {
 
             Divider()
 
-            PlanDetailView()
-        }
-        .sheet(isPresented: $plannerVM.showCreatePlan) {
-            CreatePlanView()
+            if plannerVM.showCreatePlan {
+                // #region agent log
+                let _ = _log("CreatePlanView shown INLINE", hyp: "H2")
+                // #endregion
+                CreatePlanView()
+            } else {
+                PlanDetailView()
+            }
         }
         .onAppear {
+            // #region agent log
+            _log("PlannerTabView onAppear", hyp: "H4")
+            // #endregion
             plannerVM.startListening()
         }
         .onDisappear {
+            // #region agent log
+            _log("PlannerTabView onDisappear", hyp: "H4")
+            // #endregion
             plannerVM.flushSave()
         }
     }
