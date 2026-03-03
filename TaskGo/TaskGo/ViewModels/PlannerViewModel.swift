@@ -244,7 +244,7 @@ class PlannerViewModel: ObservableObject {
     // MARK: - Save
 
     private func save() {
-        guard let plan = selectedPlan else { return }
+        guard let plan = selectedPlan, plan.id != nil else { return }
 
         if let idx = plans.firstIndex(where: { $0.id == plan.id }) {
             plans[idx] = plan
@@ -265,7 +265,7 @@ class PlannerViewModel: ObservableObject {
     }
 
     func flushSave() {
-        guard let plan = selectedPlan else { return }
+        guard let plan = selectedPlan, plan.id != nil else { return }
         if let idx = plans.firstIndex(where: { $0.id == plan.id }) {
             plans[idx] = plan
         }
