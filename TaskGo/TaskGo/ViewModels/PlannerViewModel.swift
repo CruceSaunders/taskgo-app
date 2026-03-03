@@ -56,7 +56,7 @@ class PlannerViewModel: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.flushSave()
+            self?.syncSaveOnExit()
         }
     }
 
@@ -336,18 +336,20 @@ class PlannerViewModel: ObservableObject {
         if let idx = plans.firstIndex(where: { $0.id == plan.id }) {
             plans[idx] = plan
         }
+        Task {
+            await persistPlan(plan)
+        }
+    }
+
+    private func syncSaveOnExit() {
+        guard let plan = selectedPlan, plan.id != nil else { return }
         guard let userId = Auth.auth().currentUser?.uid else { return }
         let semaphore = DispatchSemaphore(value: 0)
         Task.detached {
-            do {
-                try await FirestoreService.shared.savePlan(plan, userId: userId)
-                print("[Planner] flushSave completed for '\(plan.title)'")
-            } catch {
-                print("[Planner] flushSave ERROR: \(error)")
-            }
+            try? await FirestoreService.shared.savePlan(plan, userId: userId)
             semaphore.signal()
         }
-        _ = semaphore.wait(timeout: .now() + 3)
+        _ = semaphore.wait(timeout: .now() + 2)
     }
 
     deinit {

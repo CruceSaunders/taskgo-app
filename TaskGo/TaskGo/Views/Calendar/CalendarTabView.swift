@@ -34,7 +34,7 @@ struct CalendarTabView: View {
             reminderVM.startListening()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            calendarVM.refreshEvents()
+            calendarVM.forceRefresh()
         }
     }
 
@@ -81,7 +81,7 @@ struct CalendarTabView: View {
                 Spacer()
 
                 Button(action: {
-                    calendarVM.refreshEvents()
+                    calendarVM.forceRefresh()
                 }) {
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: 10))

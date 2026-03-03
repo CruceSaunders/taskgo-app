@@ -33,13 +33,16 @@ class CalendarViewModel: ObservableObject {
 
     func refreshEvents() {
         selectedDate = Date()
-        calendarService.resetStore()
         todayEvents = calendarService.fetchEvents(for: selectedDate)
+    }
+
+    func forceRefresh() {
+        calendarService.resetStore()
+        refreshEvents()
     }
 
     func selectDate(_ date: Date) {
         selectedDate = date
-        calendarService.resetStore()
         todayEvents = calendarService.fetchEvents(for: date)
     }
 
