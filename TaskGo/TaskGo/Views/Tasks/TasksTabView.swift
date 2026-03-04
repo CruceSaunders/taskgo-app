@@ -37,7 +37,7 @@ struct TasksTabView: View {
                 Divider()
             }
 
-            if showAddTask && !groupVM.isAllGroupSelected {
+            if showAddTask {
                 AddTaskView(groupId: groupVM.selectedGroupId ?? "", onDismiss: {
                     showAddTask = false
                 })
@@ -590,20 +590,21 @@ struct TasksTabView: View {
 
             // Bottom bar: Add task + Select mode toggle
             HStack {
-                if !groupVM.isAllGroupSelected {
-                    Button(action: {
-                        showAddTask = true
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "plus.circle.fill")
-                                .foregroundStyle(Color.calmTeal)
-                            Text("Add task")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.primary.opacity(0.6))
-                        }
+                Button(action: {
+                    if groupVM.isAllGroupSelected, let firstGroup = groupVM.groups.first {
+                        groupVM.selectGroup(firstGroup)
                     }
-                    .buttonStyle(.plain)
+                    showAddTask = true
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundStyle(Color.calmTeal)
+                        Text("Add task")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.primary.opacity(0.6))
+                    }
                 }
+                .buttonStyle(.plain)
 
                 Spacer()
 
