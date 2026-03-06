@@ -1,6 +1,7 @@
 import SwiftUI
 import FirebaseCore
 import FirebaseAuth
+import FirebaseFirestore
 
 @main
 struct TaskGoApp: App {
@@ -17,6 +18,9 @@ struct TaskGoApp: App {
 
     init() {
         FirebaseApp.configure()
+        let settings = Firestore.firestore().settings
+        settings.cacheSettings = MemoryCacheSettings()
+        Firestore.firestore().settings = settings
         try? Auth.auth().useUserAccessGroup(nil)
 
         _authViewModel = StateObject(wrappedValue: AuthViewModel())
