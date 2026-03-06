@@ -31,6 +31,8 @@ struct TaskGoApp: App {
     }
 
     var body: some Scene {
+        let _ = ensureSetup()
+
         MenuBarExtra {
             ContentView()
                 .environmentObject(authViewModel)
@@ -47,7 +49,6 @@ struct TaskGoApp: App {
                     taskGoViewModel.taskVM = taskViewModel
                     taskGoViewModel.xpVM = xpViewModel
                     RecurrenceService.shared.start()
-                    setupMainWindowContentHandler()
                     plannerViewModel.startListening()
                 }
         } label: {
@@ -58,6 +59,16 @@ struct TaskGoApp: App {
         Settings {
             SettingsView()
                 .environmentObject(authViewModel)
+        }
+    }
+
+    @State private var hasSetup = false
+
+    private func ensureSetup() {
+        guard !hasSetup else { return }
+        DispatchQueue.main.async {
+            hasSetup = true
+            setupMainWindowContentHandler()
         }
     }
 
