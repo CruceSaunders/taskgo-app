@@ -15,6 +15,7 @@ struct TaskGoApp: App {
     @StateObject private var calendarViewModel: CalendarViewModel
     @StateObject private var reminderViewModel: ReminderViewModel
     @StateObject private var plannerViewModel: PlannerViewModel
+    @StateObject private var pomodoroViewModel: PomodoroViewModel
 
     init() {
         FirebaseApp.configure()
@@ -32,6 +33,7 @@ struct TaskGoApp: App {
         _calendarViewModel = StateObject(wrappedValue: CalendarViewModel())
         _reminderViewModel = StateObject(wrappedValue: ReminderViewModel())
         _plannerViewModel = StateObject(wrappedValue: PlannerViewModel())
+        _pomodoroViewModel = StateObject(wrappedValue: PomodoroViewModel())
     }
 
     var body: some Scene {
@@ -48,6 +50,7 @@ struct TaskGoApp: App {
                 .environmentObject(calendarViewModel)
                 .environmentObject(reminderViewModel)
                 .environmentObject(plannerViewModel)
+                .environmentObject(pomodoroViewModel)
                 .onAppear {
                     appDelegate.timerPanelController?.setViewModel(taskGoViewModel)
                     taskGoViewModel.taskVM = taskViewModel
@@ -93,6 +96,7 @@ struct TaskGoApp: App {
                 .environmentObject(self.calendarViewModel)
                 .environmentObject(self.reminderViewModel)
                 .environmentObject(self.plannerViewModel)
+                .environmentObject(self.pomodoroViewModel)
             window.contentView = NSHostingView(rootView: contentView)
         }
     }

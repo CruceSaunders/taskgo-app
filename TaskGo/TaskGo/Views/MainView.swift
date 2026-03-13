@@ -15,7 +15,7 @@ struct MainView: View {
     @EnvironmentObject var groupVM: GroupViewModel
     @EnvironmentObject var taskGoVM: TaskGoViewModel
     @EnvironmentObject var xpVM: XPViewModel
-    // Window opened via AppDelegate notification
+    @EnvironmentObject var pomodoroVM: PomodoroViewModel
 
     @State private var selectedTab: AppTab = .tasks
 
@@ -86,6 +86,15 @@ struct MainView: View {
                 }
             }
         }
+        .overlay {
+            if pomodoroVM.isActive {
+                ZStack {
+                    Color.black.opacity(0.3)
+                    PomodoroPopupView()
+                        .environmentObject(pomodoroVM)
+                }
+            }
+        }
     }
 
     private func toggleTaskGo() {
@@ -152,6 +161,28 @@ struct MainView: View {
                 .padding(.vertical, 3)
                 .background(Color.secondary.opacity(0.1))
                 .cornerRadius(4)
+            }
+            .buttonStyle(.plain)
+
+            // Pomodoro button
+            Button(action: {
+                if pomodoroVM.isActive {
+                    pomodoroVM.stop()
+                } else {
+                    pomodoroVM.start()
+                }
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: pomodoroVM.isActive ? "stop.fill" : "timer")
+                        .font(.system(size: 10))
+                    Text(pomodoroVM.isActive ? pomodoroVM.formattedTime : "Pomodoro")
+                        .font(.system(size: 12, weight: .bold))
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(pomodoroVM.isActive ? Color.pomodoroRed : Color.pomodoroRed.opacity(0.85))
+                .foregroundStyle(.white)
+                .clipShape(Capsule())
             }
             .buttonStyle(.plain)
 

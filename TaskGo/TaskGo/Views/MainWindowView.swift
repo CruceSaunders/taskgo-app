@@ -9,6 +9,7 @@ struct MainWindowView: View {
     @EnvironmentObject var xpVM: XPViewModel
     @EnvironmentObject var notesVM: NotesViewModel
     @EnvironmentObject var plannerVM: PlannerViewModel
+    @EnvironmentObject var pomodoroVM: PomodoroViewModel
 
     @State private var selectedTab: AppTab = .tasks
 
@@ -41,6 +42,15 @@ struct MainWindowView: View {
                 .frame(minWidth: 450)
             }
             .background(Color(.windowBackgroundColor))
+            .overlay {
+                if pomodoroVM.isActive {
+                    ZStack {
+                        Color.black.opacity(0.3)
+                        PomodoroPopupView()
+                            .environmentObject(pomodoroVM)
+                    }
+                }
+            }
             .onAppear {
                 groupVM.startListening()
                 Task { await xpVM.loadXP() }
@@ -85,31 +95,55 @@ struct MainWindowView: View {
 
             Spacer()
 
-            // Task Go button
-            Button(action: {
-                if taskGoVM.isActive {
-                    taskGoVM.stopTaskGo()
-                } else {
-                    let allIds = Set(taskVM.incompleteTasksForDisplay.compactMap { $0.id })
-                    if !allIds.isEmpty {
-                        taskGoVM.startTaskGoWithSelected(allIds)
+            VStack(spacing: 6) {
+                // Pomodoro button
+                Button(action: {
+                    if pomodoroVM.isActive {
+                        pomodoroVM.stop()
+                    } else {
+                        pomodoroVM.start()
                     }
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: pomodoroVM.isActive ? "stop.fill" : "timer")
+                            .font(.system(size: 12))
+                        Text(pomodoroVM.isActive ? pomodoroVM.formattedTime : "Pomodoro")
+                            .font(.system(size: 13, weight: .bold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(pomodoroVM.isActive ? Color.pomodoroRed : Color.pomodoroRed.opacity(0.85))
+                    .foregroundStyle(.white)
+                    .cornerRadius(8)
                 }
-            }) {
-                HStack(spacing: 6) {
-                    Image(systemName: taskGoVM.isActive ? "stop.fill" : "bolt.fill")
-                        .font(.system(size: 12))
-                    Text(taskGoVM.isActive ? "Stop" : "Task Go!")
-                        .font(.system(size: 13, weight: .bold))
+                .buttonStyle(.plain)
+
+                // Task Go button
+                Button(action: {
+                    if taskGoVM.isActive {
+                        taskGoVM.stopTaskGo()
+                    } else {
+                        let allIds = Set(taskVM.incompleteTasksForDisplay.compactMap { $0.id })
+                        if !allIds.isEmpty {
+                            taskGoVM.startTaskGoWithSelected(allIds)
+                        }
+                    }
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: taskGoVM.isActive ? "stop.fill" : "bolt.fill")
+                            .font(.system(size: 12))
+                        Text(taskGoVM.isActive ? "Stop" : "Task Go!")
+                            .font(.system(size: 13, weight: .bold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(taskGoVM.isActive ? Color.red.opacity(0.9) : Color.calmTeal)
+                    .foregroundStyle(.white)
+                    .cornerRadius(8)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
-                .background(taskGoVM.isActive ? Color.red.opacity(0.9) : Color.calmTeal)
-                .foregroundStyle(.white)
-                .cornerRadius(8)
+                .buttonStyle(.plain)
+                .disabled(taskVM.firstIncompleteTask == nil && !taskGoVM.isActive)
             }
-            .buttonStyle(.plain)
-            .disabled(taskVM.firstIncompleteTask == nil && !taskGoVM.isActive)
             .padding(.horizontal, 12)
             .padding(.bottom, 12)
         }

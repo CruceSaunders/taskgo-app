@@ -139,6 +139,7 @@ extension Color {
     static let amberText = Color(red: 0.72, green: 0.52, blue: 0.04)
     static let calmBlue = Color(red: 0.34, green: 0.62, blue: 0.82)
     static let calmTeal = Color(red: 0.27, green: 0.71, blue: 0.67)
+    static let pomodoroRed = Color(red: 0.90, green: 0.30, blue: 0.25)
 }
 
 // MARK: - Task Go Notification
