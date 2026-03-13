@@ -53,6 +53,7 @@ struct TaskGoApp: App {
                 .environmentObject(pomodoroViewModel)
                 .onAppear {
                     appDelegate.timerPanelController?.setViewModel(taskGoViewModel)
+                    appDelegate.pomodoroPanelController?.setViewModel(pomodoroViewModel)
                     taskGoViewModel.taskVM = taskViewModel
                     taskGoViewModel.xpVM = xpViewModel
                     RecurrenceService.shared.start()

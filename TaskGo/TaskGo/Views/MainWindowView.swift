@@ -42,15 +42,6 @@ struct MainWindowView: View {
                 .frame(minWidth: 450)
             }
             .background(Color(.windowBackgroundColor))
-            .overlay {
-                if pomodoroVM.isActive {
-                    ZStack {
-                        Color.black.opacity(0.3)
-                        PomodoroPopupView()
-                            .environmentObject(pomodoroVM)
-                    }
-                }
-            }
             .onAppear {
                 groupVM.startListening()
                 Task { await xpVM.loadXP() }

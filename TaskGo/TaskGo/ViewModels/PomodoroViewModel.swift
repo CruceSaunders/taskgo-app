@@ -46,6 +46,7 @@ class PomodoroViewModel: ObservableObject {
         completedPomodoros = 0
         status = .running
         startTicking()
+        NotificationCenter.default.post(name: .pomodoroShowPanel, object: nil)
     }
 
     func togglePause() {
@@ -66,6 +67,7 @@ class PomodoroViewModel: ObservableObject {
         timeRemaining = Self.workDuration
         timer?.invalidate()
         timer = nil
+        NotificationCenter.default.post(name: .pomodoroHidePanel, object: nil)
     }
 
     private func startTicking() {
@@ -97,4 +99,9 @@ class PomodoroViewModel: ObservableObject {
         status = .running
         startTicking()
     }
+}
+
+extension Notification.Name {
+    static let pomodoroShowPanel = Notification.Name("pomodoroShowPanel")
+    static let pomodoroHidePanel = Notification.Name("pomodoroHidePanel")
 }

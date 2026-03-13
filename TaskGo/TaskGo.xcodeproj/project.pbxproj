@@ -55,6 +55,7 @@
 		A9A41AB1F74DB8FC61955B66 /* Note.swift in Sources */ = {isa = PBXBuildFile; fileRef = F40B2A8EACF12FB6F2F1B7B9 /* Note.swift */; };
 		B568058977C5620EC219D757 /* XPViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CDF076C5FCD74FC0341A7D4 /* XPViewModel.swift */; };
 		B8B00647E5E0EAB63EA6E2AC /* PlannerTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28726BA1020DB5901213D2BF /* PlannerTabView.swift */; };
+		B94F6B9038784747DBAC522B /* PomodoroPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69238C524A26DA13FFB75055 /* PomodoroPanelController.swift */; };
 		B95CED2D2DE9FB921FB27367 /* CalendarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46EB7E9436B4BE6F8F6BA070 /* CalendarService.swift */; };
 		C4FF67E2BD3F140B0B56805E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FD095BBFAFCD2368E15E91E3 /* Assets.xcassets */; };
 		CC2DE6548536D40CD7FC933E /* MainWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB8CA6F70DB054BEE45FBA19 /* MainWindowView.swift */; };
@@ -93,6 +94,7 @@
 		6016C7874768DD81EC494C3A /* FirestoreService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirestoreService.swift; sourceTree = "<group>"; };
 		648E7FC3CD4FA1F164A0778F /* TaskRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskRowView.swift; sourceTree = "<group>"; };
 		6526129E499A8ACA19A950A7 /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
+		69238C524A26DA13FFB75055 /* PomodoroPanelController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PomodoroPanelController.swift; path = Views/Pomodoro/PomodoroPanelController.swift; sourceTree = "<group>"; };
 		6CC27D85FA9242D9EC968515 /* XPSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XPSystem.swift; sourceTree = "<group>"; };
 		6F91950161C2A9173243D7AB /* SocialGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialGroup.swift; sourceTree = "<group>"; };
 		70E7B43B13FEA8F47DE49411 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
@@ -164,6 +166,7 @@
 			children = (
 				36584FC3AFB686F65142B8FB /* PomodoroViewModel.swift */,
 				AC3D7A932ADB80EE1C46C494 /* PomodoroPopupView.swift */,
+				69238C524A26DA13FFB75055 /* PomodoroPanelController.swift */,
 			);
 			name = TaskGo;
 			sourceTree = "<group>";
@@ -491,6 +494,7 @@
 				B568058977C5620EC219D757 /* XPViewModel.swift in Sources */,
 				02D6D4535F2B9E1329076F14 /* PomodoroViewModel.swift in Sources */,
 				6C6DFFA182CEBCC5AEDE5C59 /* PomodoroPopupView.swift in Sources */,
+				B94F6B9038784747DBAC522B /* PomodoroPanelController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

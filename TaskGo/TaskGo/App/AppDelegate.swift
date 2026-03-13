@@ -5,6 +5,7 @@ import UserNotifications
 
 class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     var timerPanelController: TimerPanelController?
+    var pomodoroPanelController: PomodoroPanelController?
     var mainWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -17,6 +18,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
 
         timerPanelController = TimerPanelController()
+        pomodoroPanelController = PomodoroPanelController()
 
         // Listen for open window requests
         NotificationCenter.default.addObserver(
@@ -29,6 +31,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
     func applicationWillTerminate(_ notification: Notification) {
         timerPanelController?.close()
+        pomodoroPanelController?.close()
     }
 
     @objc func openMainWindow() {

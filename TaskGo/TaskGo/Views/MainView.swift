@@ -86,15 +86,6 @@ struct MainView: View {
                 }
             }
         }
-        .overlay {
-            if pomodoroVM.isActive {
-                ZStack {
-                    Color.black.opacity(0.3)
-                    PomodoroPopupView()
-                        .environmentObject(pomodoroVM)
-                }
-            }
-        }
     }
 
     private func toggleTaskGo() {
