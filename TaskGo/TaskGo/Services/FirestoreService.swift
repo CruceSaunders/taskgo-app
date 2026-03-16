@@ -381,4 +381,44 @@ class FirestoreService {
                 completion(reminders)
             }
     }
+
+    // MARK: - Activity Days
+
+    private func activityDaysRef(_ userId: String) -> CollectionReference {
+        userRef(userId).collection("activityDays")
+    }
+
+    func saveActivityDay(_ day: ActivityDay, userId: String, dateString: String) async throws {
+        let encoded = try Firestore.Encoder().encode(day)
+        try await activityDaysRef(userId).document(dateString).setData(encoded)
+    }
+
+    func getActivityDay(userId: String, dateString: String) async throws -> ActivityDay? {
+        let doc = try await activityDaysRef(userId).document(dateString).getDocument()
+        return try? doc.data(as: ActivityDay.self)
+    }
+
+    func getActivityDays(userId: String, from startDate: Date, to endDate: Date) async throws -> [ActivityDay] {
+        let snapshot = try await activityDaysRef(userId)
+            .whereField("date", isGreaterThanOrEqualTo: startDate)
+            .whereField("date", isLessThanOrEqualTo: endDate)
+            .order(by: "date", descending: false)
+            .getDocuments()
+        return snapshot.documents.compactMap { try? $0.data(as: ActivityDay.self) }
+    }
+
+    func deleteOldActivityDays(userId: String, before cutoffDate: Date) async throws {
+        let snapshot = try await activityDaysRef(userId)
+            .whereField("date", isLessThan: cutoffDate)
+            .limit(to: 500)
+            .getDocuments()
+
+        guard !snapshot.documents.isEmpty else { return }
+
+        let batch = db.batch()
+        for doc in snapshot.documents {
+            batch.deleteDocument(doc.reference)
+        }
+        try await batch.commit()
+    }
 }

@@ -35,6 +35,8 @@ struct MainWindowView: View {
                         PlannerTabView()
                     case .calendar:
                         CalendarTabView()
+                    case .activity:
+                        ActivityTabView()
                     case .profile:
                         ProfileTabView()
                     }
@@ -79,6 +81,7 @@ struct MainWindowView: View {
                 sidebarButton("Notes", icon: "doc.text", tab: .notes)
                 sidebarButton("Planner", icon: "calendar.day.timeline.leading", tab: .planner)
                 sidebarButton("Calendar", icon: "calendar", tab: .calendar)
+                sidebarButton("Activity", icon: "chart.bar.xaxis", tab: .activity)
                 sidebarButton("Profile", icon: "person.circle", tab: .profile)
             }
             .padding(.horizontal, 8)

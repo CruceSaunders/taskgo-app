@@ -1,0 +1,38 @@
+# Avoid pkill -f Self-Match Loop
+
+## The Problem
+
+`pkill -f "TaskGo!"` matches its OWN process (because the string "TaskGo!" appears in the command arguments). This causes the shell to kill itself or hang indefinitely.
+
+## The Fix
+
+NEVER use `pkill -f "TaskGo!"`. Instead, use one of these safe alternatives:
+
+### Option 1: killall with exact binary name (preferred)
+```bash
+killall "TaskGo!" 2>/dev/null || true
+sleep 1
+```
+
+### Option 2: pkill with regex that excludes itself
+```bash
+pkill -x "TaskGo!" 2>/dev/null || true
+sleep 1
+```
+
+### Option 3: Find PID first, then kill
+```bash
+pgrep -x "TaskGo!" | xargs kill 2>/dev/null || true
+sleep 1
+```
+
+## Updated Auto-Deploy Kill Step
+
+Replace the kill step in auto-deploy with:
+```bash
+killall "TaskGo!" 2>/dev/null || true; sleep 1
+```
+
+## General Rule
+
+For ANY `pkill -f` command, verify the pattern won't match the pkill command itself. If unsure, use `killall` with the exact process name instead.

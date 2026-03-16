@@ -16,6 +16,7 @@ struct TaskGoApp: App {
     @StateObject private var reminderViewModel: ReminderViewModel
     @StateObject private var plannerViewModel: PlannerViewModel
     @StateObject private var pomodoroViewModel: PomodoroViewModel
+    @StateObject private var activityViewModel: ActivityViewModel
 
     init() {
         FirebaseApp.configure()
@@ -34,6 +35,7 @@ struct TaskGoApp: App {
         _reminderViewModel = StateObject(wrappedValue: ReminderViewModel())
         _plannerViewModel = StateObject(wrappedValue: PlannerViewModel())
         _pomodoroViewModel = StateObject(wrappedValue: PomodoroViewModel())
+        _activityViewModel = StateObject(wrappedValue: ActivityViewModel())
     }
 
     var body: some Scene {
@@ -51,6 +53,7 @@ struct TaskGoApp: App {
                 .environmentObject(reminderViewModel)
                 .environmentObject(plannerViewModel)
                 .environmentObject(pomodoroViewModel)
+                .environmentObject(activityViewModel)
                 .onAppear {
                     appDelegate.timerPanelController?.setViewModel(taskGoViewModel)
                     appDelegate.pomodoroPanelController?.setViewModel(pomodoroViewModel)
@@ -58,6 +61,7 @@ struct TaskGoApp: App {
                     taskGoViewModel.xpVM = xpViewModel
                     RecurrenceService.shared.start()
                     plannerViewModel.startListening()
+                    ActivityTracker.shared.start()
                 }
         } label: {
             Image(systemName: "bolt.circle.fill")
@@ -98,6 +102,7 @@ struct TaskGoApp: App {
                 .environmentObject(self.reminderViewModel)
                 .environmentObject(self.plannerViewModel)
                 .environmentObject(self.pomodoroViewModel)
+                .environmentObject(self.activityViewModel)
             window.contentView = NSHostingView(rootView: contentView)
         }
     }

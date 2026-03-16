@@ -247,12 +247,63 @@ export const resetWeeklyLeaderboards = functions.pubsub
 // onUserDeleted - Clean up when a user deletes their account
 // ============================================================
 
+// ============================================================
+// cleanupOldActivity - Daily cleanup of activity data > 1 year
+// Runs daily at 3 AM UTC
+// ============================================================
+
+export const cleanupOldActivity = functions.pubsub
+  .schedule("0 3 * * *")
+  .timeZone("UTC")
+  .onRun(async () => {
+    console.log("Starting activity data cleanup...");
+
+    const cutoff = new Date();
+    cutoff.setFullYear(cutoff.getFullYear() - 1);
+
+    const usersSnapshot = await db.collection("users").get();
+    let totalDeleted = 0;
+
+    for (const userDoc of usersSnapshot.docs) {
+      const oldDocs = await db
+        .collection(`users/${userDoc.id}/activityDays`)
+        .where("date", "<", cutoff)
+        .limit(500)
+        .get();
+
+      if (!oldDocs.empty) {
+        const batch = db.batch();
+        oldDocs.docs.forEach((doc) => batch.delete(doc.ref));
+        await batch.commit();
+        totalDeleted += oldDocs.size;
+      }
+    }
+
+    console.log(
+      `Activity cleanup complete: deleted ${totalDeleted} old documents`
+    );
+    return null;
+  });
+
+// ============================================================
+// onUserDeleted - Clean up when a user deletes their account
+// ============================================================
+
 export const onUserDeleted = functions.auth.user().onDelete(async (user) => {
   const userId = user.uid;
   console.log(`Cleaning up data for deleted user: ${userId}`);
 
   // Delete user profile
   await db.collection("users").doc(userId).delete();
+
+  // Delete activity data
+  const activityDocs = await db
+    .collection(`users/${userId}/activityDays`)
+    .limit(500)
+    .get();
+  for (const doc of activityDocs.docs) {
+    batch.delete(doc.ref);
+  }
 
   // Delete username reservation
   const usernamesSnapshot = await db.collection("usernames")

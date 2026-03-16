@@ -1,8 +1,13 @@
 import SwiftUI
+import ServiceManagement
 
 struct OnboardingView: View {
     @Binding var isComplete: Bool
     @State private var currentPage = 0
+    @State private var launchAtLogin = true
+    @State private var hasInputMonitoring = false
+
+    private let totalPages = 5
 
     private let pages: [OnboardingPage] = [
         OnboardingPage(
@@ -25,19 +30,30 @@ struct OnboardingView: View {
             title: "Earn XP & Level Up",
             subtitle: "Gamify your productivity",
             description: "Earn 1 XP for every minute you work during Task Go. Level up to 100 and track your progress over time."
+        ),
+        OnboardingPage(
+            icon: "chart.bar.xaxis",
+            iconColor: .blue,
+            title: "Activity Tracking",
+            subtitle: "Understand your productivity patterns",
+            description: "TaskGo! tracks your keyboard and mouse activity to show you when you're most productive. We never log what you type — only that activity occurred."
         )
     ]
 
     var body: some View {
         VStack(spacing: 0) {
-            // Page content
-            pageView(pages[currentPage])
-                .frame(height: 340)
-                .animation(.easeInOut(duration: 0.25), value: currentPage)
+            if currentPage < pages.count {
+                pageView(pages[currentPage])
+                    .frame(height: 340)
+                    .animation(.easeInOut(duration: 0.25), value: currentPage)
+            } else {
+                setupPage
+                    .frame(height: 340)
+                    .animation(.easeInOut(duration: 0.25), value: currentPage)
+            }
 
-            // Page indicators
             HStack(spacing: 6) {
-                ForEach(0..<pages.count, id: \.self) { index in
+                ForEach(0..<totalPages, id: \.self) { index in
                     Circle()
                         .fill(index == currentPage ? Color.calmTeal : Color.secondary.opacity(0.3))
                         .frame(width: 6, height: 6)
@@ -46,7 +62,6 @@ struct OnboardingView: View {
             }
             .padding(.bottom, 16)
 
-            // Buttons
             HStack(spacing: 12) {
                 if currentPage > 0 {
                     Button("Back") {
@@ -58,7 +73,7 @@ struct OnboardingView: View {
 
                 Spacer()
 
-                if currentPage < pages.count - 1 {
+                if currentPage < totalPages - 1 {
                     Button("Next") {
                         withAnimation { currentPage += 1 }
                     }
@@ -67,6 +82,7 @@ struct OnboardingView: View {
                     .controlSize(.large)
                 } else {
                     Button("Get Started") {
+                        applySetupSettings()
                         UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
                         isComplete = true
                     }
@@ -78,7 +94,13 @@ struct OnboardingView: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 20)
         }
+        .onAppear {
+            ActivityTracker.shared.checkPermission()
+            hasInputMonitoring = ActivityTracker.shared.hasPermission
+        }
     }
+
+    // MARK: - Standard Page
 
     private func pageView(_ page: OnboardingPage) -> some View {
         VStack(spacing: 16) {
@@ -107,6 +129,101 @@ struct OnboardingView: View {
             Spacer()
         }
         .padding(.horizontal, 16)
+    }
+
+    // MARK: - Setup Page
+
+    private var setupPage: some View {
+        VStack(spacing: 16) {
+            Spacer()
+
+            Image(systemName: "gearshape.fill")
+                .font(.system(size: 48))
+                .foregroundStyle(Color.calmTeal)
+
+            Text("Quick Setup")
+                .font(.system(size: 20, weight: .bold))
+                .multilineTextAlignment(.center)
+
+            Text("Get the most out of TaskGo!")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(Color.calmTeal)
+                .multilineTextAlignment(.center)
+
+            VStack(spacing: 12) {
+                // Launch at login
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Launch at Login")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Always running so activity is tracked")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle("", isOn: $launchAtLogin)
+                        .toggleStyle(.switch)
+                        .labelsHidden()
+                }
+                .padding(.horizontal, 20)
+
+                Divider()
+                    .padding(.horizontal, 20)
+
+                // Input Monitoring permission
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Activity Tracking")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Requires Input Monitoring permission")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if hasInputMonitoring {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.green)
+                            Text("Enabled")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(.green)
+                        }
+                    } else {
+                        Button("Enable") {
+                            ActivityTracker.shared.requestPermission()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                ActivityTracker.shared.checkPermission()
+                                hasInputMonitoring = ActivityTracker.shared.hasPermission
+                            }
+                        }
+                        .font(.system(size: 11))
+                        .buttonStyle(.borderedProminent)
+                        .tint(Color.calmTeal)
+                        .controlSize(.small)
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+    }
+
+    // MARK: - Apply Settings
+
+    private func applySetupSettings() {
+        UserDefaults.standard.set(launchAtLogin, forKey: "launchAtLogin")
+        do {
+            if launchAtLogin {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+        } catch {
+            print("[Onboarding] Failed to set launch at login: \(error)")
+        }
     }
 }
 

@@ -5,6 +5,7 @@ enum AppTab: String, CaseIterable {
     case notes = "Notes"
     case planner = "Planner"
     case calendar = "Calendar"
+    case activity = "Activity"
     // case social = "Social"  // v2: Social features deferred
     case profile = "Profile"
 }
@@ -46,6 +47,8 @@ struct MainView: View {
                 PlannerTabView()
             case .calendar:
                 CalendarTabView()
+            case .activity:
+                ActivityTabView()
             // case .social:  // v2: Social features deferred
             //     SocialTabView()
             case .profile:
