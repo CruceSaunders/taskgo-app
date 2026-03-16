@@ -2,6 +2,7 @@ import Foundation
 import AppKit
 import IOKit
 import IOKit.hid
+import CoreAudio
 import FirebaseAuth
 
 class ActivityTracker: ObservableObject {
@@ -475,7 +476,7 @@ class ActivityTracker: ObservableObject {
         let sc = currentScrolls
         let mv = currentMovement
         let dc = currentDictation
-        let inMeeting = isCurrentlyInMeeting() ? 1 : 0
+        let micActive = isMicrophoneInUse() ? 1 : 0
 
         currentKeyboard = 0
         currentClicks = 0
@@ -483,7 +484,7 @@ class ActivityTracker: ObservableObject {
         currentMovement = 0
         currentDictation = 0
 
-        guard kb > 0 || cl > 0 || sc > 0 || mv > 0 || dc > 0 || inMeeting > 0 else { return }
+        guard kb > 0 || cl > 0 || sc > 0 || mv > 0 || dc > 0 || micActive > 0 else { return }
 
         let entry = MinuteEntry(
             minute: minuteOfDay,
@@ -492,7 +493,7 @@ class ActivityTracker: ObservableObject {
             scrolls: sc,
             movement: mv,
             dictation: dc,
-            meeting: inMeeting
+            meeting: micActive
         )
 
         todayData.addMinuteEntry(entry)
@@ -506,15 +507,36 @@ class ActivityTracker: ObservableObject {
         flushToDisk()
     }
 
-    // MARK: - Meeting Detection
+    // MARK: - Microphone Detection
 
-    private func isCurrentlyInMeeting() -> Bool {
-        guard CalendarService.shared.hasAccess else { return false }
-        let now = Date()
-        let events = CalendarService.shared.fetchTodayEvents()
-        return events.contains { event in
-            !event.isAllDay && event.startDate <= now && event.endDate > now
-        }
+    private func isMicrophoneInUse() -> Bool {
+        var defaultDeviceID = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        let status = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address, 0, nil, &size, &defaultDeviceID
+        )
+        guard status == noErr, defaultDeviceID != 0 else { return false }
+
+        var isRunning: UInt32 = 0
+        var runningSize = UInt32(MemoryLayout<UInt32>.size)
+        var runningAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyDeviceIsRunningSomewhere,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        let runStatus = AudioObjectGetPropertyData(
+            defaultDeviceID,
+            &runningAddress, 0, nil, &runningSize, &isRunning
+        )
+        return runStatus == noErr && isRunning != 0
     }
 
     // MARK: - Day Rollover
