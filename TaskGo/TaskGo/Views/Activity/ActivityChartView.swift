@@ -91,7 +91,7 @@ struct ActivityChartView: View {
         case 5: return 60
         case 15: return 60
         case 30: return 60
-        default: return 120
+        default: return 60
         }
     }
 

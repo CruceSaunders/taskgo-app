@@ -18,6 +18,10 @@ class CalendarViewModel: ObservableObject {
         Calendar.current.isDateInToday(selectedDate)
     }
 
+    var todayEvents: [CalendarEvent] {
+        timedEvents + allDayEvents
+    }
+
     var dateLabel: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEEE, MMM d"

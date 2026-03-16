@@ -8,35 +8,35 @@ struct ActivityWeekBarView: View {
     }
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 6) {
             ForEach(activityVM.weekSummary) { day in
                 Button(action: {
                     activityVM.selectDay(day.date)
                 }) {
-                    VStack(spacing: 2) {
-                        barFill(day)
+                    VStack(spacing: 3) {
+                        barColumn(day)
+                            .frame(height: 30)
                         Text(day.dayLabel)
                             .font(.system(size: 8, weight: day.isSelected ? .bold : .regular))
                             .foregroundStyle(day.isSelected ? Color.calmTeal : .secondary)
                     }
                 }
                 .buttonStyle(.plain)
+                .frame(maxWidth: .infinity)
             }
         }
-        .frame(height: 50)
+        .frame(height: 48)
     }
 
-    private func barFill(_ day: WeekDaySummary) -> some View {
-        GeometryReader { geo in
-            let fraction = CGFloat(day.activeMinutes) / CGFloat(maxMinutes)
-            let barHeight = max(2, geo.size.height * fraction)
+    private func barColumn(_ day: WeekDaySummary) -> some View {
+        let fraction = CGFloat(day.activeMinutes) / CGFloat(maxMinutes)
+        let barH = max(2, 30 * fraction)
 
-            VStack {
-                Spacer()
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(day.isSelected ? Color.calmTeal : Color.calmTeal.opacity(0.4))
-                    .frame(height: barHeight)
-            }
+        return VStack(spacing: 0) {
+            Spacer(minLength: 0)
+            RoundedRectangle(cornerRadius: 2)
+                .fill(day.isSelected ? Color.calmTeal : Color.calmTeal.opacity(0.35))
+                .frame(height: barH)
         }
     }
 }
