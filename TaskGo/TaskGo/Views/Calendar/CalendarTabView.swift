@@ -370,19 +370,21 @@ struct CalendarTabView: View {
         let xOff = dayGutterWidth + CGFloat(layout.column) * colW + 1
         let bw = max(0, colW - 2)
 
+        let blockColor = saturatedColor(event.calendarColor)
+
         return HStack(spacing: 0) {
-            RoundedRectangle(cornerRadius: 1).fill(event.calendarColor).frame(width: 3)
+            RoundedRectangle(cornerRadius: 1).fill(blockColor).frame(width: 4)
             VStack(alignment: .leading, spacing: 1) {
-                Text(event.title).font(.system(size: 10, weight: .medium)).lineLimit(bh > 36 ? 2 : 1)
+                Text(event.title).font(.system(size: 10, weight: .medium)).foregroundStyle(.white).lineLimit(bh > 36 ? 2 : 1)
                 if bh > 28 {
-                    Text(event.timeRangeFormatted).font(.system(size: 8)).foregroundStyle(.primary.opacity(0.6)).lineLimit(1)
+                    Text(event.timeRangeFormatted).font(.system(size: 8)).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
                 }
             }
             .padding(.leading, 4).padding(.trailing, 2).padding(.vertical, 2)
             Spacer(minLength: 0)
         }
         .frame(width: bw, height: bh, alignment: .topLeading)
-        .background(event.calendarColor.opacity(0.15))
+        .background(blockColor.opacity(0.88))
         .cornerRadius(4).clipped()
         .offset(x: xOff, y: yTop + topPad)
         .onTapGesture { activeSheet = .eventDetail(event) }
@@ -571,6 +573,8 @@ struct CalendarTabView: View {
         let xOff = weekGutterWidth + CGFloat(dayIndex) * dayWidth + CGFloat(layout.column) * colW + 1
         let bw = max(0, colW - 2)
 
+        let blockColor = saturatedColor(event.calendarColor)
+
         return VStack(alignment: .leading, spacing: 0) {
             Text(event.title)
                 .font(.system(size: 9, weight: .medium))
@@ -579,12 +583,12 @@ struct CalendarTabView: View {
             if bh > 24 {
                 Text(shortTime(event.startDate))
                     .font(.system(size: 7))
-                    .foregroundStyle(.white.opacity(0.8))
+                    .foregroundStyle(.white.opacity(0.85))
             }
         }
         .padding(.horizontal, 3).padding(.vertical, 2)
         .frame(width: bw, height: bh, alignment: .topLeading)
-        .background(event.calendarColor.opacity(0.85))
+        .background(blockColor.opacity(0.92))
         .cornerRadius(2).clipped()
         .offset(x: xOff, y: yTop + topPad)
         .onTapGesture { activeSheet = .eventDetail(event) }
@@ -955,5 +959,15 @@ struct CalendarTabView: View {
         let fmt = DateFormatter()
         fmt.dateFormat = "EEEE, MMMM d, yyyy"
         return fmt.string(from: date)
+    }
+
+    private func saturatedColor(_ color: Color) -> Color {
+        let nsColor = NSColor(color)
+        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        let converted = nsColor.usingColorSpace(.sRGB) ?? nsColor
+        converted.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+        let newSat = max(s, 0.55)
+        let newBri = min(b, 0.78)
+        return Color(hue: Double(h), saturation: Double(newSat), brightness: Double(newBri))
     }
 }

@@ -204,7 +204,7 @@ struct ActivityDay: Codable, Identifiable {
         totalMovement = try container.decode(Int.self, forKey: .totalMovement)
         totalDictation = try container.decodeIfPresent(Int.self, forKey: .totalDictation) ?? 0
         totalMeetingMinutes = try container.decodeIfPresent(Int.self, forKey: .totalMeetingMinutes) ?? 0
-        totalActiveMinutes = try container.decode(Int.self, forKey: .totalActiveMinutes)
+        totalActiveMinutes = try container.decodeIfPresent(Int.self, forKey: .totalActiveMinutes) ?? 0
         firstActivity = try container.decodeIfPresent(Date.self, forKey: .firstActivity)
         lastActivity = try container.decodeIfPresent(Date.self, forKey: .lastActivity)
     }
@@ -216,6 +216,7 @@ struct ActivityDay: Codable, Identifiable {
             minuteData[idx].scrolls += entry.scrolls
             minuteData[idx].movement += entry.movement
             minuteData[idx].dictation += entry.dictation
+            minuteData[idx].meeting = max(minuteData[idx].meeting, entry.meeting)
         } else {
             minuteData.append(entry)
             minuteData.sort { $0.minute < $1.minute }

@@ -44,13 +44,13 @@ struct ActivityControlsView: View {
         let isOn = activityVM.visibleSeries.contains(series)
         let color = colorForSeries(series)
         return Button(action: {
+            var updated = activityVM.visibleSeries
             if isOn {
-                if activityVM.visibleSeries.count > 1 {
-                    activityVM.visibleSeries.remove(series)
-                }
+                if updated.count > 1 { updated.remove(series) }
             } else {
-                activityVM.visibleSeries.insert(series)
+                updated.insert(series)
             }
+            activityVM.visibleSeries = updated
         }) {
             HStack(spacing: 4) {
                 Circle()
