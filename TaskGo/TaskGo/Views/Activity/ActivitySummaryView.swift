@@ -4,15 +4,15 @@ struct ActivitySummaryView: View {
     @EnvironmentObject var activityVM: ActivityViewModel
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             summaryCard(
-                title: "Active Time",
+                title: "Active",
                 value: activityVM.totalActiveTime,
                 icon: "clock.fill",
                 color: .calmTeal
             )
             summaryCard(
-                title: "Keystrokes",
+                title: "Keys",
                 value: formatNumber(activityVM.totalKeystrokes),
                 icon: "keyboard",
                 color: .blue
@@ -33,23 +33,23 @@ struct ActivitySummaryView: View {
     }
 
     private func summaryCard(title: String, value: String, icon: String, color: Color) -> some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 4) {
+        VStack(spacing: 2) {
+            HStack(spacing: 2) {
                 Image(systemName: icon)
-                    .font(.system(size: 10))
+                    .font(.system(size: 8))
                     .foregroundStyle(color)
                 Text(title)
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.system(size: 8, weight: .medium))
                     .foregroundStyle(.secondary)
             }
             Text(value)
-                .font(.system(size: 14, weight: .bold))
+                .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(.primary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .background(color.opacity(0.08))
-        .cornerRadius(8)
+        .padding(.vertical, 6)
+        .background(color.opacity(0.06))
+        .cornerRadius(6)
     }
 
     private func formatNumber(_ n: Int) -> String {

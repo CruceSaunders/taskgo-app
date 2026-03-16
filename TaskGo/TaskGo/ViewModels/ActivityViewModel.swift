@@ -5,10 +5,11 @@ import Combine
 class ActivityViewModel: ObservableObject {
     @Published var selectedDate: Date = Date()
     @Published var currentDay: ActivityDay?
-    @Published var zoomLevel: Double = 60   // bucket size in minutes: 1, 5, 15, 30, 60
+    @Published var zoomLevel: Double = 60
     @Published var visibleSeries: Set<DataSeries> = Set(DataSeries.allCases)
     @Published var chartData: [ChartDataPoint] = []
     @Published var isLoading = false
+    @Published var permissionGranted = false
 
     static let zoomSteps: [Double] = [1, 5, 15, 30, 60]
 
@@ -20,6 +21,18 @@ class ActivityViewModel: ObservableObject {
             .debounce(for: .milliseconds(100), scheduler: DispatchQueue.main)
             .sink { [weak self] day, zoom, series in
                 self?.recomputeChartData(day: day, zoom: zoom, series: series)
+            }
+            .store(in: &cancellables)
+
+        ActivityTracker.shared.$hasPermission
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$permissionGranted)
+
+        ActivityTracker.shared.$todayData
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] newData in
+                guard let self = self, self.isToday else { return }
+                self.currentDay = newData
             }
             .store(in: &cancellables)
     }
@@ -44,11 +57,9 @@ class ActivityViewModel: ObservableObject {
         let date = selectedDate
         if isToday {
             currentDay = ActivityTracker.shared.todayData
-            startLiveRefresh()
             return
         }
 
-        stopLiveRefresh()
         isLoading = true
 
         if let local = ActivityTracker.shared.loadDay(date: date) {
@@ -97,21 +108,6 @@ class ActivityViewModel: ObservableObject {
         loadSelectedDate()
     }
 
-    // MARK: - Live Refresh
-
-    private func startLiveRefresh() {
-        stopLiveRefresh()
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
-            guard let self = self, self.isToday else { return }
-            self.currentDay = ActivityTracker.shared.todayData
-        }
-    }
-
-    private func stopLiveRefresh() {
-        refreshTimer?.invalidate()
-        refreshTimer = nil
-    }
-
     // MARK: - Chart Data Computation
 
     private func recomputeChartData(day: ActivityDay?, zoom: Double, series: Set<DataSeries>) {
@@ -125,7 +121,7 @@ class ActivityViewModel: ObservableObject {
 
         var points: [ChartDataPoint] = []
         let formatter = DateFormatter()
-        formatter.dateFormat = "h:mm a"
+        formatter.dateFormat = "h a"
 
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: day.date)
@@ -137,7 +133,14 @@ class ActivityViewModel: ObservableObject {
             let entriesInBucket = day.minuteData.filter { $0.minute >= bucketStart && $0.minute < bucketEnd }
 
             let labelDate = calendar.date(byAdding: .minute, value: bucketStart, to: startOfDay) ?? startOfDay
-            let label = formatter.string(from: labelDate)
+            let label: String
+            if bucketSize >= 60 {
+                label = formatter.string(from: labelDate)
+            } else {
+                let fmtSmall = DateFormatter()
+                fmtSmall.dateFormat = "h:mm"
+                label = fmtSmall.string(from: labelDate)
+            }
 
             for s in series.sorted(by: { $0.rawValue < $1.rawValue }) {
                 let value: Int

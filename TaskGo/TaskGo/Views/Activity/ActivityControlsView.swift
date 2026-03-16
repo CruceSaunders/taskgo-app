@@ -4,11 +4,16 @@ struct ActivityControlsView: View {
     @EnvironmentObject var activityVM: ActivityViewModel
 
     var body: some View {
-        HStack(spacing: 16) {
-            // Zoom control
+        VStack(spacing: 6) {
+            HStack(spacing: 4) {
+                ForEach(DataSeries.allCases) { series in
+                    seriesToggle(series)
+                }
+            }
+
             HStack(spacing: 6) {
                 Image(systemName: "minus.magnifyingglass")
-                    .font(.system(size: 10))
+                    .font(.system(size: 9))
                     .foregroundStyle(.secondary)
 
                 Slider(
@@ -16,7 +21,6 @@ struct ActivityControlsView: View {
                     in: 1...60,
                     step: 1
                 )
-                .frame(width: 100)
                 .onChange(of: activityVM.zoomLevel) { _, newValue in
                     let snapped = ActivityViewModel.zoomSteps.min(by: {
                         abs($0 - newValue) < abs($1 - newValue)
@@ -27,27 +31,16 @@ struct ActivityControlsView: View {
                 }
 
                 Image(systemName: "plus.magnifyingglass")
-                    .font(.system(size: 10))
+                    .font(.system(size: 9))
                     .foregroundStyle(.secondary)
 
                 Text(activityVM.zoomLabel)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(.secondary)
-                    .frame(width: 50, alignment: .leading)
-            }
-
-            Divider()
-                .frame(height: 16)
-
-            // Series toggles
-            HStack(spacing: 8) {
-                ForEach(DataSeries.allCases) { series in
-                    seriesToggle(series)
-                }
+                    .frame(width: 42, alignment: .trailing)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+        .padding(.vertical, 4)
     }
 
     private func seriesToggle(_ series: DataSeries) -> some View {
@@ -64,15 +57,17 @@ struct ActivityControlsView: View {
             HStack(spacing: 3) {
                 Circle()
                     .fill(colorForSeries(series))
-                    .frame(width: 6, height: 6)
+                    .frame(width: 5, height: 5)
                 Text(series.rawValue)
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.system(size: 8, weight: .medium))
+                    .lineLimit(1)
+                    .fixedSize()
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 3)
-            .background(isOn ? colorForSeries(series).opacity(0.12) : Color.clear)
+            .background(isOn ? colorForSeries(series).opacity(0.12) : Color.secondary.opacity(0.04))
             .cornerRadius(4)
-            .foregroundStyle(isOn ? Color.primary : Color.secondary.opacity(0.5))
+            .foregroundStyle(isOn ? Color.primary : Color.secondary.opacity(0.4))
         }
         .buttonStyle(.plain)
     }

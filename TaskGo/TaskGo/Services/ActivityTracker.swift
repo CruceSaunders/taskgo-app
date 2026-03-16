@@ -38,7 +38,6 @@ class ActivityTracker: ObservableObject {
     private init() {
         todayData = ActivityDay(date: Calendar.current.startOfDay(for: Date()))
         loadTodayFromDisk()
-        checkPermission()
     }
 
     // MARK: - Permission
@@ -49,7 +48,7 @@ class ActivityTracker: ObservableObject {
             place: .headInsertEventTap,
             options: .listenOnly,
             eventsOfInterest: CGEventMask(1 << CGEventType.keyDown.rawValue),
-            callback: { _, _, event, _ in Unmanaged.passRetained(event) },
+            callback: { _, _, event, _ in Unmanaged.passUnretained(event) },
             userInfo: nil
         )
         if let tap = testTap {
@@ -75,14 +74,18 @@ class ActivityTracker: ObservableObject {
         checkPermission()
 
         guard hasPermission else {
+            print("[ActivityTracker] No Input Monitoring permission, starting poll...")
             startPermissionPolling()
             return
         }
 
         if startCGEventTapTracking() {
             isTracking = true
+            print("[ActivityTracker] Tracking started successfully")
             startMinuteTimer()
             startFlushTimer()
+        } else {
+            print("[ActivityTracker] Failed to create CGEvent tap")
             startPermissionPolling()
         }
     }
@@ -100,7 +103,7 @@ class ActivityTracker: ObservableObject {
             eventTap = nil
         }
         if let source = runLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetCurrent(), source, .commonModes)
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
             runLoopSource = nil
         }
 
@@ -131,7 +134,7 @@ class ActivityTracker: ObservableObject {
             options: .listenOnly,
             eventsOfInterest: eventMask,
             callback: { _, eventType, event, userInfo in
-                guard let userInfo = userInfo else { return Unmanaged.passRetained(event) }
+                guard let userInfo = userInfo else { return Unmanaged.passUnretained(event) }
                 let tracker = Unmanaged<ActivityTracker>.fromOpaque(userInfo).takeUnretainedValue()
 
                 switch eventType {
@@ -150,7 +153,7 @@ class ActivityTracker: ObservableObject {
                     break
                 }
 
-                return Unmanaged.passRetained(event)
+                return Unmanaged.passUnretained(event)
             },
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         )
@@ -159,7 +162,7 @@ class ActivityTracker: ObservableObject {
 
         self.eventTap = eventTap
         let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: eventTap, enable: true)
         self.runLoopSource = source
 
@@ -178,20 +181,18 @@ class ActivityTracker: ObservableObject {
     // MARK: - Timers
 
     private func startMinuteTimer() {
-        let calendar = Calendar.current
-        let now = Date()
-        let nextMinute = calendar.date(byAdding: .minute, value: 1, to: calendar.date(bySetting: .second, value: 0, of: now) ?? now) ?? now
-
-        let delay = nextMinute.timeIntervalSince(now)
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+        minuteTimer?.invalidate()
+        minuteTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            self?.onMinuteTick()
+        }
+        // Fire once immediately after a short delay so first data shows up quickly
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
             self?.finalizeCurrentMinute()
-            self?.minuteTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
-                self?.onMinuteTick()
-            }
         }
     }
 
     private func startFlushTimer() {
+        flushTimer?.invalidate()
         flushTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
             self?.flushToDisk()
             self?.flushToFirestore()
@@ -200,10 +201,12 @@ class ActivityTracker: ObservableObject {
 
     private func startPermissionPolling() {
         permissionCheckTimer?.invalidate()
-        permissionCheckTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+        permissionCheckTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             self.checkPermission()
             if self.hasPermission && !self.isTracking {
+                self.permissionCheckTimer?.invalidate()
+                self.permissionCheckTimer = nil
                 self.start()
             }
         }
@@ -235,17 +238,14 @@ class ActivityTracker: ObservableObject {
 
         let hasActiveInput = kb > 0 || cl > 0
         let hasEngagedInput = sc > 0 || mv > 0
-        let screenLocked = isScreenLocked()
 
-        guard hasActiveInput || hasEngagedInput || !screenLocked else { return }
+        guard hasActiveInput || hasEngagedInput else { return }
 
         let state: ActivityState
         if hasActiveInput {
             state = .active
-        } else if hasEngagedInput {
-            state = .engaged
         } else {
-            state = .present
+            state = .engaged
         }
 
         let entry = MinuteEntry(
@@ -263,6 +263,8 @@ class ActivityTracker: ObservableObject {
             todayData.firstActivity = now
         }
         todayData.lastActivity = now
+
+        objectWillChange.send()
     }
 
     // MARK: - Screen Lock Detection

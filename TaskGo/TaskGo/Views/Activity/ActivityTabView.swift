@@ -2,15 +2,13 @@ import SwiftUI
 
 struct ActivityTabView: View {
     @EnvironmentObject var activityVM: ActivityViewModel
-    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
         VStack(spacing: 0) {
-            if !ActivityTracker.shared.hasPermission {
+            if !activityVM.permissionGranted {
                 permissionBanner
             }
 
-            // Date navigation
             dateHeader
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
@@ -23,27 +21,21 @@ struct ActivityTabView: View {
                     .scaleEffect(0.8)
                 Spacer()
             } else {
-                ScrollView {
-                    VStack(spacing: 12) {
-                        // Summary cards
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 10) {
                         ActivitySummaryView()
                             .padding(.horizontal, 12)
 
-                        // Chart
                         ActivityChartView()
-                            .frame(minHeight: 180, maxHeight: 260)
-                            .padding(.horizontal, 8)
-
-                        Divider()
+                            .frame(height: 200)
                             .padding(.horizontal, 12)
 
-                        // Controls
                         ActivityControlsView()
+                            .padding(.horizontal, 12)
 
                         Divider()
                             .padding(.horizontal, 12)
 
-                        // Detail stats
                         detailSection
                             .padding(.horizontal, 12)
                             .padding(.bottom, 12)
@@ -60,24 +52,25 @@ struct ActivityTabView: View {
     // MARK: - Permission Banner
 
     private var permissionBanner: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 11))
+                .font(.system(size: 10))
                 .foregroundStyle(.orange)
-            Text("Activity tracking requires Input Monitoring permission.")
+            Text("Input Monitoring permission required")
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
             Spacer()
             Button("Enable") {
                 ActivityTracker.shared.requestPermission()
             }
-            .font(.system(size: 10, weight: .medium))
+            .font(.system(size: 9, weight: .semibold))
             .buttonStyle(.borderedProminent)
             .tint(.orange)
-            .controlSize(.small)
+            .controlSize(.mini)
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+        .padding(.vertical, 5)
         .background(Color.orange.opacity(0.08))
     }
 
@@ -107,13 +100,14 @@ struct ActivityTabView: View {
             Spacer()
 
             if activityVM.isToday {
-                Text("Live")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.green)
-                    .clipShape(Capsule())
+                HStack(spacing: 3) {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 5, height: 5)
+                    Text("Live")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.green)
+                }
             } else {
                 Button(action: { activityVM.goToNextDay() }) {
                     Image(systemName: "chevron.right")
@@ -128,22 +122,22 @@ struct ActivityTabView: View {
     // MARK: - Detail Section
 
     private var detailSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             Text("Details")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(.secondary)
 
             if let day = activityVM.currentDay {
                 LazyVGrid(columns: [
                     GridItem(.flexible()),
                     GridItem(.flexible())
-                ], spacing: 6) {
+                ], spacing: 4) {
                     detailRow("Total Inputs", value: "\(day.totalInputs)")
                     detailRow("Active Minutes", value: "\(day.totalActiveMinutes)")
                     detailRow("Engaged Minutes", value: "\(day.totalEngagedMinutes)")
-                    detailRow("Present Minutes", value: "\(day.totalPresentMinutes)")
                     detailRow("Scrolls", value: "\(day.totalScrolls)")
                     detailRow("Mouse Moves", value: "\(day.totalMovement)")
+                    detailRow("Avg/min", value: "\(activityVM.averageInputsPerActiveMinute)")
                 }
             } else {
                 Text("No data available")
@@ -156,15 +150,15 @@ struct ActivityTabView: View {
     private func detailRow(_ label: String, value: String) -> some View {
         HStack {
             Text(label)
-                .font(.system(size: 10))
+                .font(.system(size: 9))
                 .foregroundStyle(.secondary)
             Spacer()
             Text(value)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 9, weight: .semibold))
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
         .background(Color.secondary.opacity(0.04))
-        .cornerRadius(4)
+        .cornerRadius(3)
     }
 }
