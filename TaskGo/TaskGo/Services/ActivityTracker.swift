@@ -32,6 +32,7 @@ class ActivityTracker: ObservableObject {
     private var sttCheckTimer: Timer?
     private var micSampleTimer: Timer?
     private var hidManager: IOHIDManager?
+    private var keyboardPollTimer: Timer?
 
     private var keyboardMonitor: Any?
     private var mouseClickMonitor: Any?
@@ -61,6 +62,8 @@ class ActivityTracker: ObservableObject {
 
     private var hidKeyboardActive = false
     private var lastHIDKeyboardTime: Date = .distantPast
+    private var previousKeyStates: Set<CGKeyCode> = []
+    private var keyboardPollActive = false
 
     // MARK: - Debounce State
 
@@ -188,6 +191,7 @@ class ActivityTracker: ObservableObject {
         micSampleTimer?.invalidate()
         micSampleTimer = nil
         stopHIDKeyboardMonitoring()
+        stopKeyboardPolling()
         isTracking = false
         diagLog("ActivityTracker stopped")
     }
@@ -261,7 +265,8 @@ class ActivityTracker: ObservableObject {
             hidManager = manager
             diagLog("HID keyboard monitoring started")
         } else {
-            diagLog("HID keyboard monitoring failed to open: \(openResult)")
+            diagLog("HID keyboard monitoring failed to open: \(openResult) — falling back to polling")
+            startKeyboardPolling()
         }
     }
 
@@ -270,6 +275,48 @@ class ActivityTracker: ObservableObject {
         IOHIDManagerClose(manager, IOOptionBits(kIOHIDOptionsTypeNone))
         IOHIDManagerUnscheduleFromRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue)
         hidManager = nil
+    }
+
+    // MARK: - Keyboard Polling Fallback (no permissions needed)
+
+    private func startKeyboardPolling() {
+        guard !keyboardPollActive else { return }
+        keyboardPollTimer?.invalidate()
+        keyboardPollTimer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { [weak self] _ in
+            self?.pollKeyboardState()
+        }
+        keyboardPollActive = true
+        diagLog("Keyboard polling fallback started (0.4s interval)")
+    }
+
+    private func stopKeyboardPolling() {
+        keyboardPollTimer?.invalidate()
+        keyboardPollTimer = nil
+        keyboardPollActive = false
+    }
+
+    private func pollKeyboardState() {
+        var currentlyDown = Set<CGKeyCode>()
+        for keyCode: CGKeyCode in 4...231 {
+            if CGEventSource.keyState(.combinedSessionState, key: keyCode) {
+                currentlyDown.insert(keyCode)
+            }
+        }
+
+        let newPresses = currentlyDown.subtracting(previousKeyStates)
+        previousKeyStates = currentlyDown
+
+        if !newPresses.isEmpty {
+            let count = newPresses.count
+            keyboardEventsReceived += count
+            currentKeyboard += count
+            totalEventsReceived += count
+
+            if !eventsAreFlowing {
+                DispatchQueue.main.async { [weak self] in self?.eventsAreFlowing = true }
+            }
+            NotificationCenter.default.post(name: .activityDetected, object: nil)
+        }
     }
 
     // MARK: - CGEvent Tap
@@ -400,12 +447,13 @@ class ActivityTracker: ObservableObject {
         let hasOtherEvents = clickEventsReceived > 0 || scrollEventsReceived > 0 || moveEventsReceived > 0
 
         if keyboardEventsReceived == 0 && hasOtherEvents {
-            if hidKeyboardActive {
-                diagLog("NSEvent/CGEvent keyboard failed but HID is catching keyboard events — healthy")
+            if hidKeyboardActive || keyboardPollActive {
+                diagLog("NSEvent/CGEvent keyboard failed but fallback is catching keyboard events — healthy")
                 keyboardHealthy = true
             } else {
-                diagLog("Keyboard events not flowing via NSEvent or HID (clicks=\(clickEventsReceived), scrolls=\(scrollEventsReceived), moves=\(moveEventsReceived))")
+                diagLog("Keyboard events not flowing via NSEvent or HID — starting polling fallback")
                 keyboardHealthy = false
+                startKeyboardPolling()
             }
         } else if totalEventsReceived == 0 {
             diagLog("No events received after 30s — permission likely denied")
