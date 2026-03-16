@@ -1,12 +1,6 @@
 import Foundation
 import FirebaseFirestore
 
-enum ActivityState: String, Codable {
-    case active    // keyboard or clicks occurred
-    case engaged   // scroll/movement only (reading, browsing)
-    case present   // screen on, no input
-}
-
 enum DataSeries: String, CaseIterable, Codable, Identifiable {
     case keyboard = "Keyboard"
     case clicks = "Clicks"
@@ -14,15 +8,6 @@ enum DataSeries: String, CaseIterable, Codable, Identifiable {
     case movement = "Movement"
 
     var id: String { rawValue }
-
-    var color: String {
-        switch self {
-        case .keyboard: return "blue"
-        case .clicks: return "green"
-        case .scrolls: return "orange"
-        case .movement: return "gray"
-        }
-    }
 
     var systemImage: String {
         switch self {
@@ -40,11 +25,12 @@ struct MinuteEntry: Codable, Identifiable {
     var clicks: Int
     var scrolls: Int
     var movement: Int
-    var state: ActivityState
 
     var id: Int { minute }
 
     var totalInputs: Int { keyboard + clicks + scrolls + movement }
+
+    var isActive: Bool { totalInputs > 0 }
 
     func value(for series: DataSeries) -> Int {
         switch series {
@@ -63,8 +49,6 @@ struct HourEntry: Codable, Identifiable {
     var scrolls: Int
     var movement: Int
     var activeMinutes: Int
-    var engagedMinutes: Int
-    var presentMinutes: Int
 
     var id: Int { hour }
 
@@ -80,13 +64,12 @@ struct HourEntry: Codable, Identifiable {
     }
 
     static func empty(hour: Int) -> HourEntry {
-        HourEntry(hour: hour, keyboard: 0, clicks: 0, scrolls: 0, movement: 0,
-                  activeMinutes: 0, engagedMinutes: 0, presentMinutes: 0)
+        HourEntry(hour: hour, keyboard: 0, clicks: 0, scrolls: 0, movement: 0, activeMinutes: 0)
     }
 }
 
 struct ActivityDay: Codable, Identifiable {
-    @DocumentID var id: String?
+    var id: String?
     var date: Date
     var minuteData: [MinuteEntry]
     var hourlySummary: [HourEntry]
@@ -95,8 +78,6 @@ struct ActivityDay: Codable, Identifiable {
     var totalScrolls: Int
     var totalMovement: Int
     var totalActiveMinutes: Int
-    var totalEngagedMinutes: Int
-    var totalPresentMinutes: Int
     var firstActivity: Date?
     var lastActivity: Date?
 
@@ -109,7 +90,6 @@ struct ActivityDay: Codable, Identifiable {
     }
 
     init(
-        id: String? = nil,
         date: Date = Date(),
         minuteData: [MinuteEntry] = [],
         hourlySummary: [HourEntry]? = nil,
@@ -118,12 +98,12 @@ struct ActivityDay: Codable, Identifiable {
         totalScrolls: Int = 0,
         totalMovement: Int = 0,
         totalActiveMinutes: Int = 0,
-        totalEngagedMinutes: Int = 0,
-        totalPresentMinutes: Int = 0,
         firstActivity: Date? = nil,
         lastActivity: Date? = nil
     ) {
-        self.id = id
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        self.id = formatter.string(from: date)
         self.date = date
         self.minuteData = minuteData
         self.hourlySummary = hourlySummary ?? (0..<24).map { HourEntry.empty(hour: $0) }
@@ -132,8 +112,6 @@ struct ActivityDay: Codable, Identifiable {
         self.totalScrolls = totalScrolls
         self.totalMovement = totalMovement
         self.totalActiveMinutes = totalActiveMinutes
-        self.totalEngagedMinutes = totalEngagedMinutes
-        self.totalPresentMinutes = totalPresentMinutes
         self.firstActivity = firstActivity
         self.lastActivity = lastActivity
     }
@@ -153,10 +131,7 @@ struct ActivityDay: Codable, Identifiable {
         totalClicks = minuteData.reduce(0) { $0 + $1.clicks }
         totalScrolls = minuteData.reduce(0) { $0 + $1.scrolls }
         totalMovement = minuteData.reduce(0) { $0 + $1.movement }
-        totalActiveMinutes = minuteData.filter { $0.state == .active }.count
-        totalEngagedMinutes = minuteData.filter { $0.state == .engaged }.count
-        totalPresentMinutes = minuteData.filter { $0.state == .present }.count
-
+        totalActiveMinutes = minuteData.filter { $0.isActive }.count
         rebuildHourlySummary()
     }
 
@@ -169,11 +144,7 @@ struct ActivityDay: Codable, Identifiable {
             summary[h].clicks += entry.clicks
             summary[h].scrolls += entry.scrolls
             summary[h].movement += entry.movement
-            switch entry.state {
-            case .active: summary[h].activeMinutes += 1
-            case .engaged: summary[h].engagedMinutes += 1
-            case .present: summary[h].presentMinutes += 1
-            }
+            if entry.isActive { summary[h].activeMinutes += 1 }
         }
         hourlySummary = summary
     }
@@ -187,9 +158,9 @@ struct ActivityDay: Codable, Identifiable {
 
 struct ChartDataPoint: Identifiable {
     let id = UUID()
-    let bucketStart: Int    // minute of day
+    let bucketStart: Int
     let bucketEnd: Int
     let series: DataSeries
     let value: Int
-    let label: String       // e.g. "9:00 AM" or "9:15 AM"
+    let label: String
 }

@@ -4,22 +4,27 @@ import Charts
 struct ActivityChartView: View {
     @EnvironmentObject var activityVM: ActivityViewModel
 
-    private var bucketCount: Int {
-        1440 / max(1, Int(activityVM.snappedZoomLevel))
-    }
-
     private var needsScroll: Bool {
         activityVM.snappedZoomLevel < 60
     }
 
     private var chartWidth: CGFloat {
-        let zoom = activityVM.snappedZoomLevel
-        switch zoom {
+        switch activityVM.snappedZoomLevel {
         case 1: return 4000
         case 5: return 2000
         case 15: return 1200
         case 30: return 800
         default: return 0
+        }
+    }
+
+    private var barWidth: MarkDimension {
+        switch activityVM.snappedZoomLevel {
+        case 1: return .fixed(1.5)
+        case 5: return .fixed(2)
+        case 15: return .fixed(3)
+        case 30: return .fixed(5)
+        default: return .fixed(8)
         }
     }
 
@@ -29,40 +34,23 @@ struct ActivityChartView: View {
         } else if needsScroll {
             ScrollView(.horizontal, showsIndicators: true) {
                 chart
-                    .frame(width: chartWidth, height: 170)
+                    .frame(width: chartWidth, height: 180)
             }
         } else {
             chart
-                .frame(height: 170)
+                .frame(height: 180)
         }
     }
 
     private var chart: some View {
         Chart(activityVM.chartData) { point in
-            if activityVM.snappedZoomLevel >= 30 {
-                BarMark(
-                    x: .value("Time", point.bucketStart),
-                    y: .value("Count", point.value),
-                    width: activityVM.snappedZoomLevel >= 60 ? 8 : 5
-                )
-                .foregroundStyle(by: .value("Series", point.series.rawValue))
-                .position(by: .value("Series", point.series.rawValue))
-            } else {
-                AreaMark(
-                    x: .value("Minute", point.bucketStart),
-                    y: .value("Count", point.value)
-                )
-                .foregroundStyle(by: .value("Series", point.series.rawValue))
-                .opacity(0.12)
-
-                LineMark(
-                    x: .value("Minute", point.bucketStart),
-                    y: .value("Count", point.value)
-                )
-                .foregroundStyle(by: .value("Series", point.series.rawValue))
-                .interpolationMethod(.catmullRom)
-                .lineStyle(StrokeStyle(lineWidth: 1.5))
-            }
+            BarMark(
+                x: .value("Time", point.bucketStart),
+                y: .value("Count", point.value),
+                width: barWidth
+            )
+            .foregroundStyle(by: .value("Series", point.series.rawValue))
+            .position(by: .value("Series", point.series.rawValue))
         }
         .chartForegroundStyleScale([
             "Keyboard": Color.blue,
@@ -72,8 +60,7 @@ struct ActivityChartView: View {
         ])
         .chartXScale(domain: 0...1440)
         .chartXAxis {
-            let interval = Double(xAxisInterval)
-            AxisMarks(values: .stride(by: interval)) { value in
+            AxisMarks(values: .stride(by: Double(xAxisInterval))) { value in
                 AxisValueLabel {
                     if let minute = value.as(Int.self) {
                         Text(formatMinute(minute))
@@ -99,8 +86,7 @@ struct ActivityChartView: View {
     }
 
     private var xAxisInterval: Int {
-        let zoom = activityVM.snappedZoomLevel
-        switch zoom {
+        switch activityVM.snappedZoomLevel {
         case 1: return 30
         case 5: return 60
         case 15: return 60
@@ -114,9 +100,7 @@ struct ActivityChartView: View {
         let m = minute % 60
         let ampm = h >= 12 ? "p" : "a"
         let h12 = h == 0 ? 12 : (h > 12 ? h - 12 : h)
-        if m == 0 {
-            return "\(h12)\(ampm)"
-        }
+        if m == 0 { return "\(h12)\(ampm)" }
         return String(format: "%d:%02d", h12, m)
     }
 
@@ -132,6 +116,6 @@ struct ActivityChartView: View {
                 .font(.system(size: 9))
                 .foregroundStyle(.secondary.opacity(0.5))
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, minHeight: 120)
     }
 }

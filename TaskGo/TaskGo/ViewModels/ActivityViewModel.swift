@@ -2,6 +2,15 @@ import Foundation
 import FirebaseAuth
 import Combine
 
+struct WeekDaySummary: Identifiable {
+    let id: String          // date string
+    let date: Date
+    let dayLabel: String    // "Mon", "Tue", etc.
+    let activeMinutes: Int
+    let totalInputs: Int
+    let isSelected: Bool
+}
+
 class ActivityViewModel: ObservableObject {
     @Published var selectedDate: Date = Date()
     @Published var currentDay: ActivityDay?
@@ -9,12 +18,13 @@ class ActivityViewModel: ObservableObject {
     @Published var visibleSeries: Set<DataSeries> = Set(DataSeries.allCases)
     @Published var chartData: [ChartDataPoint] = []
     @Published var isLoading = false
-    @Published var permissionGranted = false
+    @Published var isTrackingActive = false
+    @Published var eventsFlowing = false
+    @Published var weekSummary: [WeekDaySummary] = []
 
     static let zoomSteps: [Double] = [1, 5, 15, 30, 60]
 
     private var cancellables = Set<AnyCancellable>()
-    private var refreshTimer: Timer?
 
     init() {
         Publishers.CombineLatest3($currentDay, $zoomLevel, $visibleSeries)
@@ -24,9 +34,13 @@ class ActivityViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
-        ActivityTracker.shared.$hasPermission
+        ActivityTracker.shared.$isTracking
             .receive(on: DispatchQueue.main)
-            .assign(to: &$permissionGranted)
+            .assign(to: &$isTrackingActive)
+
+        ActivityTracker.shared.$eventsAreFlowing
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$eventsFlowing)
 
         ActivityTracker.shared.$todayData
             .receive(on: DispatchQueue.main)
@@ -35,6 +49,10 @@ class ActivityViewModel: ObservableObject {
                 self.currentDay = newData
             }
             .store(in: &cancellables)
+    }
+
+    var showPermissionBanner: Bool {
+        !isTrackingActive && !eventsFlowing
     }
 
     var isToday: Bool {
@@ -57,6 +75,7 @@ class ActivityViewModel: ObservableObject {
         let date = selectedDate
         if isToday {
             currentDay = ActivityTracker.shared.todayData
+            loadWeekSummary()
             return
         }
 
@@ -65,12 +84,14 @@ class ActivityViewModel: ObservableObject {
         if let local = ActivityTracker.shared.loadDay(date: date) {
             currentDay = local
             isLoading = false
+            loadWeekSummary()
             return
         }
 
         guard let userId = Auth.auth().currentUser?.uid else {
             currentDay = nil
             isLoading = false
+            loadWeekSummary()
             return
         }
 
@@ -83,10 +104,10 @@ class ActivityViewModel: ObservableObject {
                 let day = try await FirestoreService.shared.getActivityDay(userId: userId, dateString: dateString)
                 self.currentDay = day
             } catch {
-                print("[ActivityVM] Failed to load day: \(error)")
                 self.currentDay = nil
             }
             self.isLoading = false
+            self.loadWeekSummary()
         }
     }
 
@@ -108,7 +129,56 @@ class ActivityViewModel: ObservableObject {
         loadSelectedDate()
     }
 
-    // MARK: - Chart Data Computation
+    func selectDay(_ date: Date) {
+        selectedDate = date
+        loadSelectedDate()
+    }
+
+    // MARK: - Week Summary
+
+    private func loadWeekSummary() {
+        let calendar = Calendar.current
+        let weekday = calendar.component(.weekday, from: selectedDate)
+        let mondayOffset = (weekday == 1) ? -6 : (2 - weekday)
+        guard let monday = calendar.date(byAdding: .day, value: mondayOffset, to: selectedDate) else { return }
+
+        let dayFormatter = DateFormatter()
+        dayFormatter.dateFormat = "EEE"
+        let idFormatter = DateFormatter()
+        idFormatter.dateFormat = "yyyy-MM-dd"
+
+        var summaries: [WeekDaySummary] = []
+        for i in 0..<7 {
+            guard let day = calendar.date(byAdding: .day, value: i, to: monday) else { continue }
+            let isSelected = calendar.isDate(day, inSameDayAs: selectedDate)
+            let isFuture = day > Date()
+
+            var activeMinutes = 0
+            var totalInputs = 0
+
+            if !isFuture {
+                if calendar.isDateInToday(day) {
+                    activeMinutes = ActivityTracker.shared.todayData.totalActiveMinutes
+                    totalInputs = ActivityTracker.shared.todayData.totalInputs
+                } else if let loaded = ActivityTracker.shared.loadDay(date: day) {
+                    activeMinutes = loaded.totalActiveMinutes
+                    totalInputs = loaded.totalInputs
+                }
+            }
+
+            summaries.append(WeekDaySummary(
+                id: idFormatter.string(from: day),
+                date: day,
+                dayLabel: dayFormatter.string(from: day),
+                activeMinutes: activeMinutes,
+                totalInputs: totalInputs,
+                isSelected: isSelected
+            ))
+        }
+        weekSummary = summaries
+    }
+
+    // MARK: - Chart Data
 
     private func recomputeChartData(day: ActivityDay?, zoom: Double, series: Set<DataSeries>) {
         guard let day = day else {
@@ -120,8 +190,10 @@ class ActivityViewModel: ObservableObject {
         let totalBuckets = 1440 / bucketSize
 
         var points: [ChartDataPoint] = []
-        let formatter = DateFormatter()
-        formatter.dateFormat = "h a"
+        let hourFmt = DateFormatter()
+        hourFmt.dateFormat = "h a"
+        let minFmt = DateFormatter()
+        minFmt.dateFormat = "h:mm"
 
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: day.date)
@@ -129,18 +201,10 @@ class ActivityViewModel: ObservableObject {
         for bucket in 0..<totalBuckets {
             let bucketStart = bucket * bucketSize
             let bucketEnd = bucketStart + bucketSize
-
             let entriesInBucket = day.minuteData.filter { $0.minute >= bucketStart && $0.minute < bucketEnd }
 
             let labelDate = calendar.date(byAdding: .minute, value: bucketStart, to: startOfDay) ?? startOfDay
-            let label: String
-            if bucketSize >= 60 {
-                label = formatter.string(from: labelDate)
-            } else {
-                let fmtSmall = DateFormatter()
-                fmtSmall.dateFormat = "h:mm"
-                label = fmtSmall.string(from: labelDate)
-            }
+            let label = bucketSize >= 60 ? hourFmt.string(from: labelDate) : minFmt.string(from: labelDate)
 
             for s in series.sorted(by: { $0.rawValue < $1.rawValue }) {
                 let value: Int
@@ -149,17 +213,12 @@ class ActivityViewModel: ObservableObject {
                 } else {
                     value = entriesInBucket.reduce(0) { $0 + $1.value(for: s) }
                 }
-
                 points.append(ChartDataPoint(
-                    bucketStart: bucketStart,
-                    bucketEnd: bucketEnd,
-                    series: s,
-                    value: value,
-                    label: label
+                    bucketStart: bucketStart, bucketEnd: bucketEnd,
+                    series: s, value: value, label: label
                 ))
             }
         }
-
         chartData = points
     }
 
@@ -167,11 +226,17 @@ class ActivityViewModel: ObservableObject {
 
     var totalActiveTime: String {
         guard let day = currentDay else { return "0m" }
-        let mins = day.totalActiveMinutes + day.totalEngagedMinutes
-        if mins >= 60 {
-            return "\(mins / 60)h \(mins % 60)m"
-        }
+        let mins = day.totalActiveMinutes
+        if mins >= 60 { return "\(mins / 60)h \(mins % 60)m" }
         return "\(mins)m"
+    }
+
+    var idleMinutes: Int {
+        guard let day = currentDay,
+              let first = day.firstActivity,
+              let last = day.lastActivity else { return 0 }
+        let totalSpan = max(1, Int(last.timeIntervalSince(first) / 60))
+        return max(0, totalSpan - day.totalActiveMinutes)
     }
 
     var totalKeystrokes: Int { currentDay?.totalKeyboard ?? 0 }
@@ -181,10 +246,8 @@ class ActivityViewModel: ObservableObject {
     var totalInputs: Int { currentDay?.totalInputs ?? 0 }
 
     var averageInputsPerActiveMinute: Int {
-        guard let day = currentDay else { return 0 }
-        let activeMinutes = day.totalActiveMinutes + day.totalEngagedMinutes
-        guard activeMinutes > 0 else { return 0 }
-        return day.totalInputs / activeMinutes
+        guard let day = currentDay, day.totalActiveMinutes > 0 else { return 0 }
+        return day.totalInputs / day.totalActiveMinutes
     }
 
     var firstActivityTime: String? {

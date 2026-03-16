@@ -5,7 +5,7 @@ struct ActivityTabView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if !activityVM.permissionGranted {
+            if activityVM.showPermissionBanner {
                 permissionBanner
             }
 
@@ -22,15 +22,20 @@ struct ActivityTabView: View {
                 Spacer()
             } else {
                 ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 8) {
+                    VStack(spacing: 10) {
                         ActivitySummaryView()
                             .padding(.horizontal, 12)
 
-                        ActivityControlsView()
-                            .padding(.horizontal, 12)
+                        if !activityVM.weekSummary.isEmpty {
+                            ActivityWeekBarView()
+                                .padding(.horizontal, 12)
+                        }
 
                         ActivityChartView()
                             .padding(.horizontal, 8)
+
+                        ActivityControlsView()
+                            .padding(.horizontal, 12)
 
                         Divider()
                             .padding(.horizontal, 12)
@@ -102,11 +107,11 @@ struct ActivityTabView: View {
             if activityVM.isToday {
                 HStack(spacing: 2) {
                     Circle()
-                        .fill(ActivityTracker.shared.isTracking ? Color.green : Color.orange)
+                        .fill(activityVM.eventsFlowing ? Color.green : Color.orange)
                         .frame(width: 5, height: 5)
-                    Text(ActivityTracker.shared.isTracking ? "Live" : "Off")
+                    Text(activityVM.eventsFlowing ? "Live" : "Off")
                         .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(ActivityTracker.shared.isTracking ? .green : .orange)
+                        .foregroundStyle(activityVM.eventsFlowing ? .green : .orange)
                 }
             } else {
                 Button(action: { activityVM.goToNextDay() }) {
@@ -133,7 +138,7 @@ struct ActivityTabView: View {
                 ], spacing: 3) {
                     detailCell("Inputs", "\(day.totalInputs)")
                     detailCell("Active", "\(day.totalActiveMinutes)m")
-                    detailCell("Engaged", "\(day.totalEngagedMinutes)m")
+                    detailCell("Idle", "\(activityVM.idleMinutes)m")
                     detailCell("Scrolls", "\(day.totalScrolls)")
                     detailCell("Moves", "\(day.totalMovement)")
                     detailCell("Avg/min", "\(activityVM.averageInputsPerActiveMinute)")
