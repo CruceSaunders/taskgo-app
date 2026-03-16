@@ -28,14 +28,19 @@ struct ActivityChartView: View {
         if activityVM.chartData.isEmpty || activityVM.chartData.allSatisfy({ $0.value == 0 }) {
             emptyState
         } else {
-            ScrollView(.horizontal, showsIndicators: true) {
-                chart
-                    .frame(width: chartWidth, height: 200)
+            ScrollView(.horizontal, showsIndicators: false) {
+                VStack(spacing: 0) {
+                    chartBody
+                        .frame(width: chartWidth, height: 180)
+
+                    timeLabels
+                        .frame(width: chartWidth, height: 24)
+                }
             }
         }
     }
 
-    private var chart: some View {
+    private var chartBody: some View {
         let bucketSize = Int(activityVM.snappedZoomLevel)
 
         return Chart(activityVM.chartData) { point in
@@ -53,17 +58,7 @@ struct ActivityChartView: View {
             "Movement": Color.gray
         ])
         .chartXScale(domain: 0...1440)
-        .chartXAxis {
-            AxisMarks(values: .stride(by: 60.0)) { value in
-                AxisValueLabel(anchor: .top) {
-                    if let minute = value.as(Int.self) {
-                        Text(formatHour(minute))
-                            .font(.system(size: 11))
-                    }
-                }
-                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.3))
-            }
-        }
+        .chartXAxis(.hidden)
         .chartYAxis {
             AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { value in
                 AxisValueLabel {
@@ -78,11 +73,27 @@ struct ActivityChartView: View {
         .chartLegend(.hidden)
     }
 
+    private var timeLabels: some View {
+        GeometryReader { geo in
+            let totalWidth = geo.size.width
+            ZStack(alignment: .leading) {
+                ForEach(0..<24, id: \.self) { hour in
+                    let minute = hour * 60
+                    let x = totalWidth * CGFloat(minute) / 1440.0
+                    Text(formatHour(minute))
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .position(x: x, y: 12)
+                }
+            }
+        }
+    }
+
     private func formatHour(_ minute: Int) -> String {
         let h = minute / 60
         let h12 = h == 0 ? 12 : (h > 12 ? h - 12 : h)
         let ampm = h >= 12 ? "PM" : "AM"
-        return "\(h12) \(ampm)"
+        return "\(h12)\(ampm)"
     }
 
     private var emptyState: some View {
