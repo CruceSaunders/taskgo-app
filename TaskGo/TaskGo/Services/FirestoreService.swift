@@ -1,6 +1,7 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFunctions
 
 /// Central Firestore service for all database operations
 class FirestoreService {
@@ -420,5 +421,33 @@ class FirestoreService {
             batch.deleteDocument(doc.reference)
         }
         try await batch.commit()
+    }
+
+    // MARK: - API Keys
+
+    func generateApiKey(label: String) async throws -> (key: String, prefix: String) {
+        let functions = Functions.functions()
+        let result = try await functions.httpsCallable("generateApiKey").call(["label": label])
+        guard let data = result.data as? [String: Any],
+              let key = data["key"] as? String,
+              let prefix = data["prefix"] as? String else {
+            throw NSError(domain: "TaskGo", code: 500, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
+        }
+        return (key: key, prefix: prefix)
+    }
+
+    func revokeApiKey(prefix: String) async throws {
+        let functions = Functions.functions()
+        _ = try await functions.httpsCallable("revokeApiKey").call(["prefix": prefix])
+    }
+
+    func listApiKeys() async throws -> [[String: Any]] {
+        let functions = Functions.functions()
+        let result = try await functions.httpsCallable("listApiKeys").call([:])
+        guard let data = result.data as? [String: Any],
+              let keys = data["keys"] as? [[String: Any]] else {
+            return []
+        }
+        return keys
     }
 }

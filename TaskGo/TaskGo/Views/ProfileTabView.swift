@@ -5,6 +5,7 @@ struct ProfileTabView: View {
     @EnvironmentObject var xpVM: XPViewModel
 
     var body: some View {
+        ScrollView {
         VStack(spacing: 16) {
             Spacer()
 
@@ -87,6 +88,10 @@ struct ProfileTabView: View {
                 .clipShape(Capsule())
             }
 
+            // API Keys
+            APIKeyView()
+                .padding(.horizontal, 16)
+
             Spacer()
 
             // Sign out
@@ -99,6 +104,7 @@ struct ProfileTabView: View {
             }
             .buttonStyle(.plain)
             .padding(.bottom, 12)
+        }
         }
     }
 }

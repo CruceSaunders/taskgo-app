@@ -44,6 +44,11 @@ service cloud.firestore {
       }
     }
 
+    // API keys - server-only access via Admin SDK (Cloud Functions)
+    match /apiKeys/{keyHash} {
+      allow read, write: if false;
+    }
+
     // Username uniqueness lookup
     match /usernames/{username} {
       allow read: if true; // Anyone can check availability
