@@ -433,7 +433,7 @@ struct CalendarTabView: View {
 
     private var weekHeader: some View {
         HStack(spacing: 0) {
-            Color.clear.frame(width: weekGutterWidth)
+            Color.clear.frame(width: weekGutterWidth, height: 1)
 
             ForEach(Array(calendarVM.weekDates.enumerated()), id: \.1) { _, date in
                 let isToday = Calendar.current.isDateInToday(date)
@@ -464,6 +464,7 @@ struct CalendarTabView: View {
             }
         }
         .padding(.vertical, 4)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private var weekAllDaySection: some View {
