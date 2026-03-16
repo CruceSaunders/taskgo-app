@@ -6,6 +6,7 @@ enum DataSeries: String, CaseIterable, Codable, Identifiable {
     case clicks = "Clicks"
     case scrolls = "Scrolls"
     case movement = "Movement"
+    case speaking = "Speaking"
 
     var id: String { rawValue }
 
@@ -15,6 +16,7 @@ enum DataSeries: String, CaseIterable, Codable, Identifiable {
         case .clicks: return "cursorarrow.click.2"
         case .scrolls: return "scroll"
         case .movement: return "cursorarrow.motionlines"
+        case .speaking: return "mic.fill"
         }
     }
 }
@@ -42,6 +44,7 @@ struct MinuteEntry: Codable, Identifiable {
         case .clicks: return clicks
         case .scrolls: return scrolls
         case .movement: return movement
+        case .speaking: return meeting
         }
     }
 
@@ -91,6 +94,7 @@ struct HourEntry: Codable, Identifiable {
         case .clicks: return clicks
         case .scrolls: return scrolls
         case .movement: return movement
+        case .speaking: return meetingMinutes
         }
     }
 

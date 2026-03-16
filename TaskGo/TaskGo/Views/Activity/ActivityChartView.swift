@@ -98,7 +98,8 @@ struct ActivityChartView: View {
             "Keyboard": Color.blue,
             "Clicks": Color.green,
             "Scrolls": Color.orange,
-            "Movement": Color.gray
+            "Movement": Color.gray,
+            "Speaking": Color.purple
         ])
         .chartXScale(domain: 0...1440)
         .chartYScale(domain: 0...yMax)

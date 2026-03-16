@@ -80,6 +80,7 @@ struct ActivityControlsView: View {
         case .clicks: return .green
         case .scrolls: return .orange
         case .movement: return .gray
+        case .speaking: return .purple
         }
     }
 }
