@@ -475,6 +475,7 @@ class ActivityTracker: ObservableObject {
         let sc = currentScrolls
         let mv = currentMovement
         let dc = currentDictation
+        let inMeeting = isCurrentlyInMeeting() ? 1 : 0
 
         currentKeyboard = 0
         currentClicks = 0
@@ -482,7 +483,7 @@ class ActivityTracker: ObservableObject {
         currentMovement = 0
         currentDictation = 0
 
-        guard kb > 0 || cl > 0 || sc > 0 || mv > 0 || dc > 0 else { return }
+        guard kb > 0 || cl > 0 || sc > 0 || mv > 0 || dc > 0 || inMeeting > 0 else { return }
 
         let entry = MinuteEntry(
             minute: minuteOfDay,
@@ -490,7 +491,8 @@ class ActivityTracker: ObservableObject {
             clicks: cl,
             scrolls: sc,
             movement: mv,
-            dictation: dc
+            dictation: dc,
+            meeting: inMeeting
         )
 
         todayData.addMinuteEntry(entry)
@@ -502,6 +504,17 @@ class ActivityTracker: ObservableObject {
 
         objectWillChange.send()
         flushToDisk()
+    }
+
+    // MARK: - Meeting Detection
+
+    private func isCurrentlyInMeeting() -> Bool {
+        guard CalendarService.shared.hasAccess else { return false }
+        let now = Date()
+        let events = CalendarService.shared.fetchTodayEvents()
+        return events.contains { event in
+            !event.isAllDay && event.startDate <= now && event.endDate > now
+        }
     }
 
     // MARK: - Day Rollover

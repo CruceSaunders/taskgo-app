@@ -26,15 +26,15 @@ struct MinuteEntry: Codable, Identifiable {
     var scrolls: Int
     var movement: Int
     var dictation: Int
+    var meeting: Int        // 1 if user was in a calendar meeting this minute
 
     var id: Int { minute }
 
     var totalInputs: Int { keyboard + clicks + scrolls + movement }
 
-    /// Keyboard + clicks + dictation — excludes passive scroll/movement noise
     var meaningfulInputs: Int { keyboard + clicks + dictation }
 
-    var isActive: Bool { totalInputs > 0 || dictation > 0 }
+    var isActive: Bool { totalInputs > 0 || dictation > 0 || meeting > 0 }
 
     func value(for series: DataSeries) -> Int {
         switch series {
@@ -45,17 +45,18 @@ struct MinuteEntry: Codable, Identifiable {
         }
     }
 
-    init(minute: Int, keyboard: Int, clicks: Int, scrolls: Int, movement: Int, dictation: Int = 0) {
+    init(minute: Int, keyboard: Int, clicks: Int, scrolls: Int, movement: Int, dictation: Int = 0, meeting: Int = 0) {
         self.minute = minute
         self.keyboard = keyboard
         self.clicks = clicks
         self.scrolls = scrolls
         self.movement = movement
         self.dictation = dictation
+        self.meeting = meeting
     }
 
     enum CodingKeys: String, CodingKey {
-        case minute, keyboard, clicks, scrolls, movement, dictation
+        case minute, keyboard, clicks, scrolls, movement, dictation, meeting
     }
 
     init(from decoder: Decoder) throws {
@@ -66,6 +67,7 @@ struct MinuteEntry: Codable, Identifiable {
         scrolls = try container.decode(Int.self, forKey: .scrolls)
         movement = try container.decode(Int.self, forKey: .movement)
         dictation = try container.decodeIfPresent(Int.self, forKey: .dictation) ?? 0
+        meeting = try container.decodeIfPresent(Int.self, forKey: .meeting) ?? 0
     }
 }
 
@@ -77,6 +79,7 @@ struct HourEntry: Codable, Identifiable {
     var movement: Int
     var activeMinutes: Int
     var dictation: Int
+    var meetingMinutes: Int
 
     var id: Int { hour }
 
@@ -92,14 +95,14 @@ struct HourEntry: Codable, Identifiable {
     }
 
     static func empty(hour: Int) -> HourEntry {
-        HourEntry(hour: hour, keyboard: 0, clicks: 0, scrolls: 0, movement: 0, activeMinutes: 0, dictation: 0)
+        HourEntry(hour: hour, keyboard: 0, clicks: 0, scrolls: 0, movement: 0, activeMinutes: 0, dictation: 0, meetingMinutes: 0)
     }
 
     enum CodingKeys: String, CodingKey {
-        case hour, keyboard, clicks, scrolls, movement, activeMinutes, dictation
+        case hour, keyboard, clicks, scrolls, movement, activeMinutes, dictation, meetingMinutes
     }
 
-    init(hour: Int, keyboard: Int, clicks: Int, scrolls: Int, movement: Int, activeMinutes: Int, dictation: Int = 0) {
+    init(hour: Int, keyboard: Int, clicks: Int, scrolls: Int, movement: Int, activeMinutes: Int, dictation: Int = 0, meetingMinutes: Int = 0) {
         self.hour = hour
         self.keyboard = keyboard
         self.clicks = clicks
@@ -107,6 +110,7 @@ struct HourEntry: Codable, Identifiable {
         self.movement = movement
         self.activeMinutes = activeMinutes
         self.dictation = dictation
+        self.meetingMinutes = meetingMinutes
     }
 
     init(from decoder: Decoder) throws {
@@ -118,6 +122,7 @@ struct HourEntry: Codable, Identifiable {
         movement = try container.decode(Int.self, forKey: .movement)
         activeMinutes = try container.decode(Int.self, forKey: .activeMinutes)
         dictation = try container.decodeIfPresent(Int.self, forKey: .dictation) ?? 0
+        meetingMinutes = try container.decodeIfPresent(Int.self, forKey: .meetingMinutes) ?? 0
     }
 }
 
@@ -131,16 +136,15 @@ struct ActivityDay: Codable, Identifiable {
     var totalScrolls: Int
     var totalMovement: Int
     var totalDictation: Int
+    var totalMeetingMinutes: Int
     var totalActiveMinutes: Int
     var firstActivity: Date?
     var lastActivity: Date?
 
     var totalInputs: Int { totalKeyboard + totalClicks + totalScrolls + totalMovement }
 
-    /// Keyboard + clicks + dictation — the productive signal, excluding scroll/move noise
     var meaningfulInputs: Int { totalKeyboard + totalClicks + totalDictation }
 
-    /// Minutes where the user was typing or dictating (not just scrolling)
     var engagedMinutes: Int {
         minuteData.filter { $0.keyboard > 0 || $0.dictation > 0 || $0.clicks > 0 }.count
     }
@@ -154,7 +158,7 @@ struct ActivityDay: Codable, Identifiable {
     enum CodingKeys: String, CodingKey {
         case id, date, minuteData, hourlySummary
         case totalKeyboard, totalClicks, totalScrolls, totalMovement, totalDictation
-        case totalActiveMinutes, firstActivity, lastActivity
+        case totalMeetingMinutes, totalActiveMinutes, firstActivity, lastActivity
     }
 
     init(
@@ -166,6 +170,7 @@ struct ActivityDay: Codable, Identifiable {
         totalScrolls: Int = 0,
         totalMovement: Int = 0,
         totalDictation: Int = 0,
+        totalMeetingMinutes: Int = 0,
         totalActiveMinutes: Int = 0,
         firstActivity: Date? = nil,
         lastActivity: Date? = nil
@@ -181,6 +186,7 @@ struct ActivityDay: Codable, Identifiable {
         self.totalScrolls = totalScrolls
         self.totalMovement = totalMovement
         self.totalDictation = totalDictation
+        self.totalMeetingMinutes = totalMeetingMinutes
         self.totalActiveMinutes = totalActiveMinutes
         self.firstActivity = firstActivity
         self.lastActivity = lastActivity
@@ -197,6 +203,7 @@ struct ActivityDay: Codable, Identifiable {
         totalScrolls = try container.decode(Int.self, forKey: .totalScrolls)
         totalMovement = try container.decode(Int.self, forKey: .totalMovement)
         totalDictation = try container.decodeIfPresent(Int.self, forKey: .totalDictation) ?? 0
+        totalMeetingMinutes = try container.decodeIfPresent(Int.self, forKey: .totalMeetingMinutes) ?? 0
         totalActiveMinutes = try container.decode(Int.self, forKey: .totalActiveMinutes)
         firstActivity = try container.decodeIfPresent(Date.self, forKey: .firstActivity)
         lastActivity = try container.decodeIfPresent(Date.self, forKey: .lastActivity)
@@ -222,6 +229,7 @@ struct ActivityDay: Codable, Identifiable {
         totalScrolls = minuteData.reduce(0) { $0 + $1.scrolls }
         totalMovement = minuteData.reduce(0) { $0 + $1.movement }
         totalDictation = minuteData.reduce(0) { $0 + $1.dictation }
+        totalMeetingMinutes = minuteData.filter { $0.meeting > 0 }.count
         totalActiveMinutes = minuteData.filter { $0.isActive }.count
         rebuildHourlySummary()
     }
@@ -236,6 +244,7 @@ struct ActivityDay: Codable, Identifiable {
             summary[h].scrolls += entry.scrolls
             summary[h].movement += entry.movement
             summary[h].dictation += entry.dictation
+            if entry.meeting > 0 { summary[h].meetingMinutes += 1 }
             if entry.isActive { summary[h].activeMinutes += 1 }
         }
         hourlySummary = summary

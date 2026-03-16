@@ -3,12 +3,20 @@ import SwiftUI
 struct PlanDetailView: View {
     @EnvironmentObject var plannerVM: PlannerViewModel
     @State private var confirmDelete = false
+    @State private var showScheduleConfig = false
+    @State private var scheduleStart = Calendar.current.date(from: DateComponents(hour: 9, minute: 0)) ?? Date()
+    @State private var scheduleEnd = Calendar.current.date(from: DateComponents(hour: 17, minute: 0)) ?? Date()
+    @State private var selectedCalId: String = ""
+    @State private var calendarInfos: [WritableCalendarInfo] = []
 
     var body: some View {
         if let plan = plannerVM.selectedPlan {
             ZStack {
                 VStack(spacing: 0) {
                     planHeader(plan)
+                    if !plan.isComplete {
+                        scheduleConfigSection(plan)
+                    }
                     Divider()
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
@@ -23,9 +31,29 @@ struct PlanDetailView: View {
                     conversionOverlay
                 }
             }
+            .onAppear { loadScheduleState(from: plan) }
+            .onChange(of: plannerVM.selectedPlan?.id) { _, _ in
+                if let p = plannerVM.selectedPlan { loadScheduleState(from: p) }
+            }
         } else {
             emptyState
         }
+    }
+
+    private func loadScheduleState(from plan: Plan) {
+        calendarInfos = CalendarService.shared.getWritableCalendarInfos()
+        let cal = Calendar.current
+        let timeFmt = DateFormatter()
+        timeFmt.dateFormat = "HH:mm"
+        if let st = plan.scheduleStartTime, let parsed = timeFmt.date(from: st) {
+            let comps = cal.dateComponents([.hour, .minute], from: parsed)
+            scheduleStart = cal.date(from: comps) ?? scheduleStart
+        }
+        if let et = plan.scheduleEndTime, let parsed = timeFmt.date(from: et) {
+            let comps = cal.dateComponents([.hour, .minute], from: parsed)
+            scheduleEnd = cal.date(from: comps) ?? scheduleEnd
+        }
+        selectedCalId = plan.calendarId ?? ""
     }
 
     // MARK: - Header
@@ -173,6 +201,125 @@ struct PlanDetailView: View {
                 .font(.system(size: 9, weight: .medium).monospacedDigit())
                 .foregroundStyle(.primary.opacity(0.4))
         }
+    }
+
+    // MARK: - Schedule Config (per-plan)
+
+    private func scheduleConfigSection(_ plan: Plan) -> some View {
+        VStack(spacing: 0) {
+            if plan.hasScheduleConfig && !showScheduleConfig {
+                Button(action: { showScheduleConfig = true }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "clock")
+                            .font(.system(size: 9))
+                            .foregroundStyle(Color.calmTeal)
+                        if let label = plan.scheduleDisplayLabel {
+                            Text(label)
+                                .font(.system(size: 10))
+                                .foregroundStyle(.primary.opacity(0.6))
+                        }
+                        if let calId = plan.calendarId,
+                           let info = calendarInfos.first(where: { $0.identifier == calId }) {
+                            Text("on \(info.displayLabel)")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.primary.opacity(0.4))
+                        }
+                        Spacer()
+                        Image(systemName: "pencil")
+                            .font(.system(size: 8))
+                            .foregroundStyle(.primary.opacity(0.3))
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                }
+                .buttonStyle(.plain)
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    if !plan.hasScheduleConfig {
+                        HStack(spacing: 4) {
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 9))
+                                .foregroundStyle(Color.calmTeal)
+                            Text("Set schedule hours and calendar to convert this plan to calendar events")
+                                .font(.system(size: 9))
+                                .foregroundStyle(.primary.opacity(0.5))
+                        }
+                    }
+
+                    HStack(spacing: 6) {
+                        Text("From")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.primary.opacity(0.5))
+                        DatePicker("", selection: $scheduleStart, displayedComponents: .hourAndMinute)
+                            .labelsHidden()
+                            .frame(width: 80)
+                        Text("to")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.primary.opacity(0.5))
+                        DatePicker("", selection: $scheduleEnd, displayedComponents: .hourAndMinute)
+                            .labelsHidden()
+                            .frame(width: 80)
+                    }
+
+                    HStack(spacing: 6) {
+                        Text("Calendar")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.primary.opacity(0.5))
+                        if calendarInfos.isEmpty {
+                            Text("No writable calendars found")
+                                .font(.system(size: 9))
+                                .foregroundStyle(.primary.opacity(0.4))
+                        } else {
+                            Picker("", selection: $selectedCalId) {
+                                Text("Choose...").tag("")
+                                ForEach(calendarInfos) { info in
+                                    Text(info.displayLabel).tag(info.identifier)
+                                }
+                            }
+                            .labelsHidden()
+                            .frame(maxWidth: 200)
+                        }
+                    }
+
+                    HStack {
+                        Spacer()
+                        if plan.hasScheduleConfig {
+                            Button("Cancel") { showScheduleConfig = false }
+                                .buttonStyle(.plain)
+                                .font(.system(size: 9))
+                                .foregroundStyle(.primary.opacity(0.4))
+                        }
+                        Button(action: saveScheduleConfig) {
+                            Text("Save")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 3)
+                                .background(Color.calmTeal)
+                                .cornerRadius(4)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(selectedCalId.isEmpty)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.secondary.opacity(0.04))
+            }
+            Divider()
+        }
+    }
+
+    private func saveScheduleConfig() {
+        let timeFmt = DateFormatter()
+        timeFmt.dateFormat = "HH:mm"
+        let startStr = timeFmt.string(from: scheduleStart)
+        let endStr = timeFmt.string(from: scheduleEnd)
+        plannerVM.updateScheduleTimes(start: startStr, end: endStr)
+        if !selectedCalId.isEmpty {
+            plannerVM.updateCalendarId(selectedCalId)
+        }
+        showScheduleConfig = false
     }
 
     // MARK: - Overall Objectives
@@ -338,10 +485,10 @@ struct PlanDetailView: View {
                 .foregroundStyle(.orange)
 
             switch error {
-            case .noOfficeHours:
-                Text("Office Hours Required")
+            case .noScheduleConfig:
+                Text("Schedule Not Configured")
                     .font(.system(size: 12, weight: .semibold))
-                Text("Set your office hours in the planner sidebar to use this feature.")
+                Text("Set your schedule hours and calendar for this plan before converting.")
                     .font(.system(size: 10))
                     .foregroundStyle(.primary.opacity(0.6))
                     .multilineTextAlignment(.center)
@@ -350,14 +497,6 @@ struct PlanDetailView: View {
                 Text("Calendar Access Required")
                     .font(.system(size: 12, weight: .semibold))
                 Text("Grant calendar access in the Calendar tab to create events.")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.primary.opacity(0.6))
-                    .multilineTextAlignment(.center)
-
-            case .noCalendarSelected:
-                Text("No Calendar Selected")
-                    .font(.system(size: 12, weight: .semibold))
-                Text("Select a target calendar in the office hours settings.")
                     .font(.system(size: 10))
                     .foregroundStyle(.primary.opacity(0.6))
                     .multilineTextAlignment(.center)

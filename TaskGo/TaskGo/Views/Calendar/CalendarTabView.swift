@@ -103,9 +103,9 @@ struct CalendarTabView: View {
     private let hourHeight: CGFloat = 48
     private let dayGutterWidth: CGFloat = 44
     private let weekGutterWidth: CGFloat = 32
-    private let gridStartHour = 0
-    private let gridEndHour = 24
-    private let topPad: CGFloat = 8
+    private let gridStartHour = 6
+    private let gridEndHour = 22
+    private let topPad: CGFloat = 4
 
     var body: some View {
         VStack(spacing: 0) {
@@ -149,16 +149,23 @@ struct CalendarTabView: View {
     }
 
     private func scrollToRelevantTime(proxy: ScrollViewProxy) {
-        withAnimation(.easeOut(duration: 0.3)) {
-            if calendarVM.isToday {
-                let h = max(0, Calendar.current.component(.hour, from: Date()) - 2)
-                proxy.scrollTo(h, anchor: .top)
-            } else if let first = calendarVM.timedEvents.first {
-                let h = max(0, Calendar.current.component(.hour, from: first.startDate) - 1)
-                proxy.scrollTo(h, anchor: .top)
+        let target: Int
+        let todayInView = calendarVM.isToday || (calendarVM.viewMode == .week && calendarVM.weekDates.contains { Calendar.current.isDateInToday($0) })
+
+        if todayInView {
+            target = max(gridStartHour, Calendar.current.component(.hour, from: Date()) - 2)
+        } else {
+            let events: [CalendarEvent] = calendarVM.viewMode == .week
+                ? calendarVM.weekTimedEvents.values.flatMap { $0 }
+                : calendarVM.timedEvents
+            if let earliest = events.min(by: { $0.startDate < $1.startDate }) {
+                target = max(gridStartHour, Calendar.current.component(.hour, from: earliest.startDate) - 1)
             } else {
-                proxy.scrollTo(8, anchor: .top)
+                target = max(gridStartHour, 8)
             }
+        }
+        withAnimation(.easeOut(duration: 0.3)) {
+            proxy.scrollTo(min(target, gridEndHour - 1), anchor: .top)
         }
     }
 
@@ -461,7 +468,11 @@ struct CalendarTabView: View {
 
     private var weekAllDaySection: some View {
         HStack(alignment: .top, spacing: 0) {
-            Color.clear.frame(width: weekGutterWidth)
+            Text("all-day")
+                .font(.system(size: 7))
+                .foregroundStyle(.primary.opacity(0.25))
+                .frame(width: weekGutterWidth - 4, alignment: .trailing)
+                .padding(.top, 2)
 
             ForEach(Array(calendarVM.weekDates.enumerated()), id: \.1) { _, date in
                 let key = Calendar.current.startOfDay(for: date)
@@ -470,9 +481,9 @@ struct CalendarTabView: View {
                 VStack(spacing: 1) {
                     ForEach(events) { event in
                         Text(event.title)
-                            .font(.system(size: 7, weight: .medium))
+                            .font(.system(size: 8, weight: .medium))
                             .lineLimit(1)
-                            .padding(.horizontal, 2).padding(.vertical, 1)
+                            .padding(.horizontal, 3).padding(.vertical, 2)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(event.calendarColor.opacity(0.85))
                             .foregroundStyle(.white)
@@ -484,7 +495,8 @@ struct CalendarTabView: View {
                 .padding(.horizontal, 1)
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 3)
+        .background(Color.secondary.opacity(0.03))
     }
 
     private var weekTimeGrid: some View {
@@ -560,16 +572,16 @@ struct CalendarTabView: View {
 
         return VStack(alignment: .leading, spacing: 0) {
             Text(event.title)
-                .font(.system(size: 8, weight: .medium))
+                .font(.system(size: 9, weight: .medium))
                 .foregroundStyle(.white)
-                .lineLimit(bh > 20 ? 2 : 1)
-            if bh > 22 {
+                .lineLimit(bh > 24 ? 2 : 1)
+            if bh > 24 {
                 Text(shortTime(event.startDate))
                     .font(.system(size: 7))
                     .foregroundStyle(.white.opacity(0.8))
             }
         }
-        .padding(.horizontal, 2).padding(.vertical, 1)
+        .padding(.horizontal, 3).padding(.vertical, 2)
         .frame(width: bw, height: bh, alignment: .topLeading)
         .background(event.calendarColor.opacity(0.85))
         .cornerRadius(2).clipped()
@@ -663,7 +675,7 @@ struct CalendarTabView: View {
         let cal = Calendar.current
         newEventTitle = ""
         createError = nil
-        let clampedHour = min(hour, 23)
+        let clampedHour = max(gridStartHour, min(hour, gridEndHour - 1))
         newEventStart = cal.date(bySettingHour: clampedHour, minute: 0, second: 0, of: date) ?? date
         newEventEnd = cal.date(byAdding: .hour, value: 1, to: newEventStart) ?? date
         if let first = calendarVM.writableCalendars.first, newEventCalendarId.isEmpty {
@@ -906,7 +918,9 @@ struct CalendarTabView: View {
         let cal = Calendar.current
         let startOfDay = cal.startOfDay(for: date)
         let totalMinutes = date.timeIntervalSince(startOfDay) / 60
-        let clamped = max(0, min(totalMinutes, Double(gridEndHour * 60)))
+        let gridMinutes = totalMinutes - Double(gridStartHour * 60)
+        let maxMinutes = Double((gridEndHour - gridStartHour) * 60)
+        let clamped = max(0, min(gridMinutes, maxMinutes))
         return CGFloat(clamped) / 60.0 * hourHeight
     }
 

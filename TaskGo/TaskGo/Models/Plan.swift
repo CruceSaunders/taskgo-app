@@ -15,62 +15,6 @@ struct PlanObjective: Identifiable, Codable, Equatable, Hashable {
     }
 }
 
-struct OfficeHours: Codable, Equatable {
-    var startTime: String   // "09:00" (HH:mm)
-    var endTime: String     // "17:00" (HH:mm)
-    var workDays: [Int]     // [2,3,4,5,6] = Mon-Fri (1=Sun..7=Sat)
-
-    init(startTime: String = "09:00", endTime: String = "17:00", workDays: [Int] = [2, 3, 4, 5, 6]) {
-        self.startTime = startTime
-        self.endTime = endTime
-        self.workDays = workDays
-    }
-
-    var totalMinutesPerDay: Int {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "HH:mm"
-        guard let start = fmt.date(from: startTime),
-              let end = fmt.date(from: endTime) else { return 0 }
-        return max(0, Int(end.timeIntervalSince(start) / 60))
-    }
-
-    func isWorkDay(_ weekday: Int) -> Bool {
-        workDays.contains(weekday)
-    }
-
-    var displayLabel: String {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "HH:mm"
-        let displayFmt = DateFormatter()
-        displayFmt.dateFormat = "h:mm a"
-        let startStr: String
-        let endStr: String
-        if let s = fmt.date(from: startTime) {
-            startStr = displayFmt.string(from: s)
-        } else { startStr = startTime }
-        if let e = fmt.date(from: endTime) {
-            endStr = displayFmt.string(from: e)
-        } else { endStr = endTime }
-
-        let dayNames = workDays.sorted().compactMap { dayAbbr($0) }
-        let daysStr = dayNames.joined(separator: ", ")
-        return "\(startStr) – \(endStr), \(daysStr)"
-    }
-
-    private func dayAbbr(_ day: Int) -> String? {
-        switch day {
-        case 1: return "Sun"
-        case 2: return "Mon"
-        case 3: return "Tue"
-        case 4: return "Wed"
-        case 5: return "Thu"
-        case 6: return "Fri"
-        case 7: return "Sat"
-        default: return nil
-        }
-    }
-}
-
 struct Plan: Identifiable, Codable, Equatable {
     @DocumentID var id: String?
     var title: String
@@ -82,6 +26,9 @@ struct Plan: Identifiable, Codable, Equatable {
     var createdAt: Date
     var updatedAt: Date
     var lastConvertedAt: Date?
+    var scheduleStartTime: String?  // "09:00" HH:mm -- per-plan schedule window
+    var scheduleEndTime: String?    // "17:00" HH:mm
+    var calendarId: String?
 
     init(
         id: String? = nil,
@@ -93,7 +40,10 @@ struct Plan: Identifiable, Codable, Equatable {
         isComplete: Bool = false,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
-        lastConvertedAt: Date? = nil
+        lastConvertedAt: Date? = nil,
+        scheduleStartTime: String? = nil,
+        scheduleEndTime: String? = nil,
+        calendarId: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -105,6 +55,32 @@ struct Plan: Identifiable, Codable, Equatable {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.lastConvertedAt = lastConvertedAt
+        self.scheduleStartTime = scheduleStartTime
+        self.scheduleEndTime = scheduleEndTime
+        self.calendarId = calendarId
+    }
+
+    var hasScheduleConfig: Bool {
+        scheduleStartTime != nil && scheduleEndTime != nil && calendarId != nil
+    }
+
+    var scheduleMinutesPerDay: Int {
+        guard let st = scheduleStartTime, let et = scheduleEndTime else { return 0 }
+        let fmt = DateFormatter()
+        fmt.dateFormat = "HH:mm"
+        guard let start = fmt.date(from: st),
+              let end = fmt.date(from: et) else { return 0 }
+        return max(0, Int(end.timeIntervalSince(start) / 60))
+    }
+
+    var scheduleDisplayLabel: String? {
+        guard let st = scheduleStartTime, let et = scheduleEndTime else { return nil }
+        let fmt = DateFormatter()
+        fmt.dateFormat = "HH:mm"
+        let displayFmt = DateFormatter()
+        displayFmt.dateFormat = "h:mm a"
+        guard let s = fmt.date(from: st), let e = fmt.date(from: et) else { return nil }
+        return "\(displayFmt.string(from: s)) – \(displayFmt.string(from: e))"
     }
 
     // MARK: - Computed

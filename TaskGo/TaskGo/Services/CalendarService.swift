@@ -86,9 +86,29 @@ class CalendarService: ObservableObject {
         return store.calendars(for: .event).filter { $0.allowsContentModifications }
     }
 
+    func getWritableCalendarInfos() -> [WritableCalendarInfo] {
+        guard hasAccess else { return [] }
+        return store.calendars(for: .event)
+            .filter { $0.allowsContentModifications }
+            .map { cal in
+                WritableCalendarInfo(
+                    identifier: cal.calendarIdentifier,
+                    title: cal.title,
+                    sourceName: cal.source.title
+                )
+            }
+            .sorted { $0.displayLabel < $1.displayLabel }
+    }
+
     func calendarTitle(for identifier: String) -> String? {
         guard hasAccess else { return nil }
         return store.calendars(for: .event).first { $0.calendarIdentifier == identifier }?.title
+    }
+
+    func calendarInfo(for identifier: String) -> WritableCalendarInfo? {
+        guard hasAccess else { return nil }
+        guard let cal = store.calendars(for: .event).first(where: { $0.calendarIdentifier == identifier }) else { return nil }
+        return WritableCalendarInfo(identifier: cal.calendarIdentifier, title: cal.title, sourceName: cal.source.title)
     }
 
     func createEvent(title: String, startDate: Date, endDate: Date, calendarIdentifier: String) throws -> String {
@@ -143,6 +163,18 @@ class CalendarService: ObservableObject {
             throw CalendarWriteError.eventNotFound
         }
         try store.remove(event, span: .thisEvent)
+    }
+}
+
+struct WritableCalendarInfo: Identifiable, Equatable {
+    let identifier: String
+    let title: String
+    let sourceName: String
+
+    var id: String { identifier }
+
+    var displayLabel: String {
+        "\(title) (\(sourceName))"
     }
 }
 

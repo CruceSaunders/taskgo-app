@@ -11,8 +11,11 @@ struct UserProfile: Identifiable, Codable {
     var weeklyXP: Int
     var weeklyXPResetDate: Date
     var createdAt: Date
-    var officeHours: OfficeHours?
-    var selectedCalendarId: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, email, username, displayName, totalXP, level, weeklyXP
+        case weeklyXPResetDate, createdAt
+    }
 
     init(
         id: String? = nil,
@@ -23,9 +26,7 @@ struct UserProfile: Identifiable, Codable {
         level: Int = 1,
         weeklyXP: Int = 0,
         weeklyXPResetDate: Date = UserProfile.nextMondayMidnight(),
-        createdAt: Date = Date(),
-        officeHours: OfficeHours? = nil,
-        selectedCalendarId: String? = nil
+        createdAt: Date = Date()
     ) {
         self.id = id
         self.email = email
@@ -36,16 +37,26 @@ struct UserProfile: Identifiable, Codable {
         self.weeklyXP = weeklyXP
         self.weeklyXPResetDate = weeklyXPResetDate
         self.createdAt = createdAt
-        self.officeHours = officeHours
-        self.selectedCalendarId = selectedCalendarId
     }
 
-    /// Calculate the next Monday at midnight for weekly XP reset
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(String.self, forKey: .id)
+        email = try container.decode(String.self, forKey: .email)
+        username = try container.decode(String.self, forKey: .username)
+        displayName = try container.decode(String.self, forKey: .displayName)
+        totalXP = try container.decode(Int.self, forKey: .totalXP)
+        level = try container.decode(Int.self, forKey: .level)
+        weeklyXP = try container.decode(Int.self, forKey: .weeklyXP)
+        weeklyXPResetDate = try container.decode(Date.self, forKey: .weeklyXPResetDate)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+    }
+
     static func nextMondayMidnight() -> Date {
         let calendar = Calendar.current
         let now = Date()
         var components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
-        components.weekday = 2 // Monday
+        components.weekday = 2
         components.hour = 0
         components.minute = 0
         components.second = 0
