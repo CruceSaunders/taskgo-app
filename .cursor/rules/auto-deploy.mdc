@@ -11,7 +11,8 @@ After making ANY code changes to the TaskGo project, you MUST perform all of the
 
 1. **Commit** all changed files with a descriptive commit message.
 2. **Push** to the remote (`git push`).
-3. **Kill** any running instance of the app: `pkill -f "TaskGo!" 2>/dev/null; sleep 1`
+3. **Kill** any running instance of the app: `pkill -f 'TaskGo!.app/Contents/MacOS/TaskGo!' 2>/dev/null`
+   - CRITICAL: Never use `pkill -f "TaskGo!"` -- this matches Cursor's own extension-host processes (they contain the workspace name "TaskGo!" in their args) and kills the IDE. Always use the full binary path pattern to target only the actual app.
 4. **Build** the project: `xcodebuild -project TaskGo/TaskGo.xcodeproj -scheme TaskGo -configuration Debug build 2>&1 | tail -5`
 5. **Launch** the fresh build: `open "/Users/crucegauntlet/Library/Developer/Xcode/DerivedData/TaskGo-gbsqnqzrmpfrzpaghxowvfsqppoi/Build/Products/Debug/TaskGo!.app"`
 6. **Confirm** to the user that the app has been rebuilt and relaunched on the latest commit.

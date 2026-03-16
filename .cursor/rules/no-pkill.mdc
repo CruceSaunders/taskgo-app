@@ -1,11 +1,35 @@
-# NEVER use pkill, kill, or sleep in shell commands
+---
+description: Safe process management — never kill Cursor's own processes
+alwaysApply: true
+---
 
-CRITICAL: Do NOT run any of these commands:
-- `pkill` (any variant)
-- `kill` (any variant)  
-- `sleep` (any duration)
-- Any command that blocks the terminal waiting for a process to die
+# Safe Process Killing for TaskGo
 
-These commands freeze Cursor instances and waste hours. When the auto-deploy rule says to kill processes, SKIP that step entirely. Just build and launch -- macOS will handle the old process.
+## The Problem (root cause identified)
 
-For the auto-deploy flow, do steps 1, 2, 4, 5, 6 only. Skip step 3 (the kill step).
+`pkill -f "TaskGo!"` matches the FULL command line of ALL processes. Cursor's own extension-host processes contain the workspace name "TaskGo!" in their arguments:
+
+- `Cursor Helper (Plugin): extension-host (retrieval-always-local) TaskGo!`
+- `Cursor Helper (Plugin): extension-host (agent-exec) TaskGo!`
+- `Cursor Helper (Plugin): extension-host (user) TaskGo!`
+
+So `pkill -f "TaskGo!"` kills Cursor itself, causing it to freeze and become unresponsive.
+
+## The Fix
+
+Always use the full binary path pattern to target ONLY the app:
+
+```bash
+# SAFE — targets only the actual app binary
+pkill -f 'TaskGo!.app/Contents/MacOS/TaskGo!' 2>/dev/null
+
+# DANGEROUS — kills Cursor's own processes too, NEVER use this
+pkill -f "TaskGo!" 2>/dev/null
+```
+
+## Rules
+
+1. When killing the TaskGo app, ALWAYS match against `TaskGo!.app/Contents/MacOS/TaskGo!`
+2. NEVER use a bare `pkill -f "TaskGo!"` — it will kill Cursor
+3. `sleep` commands are fine to use when needed
+4. `pkill` and `kill` are fine to use as long as they target the right process
