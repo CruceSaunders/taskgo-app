@@ -24,8 +24,17 @@ struct ActivityChartView: View {
         }
     }
 
+    private var hasData: Bool {
+        if activityVM.viewMode == .productivity {
+            return !activityVM.productivityChartData.isEmpty &&
+                   activityVM.productivityChartData.contains { $0.activeMinutes > 0 }
+        }
+        return !activityVM.chartData.isEmpty &&
+               activityVM.chartData.contains { $0.value > 0 }
+    }
+
     var body: some View {
-        if activityVM.chartData.isEmpty || activityVM.chartData.allSatisfy({ $0.value == 0 }) {
+        if !hasData {
             emptyState
         } else {
             GeometryReader { outer in
@@ -38,8 +47,13 @@ struct ActivityChartView: View {
 
                     ScrollView(.horizontal, showsIndicators: false) {
                         VStack(spacing: 0) {
-                            chartBody
-                                .frame(width: useWidth, height: 180)
+                            if activityVM.viewMode == .activity {
+                                activityChartBody
+                                    .frame(width: useWidth, height: 180)
+                            } else {
+                                productivityChartBody
+                                    .frame(width: useWidth, height: 180)
+                            }
 
                             hourLabelsRow
                                 .frame(width: useWidth, height: 28)
@@ -51,8 +65,10 @@ struct ActivityChartView: View {
         }
     }
 
+    // MARK: - Y Axis
+
     private var yAxisLabels: some View {
-        let maxVal = activityVM.chartData.map(\.value).max() ?? 100
+        let maxVal = yAxisMax
         let step = yAxisStep(for: maxVal)
         let topTick = ((maxVal / step) + 1) * step
         let ticks = Array(stride(from: 0, through: topTick, by: step))
@@ -70,9 +86,18 @@ struct ActivityChartView: View {
         .frame(width: 44, height: chartHeight)
     }
 
+    private var yAxisMax: Int {
+        if activityVM.viewMode == .productivity {
+            return activityVM.productivityChartData.map(\.activeMinutes).max() ?? Int(activityVM.snappedZoomLevel)
+        }
+        return activityVM.chartData.map(\.value).max() ?? 100
+    }
+
     private func yAxisStep(for maxVal: Int) -> Int {
+        if maxVal <= 5 { return 1 }
         if maxVal <= 10 { return 2 }
-        if maxVal <= 50 { return 10 }
+        if maxVal <= 30 { return 5 }
+        if maxVal <= 60 { return 10 }
         if maxVal <= 200 { return 50 }
         if maxVal <= 500 { return 100 }
         if maxVal <= 2000 { return 500 }
@@ -80,7 +105,9 @@ struct ActivityChartView: View {
         return 2000
     }
 
-    private var chartBody: some View {
+    // MARK: - Activity Chart (multi-series)
+
+    private var activityChartBody: some View {
         let bucketSize = Int(activityVM.snappedZoomLevel)
         let maxVal = activityVM.chartData.map(\.value).max() ?? 100
         let step = yAxisStep(for: maxVal)
@@ -99,7 +126,8 @@ struct ActivityChartView: View {
             "Clicks": Color.green,
             "Scrolls": Color.orange,
             "Movement": Color.gray,
-            "Speaking": Color.purple
+            "Speaking": Color.purple,
+            "Watching": Color.pink
         ])
         .chartXScale(domain: 0...1440)
         .chartYScale(domain: 0...yMax)
@@ -107,6 +135,31 @@ struct ActivityChartView: View {
         .chartYAxis(.hidden)
         .chartLegend(.hidden)
     }
+
+    // MARK: - Productivity Chart (single series: active minutes)
+
+    private var productivityChartBody: some View {
+        let bucketSize = Int(activityVM.snappedZoomLevel)
+        let maxVal = activityVM.productivityChartData.map(\.activeMinutes).max() ?? bucketSize
+        let step = yAxisStep(for: maxVal)
+        let yMax = max(((maxVal / step) + 1) * step, bucketSize)
+
+        return Chart(activityVM.productivityChartData) { point in
+            BarMark(
+                x: .value("Time", point.bucketStart + bucketSize / 2),
+                y: .value("Minutes", point.activeMinutes),
+                width: barWidth
+            )
+            .foregroundStyle(Color.calmTeal)
+        }
+        .chartXScale(domain: 0...1440)
+        .chartYScale(domain: 0...yMax)
+        .chartXAxis(.hidden)
+        .chartYAxis(.hidden)
+        .chartLegend(.hidden)
+    }
+
+    // MARK: - Hour Labels
 
     private var hourLabelsRow: some View {
         HStack(spacing: 0) {

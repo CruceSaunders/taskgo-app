@@ -48,6 +48,7 @@ class ActivityTracker: ObservableObject {
     private var currentScrolls: Int = 0
     private var currentMovement: Int = 0
     private var currentDictation: Int = 0
+    private var currentWatching: Int = 0
     private var currentMicSeconds: Int = 0
 
     // MARK: - Per-Event-Type Health Counters (lifetime since start)
@@ -475,6 +476,9 @@ class ActivityTracker: ObservableObject {
             if self.isMicrophoneInUse() {
                 self.currentMicSeconds += Int(self.micSampleInterval)
             }
+            if self.isMediaPlaying() {
+                self.currentWatching = 1
+            }
         }
     }
 
@@ -600,6 +604,7 @@ class ActivityTracker: ObservableObject {
         let micSecs = currentMicSeconds
         let micActive = micSecs >= 3 ? 1 : 0
         let speakingValue = micSecs
+        let wa = currentWatching
 
         currentKeyboard = 0
         currentClicks = 0
@@ -607,8 +612,9 @@ class ActivityTracker: ObservableObject {
         currentMovement = 0
         currentDictation = 0
         currentMicSeconds = 0
+        currentWatching = 0
 
-        guard kb > 0 || cl > 0 || sc > 0 || mv > 0 || dc > 0 || micActive > 0 else { return }
+        guard kb > 0 || cl > 0 || sc > 0 || mv > 0 || dc > 0 || micActive > 0 || wa > 0 else { return }
 
         let entry = MinuteEntry(
             minute: minuteOfDay,
@@ -617,7 +623,8 @@ class ActivityTracker: ObservableObject {
             scrolls: sc,
             movement: mv,
             dictation: speakingValue,
-            meeting: micActive
+            meeting: micActive,
+            watching: wa
         )
 
         todayData.addMinuteEntry(entry)
@@ -661,6 +668,33 @@ class ActivityTracker: ObservableObject {
             &runningAddress, 0, nil, &runningSize, &isRunning
         )
         return runStatus == noErr && isRunning != 0
+    }
+
+    // MARK: - Media Playback Detection
+
+    private func isMediaPlaying() -> Bool {
+        guard let bundle = CFBundleCreate(kCFAllocatorDefault,
+            URL(fileURLWithPath: "/System/Library/PrivateFrameworks/MediaRemote.framework") as CFURL)
+        else { return false }
+
+        guard let ptr = CFBundleGetFunctionPointerForName(bundle, "MRMediaRemoteGetNowPlayingInfo" as CFString)
+        else { return false }
+
+        typealias MRFunc = @convention(c) (DispatchQueue, @escaping ([String: Any]) -> Void) -> Void
+        let getInfo = unsafeBitCast(ptr, to: MRFunc.self)
+
+        var playing = false
+        let semaphore = DispatchSemaphore(value: 0)
+
+        getInfo(DispatchQueue.global(qos: .utility)) { info in
+            if let rate = info["kMRMediaRemoteNowPlayingInfoPlaybackRate"] as? Double, rate > 0 {
+                playing = true
+            }
+            semaphore.signal()
+        }
+
+        _ = semaphore.wait(timeout: .now() + 0.5)
+        return playing
     }
 
     // MARK: - Day Rollover

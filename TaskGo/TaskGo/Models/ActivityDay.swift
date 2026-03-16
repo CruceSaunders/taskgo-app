@@ -7,6 +7,7 @@ enum DataSeries: String, CaseIterable, Codable, Identifiable {
     case scrolls = "Scrolls"
     case movement = "Movement"
     case speaking = "Speaking"
+    case watching = "Watching"
 
     var id: String { rawValue }
 
@@ -17,6 +18,7 @@ enum DataSeries: String, CaseIterable, Codable, Identifiable {
         case .scrolls: return "scroll"
         case .movement: return "cursorarrow.motionlines"
         case .speaking: return "mic.fill"
+        case .watching: return "play.rectangle.fill"
         }
     }
 }
@@ -28,7 +30,8 @@ struct MinuteEntry: Codable, Identifiable {
     var scrolls: Int
     var movement: Int
     var dictation: Int
-    var meeting: Int        // 1 if user was in a calendar meeting this minute
+    var meeting: Int        // 1 if mic was active (speaking/call)
+    var watching: Int       // 1 if media was playing
 
     var id: Int { minute }
 
@@ -36,7 +39,7 @@ struct MinuteEntry: Codable, Identifiable {
 
     var meaningfulInputs: Int { keyboard + clicks + dictation }
 
-    var isActive: Bool { totalInputs > 0 || dictation > 0 || meeting > 0 }
+    var isActive: Bool { totalInputs > 0 || dictation > 0 || meeting > 0 || watching > 0 }
 
     func value(for series: DataSeries) -> Int {
         switch series {
@@ -45,10 +48,11 @@ struct MinuteEntry: Codable, Identifiable {
         case .scrolls: return scrolls
         case .movement: return movement
         case .speaking: return meeting
+        case .watching: return watching
         }
     }
 
-    init(minute: Int, keyboard: Int, clicks: Int, scrolls: Int, movement: Int, dictation: Int = 0, meeting: Int = 0) {
+    init(minute: Int, keyboard: Int, clicks: Int, scrolls: Int, movement: Int, dictation: Int = 0, meeting: Int = 0, watching: Int = 0) {
         self.minute = minute
         self.keyboard = keyboard
         self.clicks = clicks
@@ -56,10 +60,11 @@ struct MinuteEntry: Codable, Identifiable {
         self.movement = movement
         self.dictation = dictation
         self.meeting = meeting
+        self.watching = watching
     }
 
     enum CodingKeys: String, CodingKey {
-        case minute, keyboard, clicks, scrolls, movement, dictation, meeting
+        case minute, keyboard, clicks, scrolls, movement, dictation, meeting, watching
     }
 
     init(from decoder: Decoder) throws {
@@ -71,6 +76,7 @@ struct MinuteEntry: Codable, Identifiable {
         movement = try container.decode(Int.self, forKey: .movement)
         dictation = try container.decodeIfPresent(Int.self, forKey: .dictation) ?? 0
         meeting = try container.decodeIfPresent(Int.self, forKey: .meeting) ?? 0
+        watching = try container.decodeIfPresent(Int.self, forKey: .watching) ?? 0
     }
 }
 
@@ -83,6 +89,7 @@ struct HourEntry: Codable, Identifiable {
     var activeMinutes: Int
     var dictation: Int
     var meetingMinutes: Int
+    var watchingMinutes: Int
 
     var id: Int { hour }
 
@@ -95,18 +102,19 @@ struct HourEntry: Codable, Identifiable {
         case .scrolls: return scrolls
         case .movement: return movement
         case .speaking: return meetingMinutes
+        case .watching: return watchingMinutes
         }
     }
 
     static func empty(hour: Int) -> HourEntry {
-        HourEntry(hour: hour, keyboard: 0, clicks: 0, scrolls: 0, movement: 0, activeMinutes: 0, dictation: 0, meetingMinutes: 0)
+        HourEntry(hour: hour, keyboard: 0, clicks: 0, scrolls: 0, movement: 0, activeMinutes: 0, dictation: 0, meetingMinutes: 0, watchingMinutes: 0)
     }
 
     enum CodingKeys: String, CodingKey {
-        case hour, keyboard, clicks, scrolls, movement, activeMinutes, dictation, meetingMinutes
+        case hour, keyboard, clicks, scrolls, movement, activeMinutes, dictation, meetingMinutes, watchingMinutes
     }
 
-    init(hour: Int, keyboard: Int, clicks: Int, scrolls: Int, movement: Int, activeMinutes: Int, dictation: Int = 0, meetingMinutes: Int = 0) {
+    init(hour: Int, keyboard: Int, clicks: Int, scrolls: Int, movement: Int, activeMinutes: Int, dictation: Int = 0, meetingMinutes: Int = 0, watchingMinutes: Int = 0) {
         self.hour = hour
         self.keyboard = keyboard
         self.clicks = clicks
@@ -115,6 +123,7 @@ struct HourEntry: Codable, Identifiable {
         self.activeMinutes = activeMinutes
         self.dictation = dictation
         self.meetingMinutes = meetingMinutes
+        self.watchingMinutes = watchingMinutes
     }
 
     init(from decoder: Decoder) throws {
@@ -127,6 +136,7 @@ struct HourEntry: Codable, Identifiable {
         activeMinutes = try container.decode(Int.self, forKey: .activeMinutes)
         dictation = try container.decodeIfPresent(Int.self, forKey: .dictation) ?? 0
         meetingMinutes = try container.decodeIfPresent(Int.self, forKey: .meetingMinutes) ?? 0
+        watchingMinutes = try container.decodeIfPresent(Int.self, forKey: .watchingMinutes) ?? 0
     }
 }
 
@@ -221,6 +231,7 @@ struct ActivityDay: Codable, Identifiable {
             minuteData[idx].movement += entry.movement
             minuteData[idx].dictation += entry.dictation
             minuteData[idx].meeting = max(minuteData[idx].meeting, entry.meeting)
+            minuteData[idx].watching = max(minuteData[idx].watching, entry.watching)
         } else {
             minuteData.append(entry)
             minuteData.sort { $0.minute < $1.minute }
@@ -250,6 +261,7 @@ struct ActivityDay: Codable, Identifiable {
             summary[h].movement += entry.movement
             summary[h].dictation += entry.dictation
             if entry.meeting > 0 { summary[h].meetingMinutes += 1 }
+            if entry.watching > 0 { summary[h].watchingMinutes += 1 }
             if entry.isActive { summary[h].activeMinutes += 1 }
         }
         hourlySummary = summary
@@ -269,4 +281,16 @@ struct ChartDataPoint: Identifiable {
     let series: DataSeries
     let value: Int
     let label: String
+}
+
+struct ProductivityDataPoint: Identifiable {
+    let id = UUID()
+    let bucketStart: Int
+    let activeMinutes: Int
+    let maxPossible: Int
+}
+
+enum ActivityViewMode: String, CaseIterable {
+    case activity = "Activity"
+    case productivity = "Productivity"
 }

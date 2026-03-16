@@ -17,6 +17,8 @@ class ActivityViewModel: ObservableObject {
     @Published var zoomLevel: Double = 60
     @Published var visibleSeries: Set<DataSeries> = Set(DataSeries.allCases)
     @Published var chartData: [ChartDataPoint] = []
+    @Published var productivityChartData: [ProductivityDataPoint] = []
+    @Published var viewMode: ActivityViewMode = .activity
     @Published var isLoading = false
     @Published var isTrackingActive = false
     @Published var eventsFlowing = false
@@ -34,6 +36,7 @@ class ActivityViewModel: ObservableObject {
             .debounce(for: .milliseconds(100), scheduler: DispatchQueue.main)
             .sink { [weak self] day, zoom, series in
                 self?.recomputeChartData(day: day, zoom: zoom, series: series)
+                self?.recomputeProductivityData(day: day, zoom: zoom)
             }
             .store(in: &cancellables)
 
@@ -235,6 +238,42 @@ class ActivityViewModel: ObservableObject {
             }
         }
         chartData = points
+    }
+
+    // MARK: - Productivity Data
+
+    private func recomputeProductivityData(day: ActivityDay?, zoom: Double) {
+        guard let day = day else {
+            productivityChartData = []
+            return
+        }
+
+        let bucketSize = Int(snappedZoomLevel)
+        let totalBuckets = 1440 / bucketSize
+
+        var points: [ProductivityDataPoint] = []
+
+        for bucket in 0..<totalBuckets {
+            let bucketStart = bucket * bucketSize
+            let bucketEnd = bucketStart + bucketSize
+
+            let activeCount: Int
+            if bucketSize == 60, bucketStart / 60 < day.hourlySummary.count {
+                activeCount = day.hourlySummary[bucketStart / 60].activeMinutes
+            } else {
+                activeCount = day.minuteData.filter {
+                    $0.minute >= bucketStart && $0.minute < bucketEnd && $0.isActive
+                }.count
+            }
+
+            points.append(ProductivityDataPoint(
+                bucketStart: bucketStart,
+                activeMinutes: activeCount,
+                maxPossible: bucketSize
+            ))
+        }
+
+        productivityChartData = points
     }
 
     // MARK: - Summary Helpers

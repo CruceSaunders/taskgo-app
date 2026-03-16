@@ -5,12 +5,31 @@ struct ActivityControlsView: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            // Series toggles (legend + filter)
-            HStack(spacing: 6) {
-                ForEach(DataSeries.allCases) { series in
-                    seriesToggle(series)
+            // View mode toggle
+            HStack(spacing: 0) {
+                ForEach(ActivityViewMode.allCases, id: \.rawValue) { mode in
+                    Button(action: { activityVM.viewMode = mode }) {
+                        Text(mode.rawValue)
+                            .font(.system(size: 10, weight: activityVM.viewMode == mode ? .bold : .medium))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .background(activityVM.viewMode == mode ? Color.calmTeal : Color.clear)
+                            .foregroundStyle(activityVM.viewMode == mode ? .white : .secondary)
+                    }
+                    .buttonStyle(.plain)
                 }
-                Spacer()
+            }
+            .background(Color.secondary.opacity(0.08))
+            .cornerRadius(6)
+
+            // Series toggles (only in activity mode)
+            if activityVM.viewMode == .activity {
+                HStack(spacing: 6) {
+                    ForEach(DataSeries.allCases) { series in
+                        seriesToggle(series)
+                    }
+                    Spacer()
+                }
             }
 
             // Zoom level buttons
@@ -81,6 +100,7 @@ struct ActivityControlsView: View {
         case .scrolls: return .orange
         case .movement: return .gray
         case .speaking: return .purple
+        case .watching: return .pink
         }
     }
 }
