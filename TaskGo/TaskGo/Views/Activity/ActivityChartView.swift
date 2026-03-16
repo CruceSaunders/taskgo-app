@@ -28,20 +28,61 @@ struct ActivityChartView: View {
         if activityVM.chartData.isEmpty || activityVM.chartData.allSatisfy({ $0.value == 0 }) {
             emptyState
         } else {
-            ScrollView(.horizontal, showsIndicators: false) {
-                VStack(spacing: 0) {
-                    chartBody
-                        .frame(width: chartWidth, height: 180)
+            HStack(alignment: .top, spacing: 0) {
+                yAxisLabels
+                    .frame(width: 40)
 
-                    timeLabels
-                        .frame(width: chartWidth, height: 24)
+                VStack(spacing: 0) {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        VStack(spacing: 0) {
+                            chartBody
+                                .frame(width: chartWidth, height: 180)
+
+                            hourLabelsRow
+                                .frame(width: chartWidth, height: 28)
+                        }
+                    }
+                }
+            }
+            .frame(height: 208)
+        }
+    }
+
+    private var yAxisLabels: some View {
+        let maxVal = activityVM.chartData.map(\.value).max() ?? 100
+        let step = yAxisStep(for: maxVal)
+        let ticks = stride(from: 0, through: maxVal + step, by: step).map { $0 }
+
+        return GeometryReader { geo in
+            let chartHeight: CGFloat = 180
+            let maxTick = ticks.last ?? 1
+            ZStack(alignment: .topTrailing) {
+                ForEach(ticks, id: \.self) { tick in
+                    let y = chartHeight - (chartHeight * CGFloat(tick) / CGFloat(maxTick))
+                    Text("\(tick)")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                        .position(x: 20, y: y)
                 }
             }
         }
     }
 
+    private func yAxisStep(for maxVal: Int) -> Int {
+        if maxVal <= 10 { return 2 }
+        if maxVal <= 50 { return 10 }
+        if maxVal <= 200 { return 50 }
+        if maxVal <= 500 { return 100 }
+        if maxVal <= 2000 { return 500 }
+        if maxVal <= 5000 { return 1000 }
+        return 2000
+    }
+
     private var chartBody: some View {
         let bucketSize = Int(activityVM.snappedZoomLevel)
+        let maxVal = activityVM.chartData.map(\.value).max() ?? 100
+        let step = yAxisStep(for: maxVal)
+        let yMax = ((maxVal / step) + 1) * step
 
         return Chart(activityVM.chartData) { point in
             BarMark(
@@ -58,41 +99,26 @@ struct ActivityChartView: View {
             "Movement": Color.gray
         ])
         .chartXScale(domain: 0...1440)
+        .chartYScale(domain: 0...yMax)
         .chartXAxis(.hidden)
-        .chartYAxis {
-            AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { value in
-                AxisValueLabel {
-                    if let val = value.as(Int.self) {
-                        Text("\(val)")
-                            .font(.system(size: 10))
-                    }
-                }
-                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.2, dash: [2, 2]))
-            }
-        }
+        .chartYAxis(.hidden)
         .chartLegend(.hidden)
     }
 
-    private var timeLabels: some View {
-        GeometryReader { geo in
-            let totalWidth = geo.size.width
-            ZStack(alignment: .leading) {
-                ForEach(0..<24, id: \.self) { hour in
-                    let minute = hour * 60
-                    let x = totalWidth * CGFloat(minute) / 1440.0
-                    Text(formatHour(minute))
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .position(x: x, y: 12)
-                }
+    private var hourLabelsRow: some View {
+        HStack(spacing: 0) {
+            ForEach(0..<24, id: \.self) { hour in
+                Text(formatHour(hour))
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
             }
         }
     }
 
-    private func formatHour(_ minute: Int) -> String {
-        let h = minute / 60
-        let h12 = h == 0 ? 12 : (h > 12 ? h - 12 : h)
-        let ampm = h >= 12 ? "PM" : "AM"
+    private func formatHour(_ hour: Int) -> String {
+        let h12 = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour)
+        let ampm = hour >= 12 ? "PM" : "AM"
         return "\(h12)\(ampm)"
     }
 
