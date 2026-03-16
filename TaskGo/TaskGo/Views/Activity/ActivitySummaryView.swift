@@ -30,6 +30,19 @@ struct ActivitySummaryView: View {
                 color: .orange
             )
         }
+
+        if !activityVM.sttAppsDetected.isEmpty {
+            HStack(spacing: 4) {
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 8))
+                    .foregroundStyle(.purple)
+                Text("Dictation: \(activityVM.sttAppsDetected.joined(separator: ", "))")
+                    .font(.system(size: 8))
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+            .padding(.horizontal, 4)
+        }
     }
 
     private func summaryCard(title: String, value: String, icon: String, color: Color) -> some View {

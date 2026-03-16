@@ -36,4 +36,13 @@ struct CalendarEvent: Identifiable {
         formatter.dateFormat = "h:mm a"
         return formatter.string(from: endDate)
     }
+
+    var durationInMinutes: Int {
+        max(15, Int(endDate.timeIntervalSince(startDate) / 60))
+    }
+
+    var timeRangeFormatted: String {
+        if isAllDay { return "All day" }
+        return "\(timeFormatted) – \(endTimeFormatted)"
+    }
 }

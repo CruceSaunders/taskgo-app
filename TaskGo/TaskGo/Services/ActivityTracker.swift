@@ -4,34 +4,78 @@ import IOKit
 import IOKit.hid
 import FirebaseAuth
 
-/// Continuously tracks keyboard, mouse, scroll, and movement events for the Activity tab.
 class ActivityTracker: ObservableObject {
     static let shared = ActivityTracker()
+
+    // MARK: - Published State
 
     @Published var isTracking = false
     @Published var hasPermission = false
     @Published var eventsAreFlowing = false
     @Published var todayData: ActivityDay
+    @Published var permissionState: PermissionState = .unknown
+    @Published var sttAppsDetected: [String] = []
+    @Published var keyboardHealthy = true
+
+    enum PermissionState: String {
+        case unknown, checking, granted, denied
+    }
+
+    // MARK: - Event Taps & Monitors
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var minuteTimer: Timer?
     private var flushTimer: Timer?
     private var retryTimer: Timer?
+    private var sttCheckTimer: Timer?
 
     private var keyboardMonitor: Any?
     private var mouseClickMonitor: Any?
     private var scrollMonitor: Any?
     private var mouseMoveMonitor: Any?
+    private var localKeyboardMonitor: Any?
+    private var localMouseClickMonitor: Any?
+
+    // MARK: - Per-Minute Accumulators
 
     private var currentKeyboard: Int = 0
     private var currentClicks: Int = 0
     private var currentScrolls: Int = 0
     private var currentMovement: Int = 0
-    private var lastMovementTime: Date = .distantPast
+    private var currentDictation: Int = 0
+
+    // MARK: - Per-Event-Type Health Counters (lifetime since start)
+
+    private(set) var keyboardEventsReceived: Int = 0
+    private(set) var clickEventsReceived: Int = 0
+    private(set) var scrollEventsReceived: Int = 0
+    private(set) var moveEventsReceived: Int = 0
     private var totalEventsReceived: Int = 0
 
+    // MARK: - Debounce State
+
+    private var lastMovementTime: Date = .distantPast
+    private var lastScrollTime: Date = .distantPast
+
+    // MARK: - Constants
+
     private let movementDebounceInterval: TimeInterval = 1.0
+    private let scrollDebounceInterval: TimeInterval = 0.3
+
+    private let knownSTTBundleIDPrefixes: [String] = [
+        "ai.wispr",
+        "com.wispr",
+        "com.nuance.dragon",
+        "com.talonvoice",
+        "ai.otter"
+    ]
+
+    private let knownSTTAppNameSubstrings: [String] = [
+        "Wispr", "Dragon", "Talon", "Otter", "Dictation"
+    ]
+
+    // MARK: - Storage
 
     let localStorageDir: URL = {
         let dir = FileManager.default.homeDirectoryForCurrentUser
@@ -40,6 +84,12 @@ class ActivityTracker: ObservableObject {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }()
+
+    private lazy var diagLogURL: URL = {
+        localStorageDir.appendingPathComponent("diag.log")
+    }()
+
+    // MARK: - Init
 
     private init() {
         todayData = ActivityDay(date: Calendar.current.startOfDay(for: Date()))
@@ -54,6 +104,8 @@ class ActivityTracker: ObservableObject {
             self?.flushToDisk()
             self?.flushToFirestore()
         }
+
+        diagLog("ActivityTracker initialized")
     }
 
     // MARK: - Permission
@@ -68,15 +120,30 @@ class ActivityTracker: ObservableObject {
     func start() {
         guard !isTracking else { return }
         rolloverDayIfNeeded()
+        permissionState = .checking
 
-        if startNSEventMonitoring() {
+        let nsEventOK = startNSEventMonitoring()
+        startLocalEventMonitoring()
+
+        var anyMonitorStarted = nsEventOK
+
+        if !nsEventOK {
+            if startCGEventTapTracking() {
+                anyMonitorStarted = true
+                diagLog("CGEvent tap started (NSEvent unavailable)")
+            }
+        } else {
+            diagLog("NSEvent monitors started")
+        }
+
+        if anyMonitorStarted {
             hasPermission = true
-            isTracking = true
-        } else if startCGEventTapTracking() {
-            hasPermission = true
+            permissionState = .granted
             isTracking = true
         } else {
             hasPermission = false
+            permissionState = .denied
+            diagLog("No event monitoring available — retrying in 15s")
             startRetryTimer()
             return
         }
@@ -85,14 +152,10 @@ class ActivityTracker: ObservableObject {
         retryTimer = nil
         startMinuteTimer()
         startFlushTimer()
+        startSTTMonitor()
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
-            guard let self = self, self.isTracking else { return }
-            if self.totalEventsReceived > 0 {
-                self.eventsAreFlowing = true
-            } else {
-                self.hasPermission = false
-            }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak self] in
+            self?.verifyEventFlow()
         }
     }
 
@@ -107,7 +170,10 @@ class ActivityTracker: ObservableObject {
         flushTimer = nil
         retryTimer?.invalidate()
         retryTimer = nil
+        sttCheckTimer?.invalidate()
+        sttCheckTimer = nil
         isTracking = false
+        diagLog("ActivityTracker stopped")
     }
 
     private func teardownMonitoring() {
@@ -124,12 +190,16 @@ class ActivityTracker: ObservableObject {
         if let m = mouseClickMonitor { NSEvent.removeMonitor(m); mouseClickMonitor = nil }
         if let m = scrollMonitor { NSEvent.removeMonitor(m); scrollMonitor = nil }
         if let m = mouseMoveMonitor { NSEvent.removeMonitor(m); mouseMoveMonitor = nil }
+        if let m = localKeyboardMonitor { NSEvent.removeMonitor(m); localKeyboardMonitor = nil }
+        if let m = localMouseClickMonitor { NSEvent.removeMonitor(m); localMouseClickMonitor = nil }
     }
 
     // MARK: - CGEvent Tap
 
-    private func startCGEventTapTracking() -> Bool {
-        let eventMask: CGEventMask = (
+    private func startCGEventTapTracking(eventMask customMask: CGEventMask? = nil) -> Bool {
+        guard eventTap == nil else { return true }
+
+        let eventMask: CGEventMask = customMask ?? (
             (1 << CGEventType.keyDown.rawValue) |
             (1 << CGEventType.leftMouseDown.rawValue) |
             (1 << CGEventType.rightMouseDown.rawValue) |
@@ -152,13 +222,15 @@ class ActivityTracker: ObservableObject {
                 }
                 switch eventType {
                 case .keyDown:
+                    tracker.keyboardEventsReceived += 1
                     tracker.currentKeyboard += 1
                     NotificationCenter.default.post(name: .activityDetected, object: nil)
                 case .leftMouseDown, .rightMouseDown:
+                    tracker.clickEventsReceived += 1
                     tracker.currentClicks += 1
                     NotificationCenter.default.post(name: .activityDetected, object: nil)
                 case .scrollWheel:
-                    tracker.currentScrolls += 1
+                    tracker.recordScrollEvent()
                 case .mouseMoved:
                     tracker.recordMouseMovement()
                 default:
@@ -179,12 +251,13 @@ class ActivityTracker: ObservableObject {
         return true
     }
 
-    // MARK: - NSEvent Global Monitor
+    // MARK: - NSEvent Global Monitors
 
     private func startNSEventMonitoring() -> Bool {
         keyboardMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown]) { [weak self] _ in
             guard let self = self else { return }
             self.totalEventsReceived += 1
+            self.keyboardEventsReceived += 1
             self.currentKeyboard += 1
             if !self.eventsAreFlowing {
                 DispatchQueue.main.async { self.eventsAreFlowing = true }
@@ -194,6 +267,7 @@ class ActivityTracker: ObservableObject {
         mouseClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             guard let self = self else { return }
             self.totalEventsReceived += 1
+            self.clickEventsReceived += 1
             self.currentClicks += 1
             if !self.eventsAreFlowing {
                 DispatchQueue.main.async { self.eventsAreFlowing = true }
@@ -201,23 +275,139 @@ class ActivityTracker: ObservableObject {
             NotificationCenter.default.post(name: .activityDetected, object: nil)
         }
         scrollMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.scrollWheel]) { [weak self] _ in
-            self?.totalEventsReceived += 1
-            self?.currentScrolls += 1
+            guard let self = self else { return }
+            self.totalEventsReceived += 1
+            self.recordScrollEvent()
         }
         mouseMoveMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved]) { [weak self] _ in
-            self?.totalEventsReceived += 1
-            self?.recordMouseMovement()
+            guard let self = self else { return }
+            self.totalEventsReceived += 1
+            self.recordMouseMovement()
         }
         return keyboardMonitor != nil || mouseClickMonitor != nil
     }
 
+    // MARK: - NSEvent Local Monitors (captures in-app events)
+
+    private func startLocalEventMonitoring() {
+        localKeyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
+            guard let self = self else { return event }
+            self.totalEventsReceived += 1
+            self.keyboardEventsReceived += 1
+            self.currentKeyboard += 1
+            if !self.eventsAreFlowing {
+                DispatchQueue.main.async { self.eventsAreFlowing = true }
+            }
+            NotificationCenter.default.post(name: .activityDetected, object: nil)
+            return event
+        }
+        localMouseClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+            guard let self = self else { return event }
+            self.totalEventsReceived += 1
+            self.clickEventsReceived += 1
+            self.currentClicks += 1
+            if !self.eventsAreFlowing {
+                DispatchQueue.main.async { self.eventsAreFlowing = true }
+            }
+            NotificationCenter.default.post(name: .activityDetected, object: nil)
+            return event
+        }
+    }
+
+    // MARK: - Event Flow Verification
+
+    private func verifyEventFlow() {
+        guard isTracking else { return }
+
+        let hasOtherEvents = clickEventsReceived > 0 || scrollEventsReceived > 0 || moveEventsReceived > 0
+
+        if keyboardEventsReceived == 0 && hasOtherEvents && eventTap == nil {
+            diagLog("Keyboard events not flowing via NSEvent (clicks=\(clickEventsReceived), scrolls=\(scrollEventsReceived), moves=\(moveEventsReceived)). Installing CGEvent tap fallback.")
+            keyboardHealthy = false
+
+            if let m = keyboardMonitor {
+                NSEvent.removeMonitor(m)
+                keyboardMonitor = nil
+            }
+
+            let keyboardMask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
+            if startCGEventTapTracking(eventMask: keyboardMask) {
+                diagLog("CGEvent keyboard-only fallback installed")
+            } else {
+                diagLog("CGEvent keyboard fallback failed — keyboard tracking unavailable")
+            }
+        } else if totalEventsReceived == 0 {
+            diagLog("No events received after 30s — permission likely denied")
+            hasPermission = false
+            permissionState = .denied
+        } else {
+            keyboardHealthy = true
+            eventsAreFlowing = true
+            diagLog("Event flow OK: kb=\(keyboardEventsReceived) click=\(clickEventsReceived) scroll=\(scrollEventsReceived) move=\(moveEventsReceived)")
+        }
+    }
+
+    // MARK: - Scroll Debounce
+
+    private func recordScrollEvent() {
+        let now = Date()
+        if now.timeIntervalSince(lastScrollTime) >= scrollDebounceInterval {
+            scrollEventsReceived += 1
+            currentScrolls += 1
+            lastScrollTime = now
+            NotificationCenter.default.post(name: .activityDetected, object: nil)
+        }
+    }
+
+    // MARK: - Mouse Movement
+
     private func recordMouseMovement() {
         let now = Date()
         if now.timeIntervalSince(lastMovementTime) >= movementDebounceInterval {
+            moveEventsReceived += 1
             currentMovement += 1
             lastMovementTime = now
         }
     }
+
+    // MARK: - STT Detection
+
+    private func startSTTMonitor() {
+        checkSTTApps()
+        sttCheckTimer?.invalidate()
+        sttCheckTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            self?.checkSTTApps()
+        }
+    }
+
+    private func checkSTTApps() {
+        let running = NSWorkspace.shared.runningApplications
+        var detected: [String] = []
+
+        for app in running {
+            let bundleID = app.bundleIdentifier ?? ""
+            let name = app.localizedName ?? ""
+
+            let matchesBundle = knownSTTBundleIDPrefixes.contains { bundleID.hasPrefix($0) }
+            let matchesName = knownSTTAppNameSubstrings.contains { name.localizedCaseInsensitiveContains($0) }
+
+            if matchesBundle || matchesName {
+                detected.append(name.isEmpty ? bundleID : name)
+            }
+        }
+
+        let hasOtherActivity = currentClicks > 0 || currentScrolls > 0 || currentMovement > 0
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.sttAppsDetected = detected
+            if !detected.isEmpty && hasOtherActivity && self.currentKeyboard == 0 {
+                self.currentDictation = max(self.currentDictation, 1)
+            }
+        }
+    }
+
+    // MARK: - Retry Timer
 
     private func startRetryTimer() {
         retryTimer?.invalidate()
@@ -231,17 +421,35 @@ class ActivityTracker: ObservableObject {
 
     private func startMinuteTimer() {
         minuteTimer?.invalidate()
-        minuteTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
-            self?.onMinuteTick()
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
             self?.finalizeCurrentMinute()
         }
+
+        let calendar = Calendar.current
+        let now = Date()
+        guard let nextMinute = calendar.nextDate(
+            after: now,
+            matching: DateComponents(second: 0),
+            matchingPolicy: .nextTime
+        ) else {
+            minuteTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+                self?.onMinuteTick()
+            }
+            return
+        }
+
+        let timer = Timer(fire: nextMinute, interval: 60, repeats: true) { [weak self] _ in
+            self?.onMinuteTick()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        minuteTimer = timer
     }
 
     private func startFlushTimer() {
         flushTimer?.invalidate()
         flushTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
+            self?.flushToDisk()
             self?.flushToFirestore()
         }
     }
@@ -264,20 +472,23 @@ class ActivityTracker: ObservableObject {
         let cl = currentClicks
         let sc = currentScrolls
         let mv = currentMovement
+        let dc = currentDictation
 
         currentKeyboard = 0
         currentClicks = 0
         currentScrolls = 0
         currentMovement = 0
+        currentDictation = 0
 
-        guard kb > 0 || cl > 0 || sc > 0 || mv > 0 else { return }
+        guard kb > 0 || cl > 0 || sc > 0 || mv > 0 || dc > 0 else { return }
 
         let entry = MinuteEntry(
             minute: minuteOfDay,
             keyboard: kb,
             clicks: cl,
             scrolls: sc,
-            movement: mv
+            movement: mv,
+            dictation: dc
         )
 
         todayData.addMinuteEntry(entry)
@@ -316,7 +527,10 @@ class ActivityTracker: ObservableObject {
 
     private func loadTodayFromDisk() {
         let url = fileURL(for: todayData.date)
-        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            diagLog("No data file at \(url.lastPathComponent) — starting fresh")
+            return
+        }
         do {
             let data = try Data(contentsOf: url)
             var decoded = try JSONDecoder().decode(ActivityDay.self, from: data)
@@ -324,8 +538,9 @@ class ActivityTracker: ObservableObject {
                 decoded.id = decoded.dateString
             }
             todayData = decoded
+            diagLog("Loaded \(todayData.minuteData.count) minute entries from \(url.lastPathComponent)")
         } catch {
-            // corrupted file -- start fresh
+            diagLog("Failed to decode \(url.lastPathComponent): \(error.localizedDescription)")
         }
     }
 
@@ -333,10 +548,11 @@ class ActivityTracker: ObservableObject {
         let url = fileURL(for: todayData.date)
         do {
             let encoder = JSONEncoder()
+            encoder.outputFormatting = .sortedKeys
             let data = try encoder.encode(todayData)
             try data.write(to: url, options: .atomic)
         } catch {
-            // silent fail
+            diagLog("flushToDisk FAILED: \(error.localizedDescription) — path: \(url.path)")
         }
     }
 
@@ -346,7 +562,11 @@ class ActivityTracker: ObservableObject {
         let dayData = todayData
 
         Task {
-            try? await FirestoreService.shared.saveActivityDay(dayData, userId: userId, dateString: dateString)
+            do {
+                try await FirestoreService.shared.saveActivityDay(dayData, userId: userId, dateString: dateString)
+            } catch {
+                diagLog("flushToFirestore failed: \(error.localizedDescription)")
+            }
         }
     }
 
@@ -370,6 +590,24 @@ class ActivityTracker: ObservableObject {
             let name = file.deletingPathExtension().lastPathComponent
             if let fileDate = formatter.date(from: name), fileDate < cutoff {
                 try? FileManager.default.removeItem(at: file)
+            }
+        }
+    }
+
+    // MARK: - Diagnostic Logging
+
+    private func diagLog(_ message: String) {
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let line = "[\(timestamp)] \(message)\n"
+        if let data = line.data(using: .utf8) {
+            if FileManager.default.fileExists(atPath: diagLogURL.path) {
+                if let handle = try? FileHandle(forWritingTo: diagLogURL) {
+                    handle.seekToEndOfFile()
+                    handle.write(data)
+                    handle.closeFile()
+                }
+            } else {
+                try? data.write(to: diagLogURL, options: .atomic)
             }
         }
     }

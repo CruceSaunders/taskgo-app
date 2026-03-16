@@ -3,20 +3,34 @@ import Combine
 
 @MainActor
 class CalendarViewModel: ObservableObject {
-    @Published var todayEvents: [CalendarEvent] = []
+    @Published var timedEvents: [CalendarEvent] = []
+    @Published var allDayEvents: [CalendarEvent] = []
     @Published var hasAccess = false
     @Published var selectedDate: Date = Date()
+    @Published var currentTime: Date = Date()
 
     private let calendarService = CalendarService.shared
     private var observer: NSObjectProtocol?
     private var refreshTimer: Timer?
+    private var clockTimer: Timer?
+
+    var isToday: Bool {
+        Calendar.current.isDateInToday(selectedDate)
+    }
+
+    var dateLabel: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, MMM d"
+        return formatter.string(from: selectedDate)
+    }
 
     func checkAccess() {
         hasAccess = calendarService.hasAccess
         if hasAccess {
-            refreshEvents()
+            loadEvents()
             startMonitoring()
             startPeriodicRefresh()
+            startClockTimer()
         }
     }
 
@@ -24,32 +38,48 @@ class CalendarViewModel: ObservableObject {
         let granted = await calendarService.requestAccess()
         hasAccess = granted
         if granted {
-            refreshEvents()
+            loadEvents()
             startMonitoring()
             startPeriodicRefresh()
+            startClockTimer()
             scheduleCalendarAlerts()
         }
     }
 
-    func refreshEvents() {
-        selectedDate = Date()
-        todayEvents = calendarService.fetchEvents(for: selectedDate)
+    func loadEvents() {
+        let all = calendarService.fetchEvents(for: selectedDate)
+        timedEvents = all.filter { !$0.isAllDay }
+        allDayEvents = all.filter { $0.isAllDay }
     }
 
     func forceRefresh() {
         calendarService.resetStore()
-        refreshEvents()
+        loadEvents()
     }
 
     func selectDate(_ date: Date) {
         selectedDate = date
-        todayEvents = calendarService.fetchEvents(for: date)
+        loadEvents()
+    }
+
+    func goToNextDay() {
+        guard let next = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) else { return }
+        selectDate(next)
+    }
+
+    func goToPreviousDay() {
+        guard let prev = Calendar.current.date(byAdding: .day, value: -1, to: selectedDate) else { return }
+        selectDate(prev)
+    }
+
+    func goToToday() {
+        selectDate(Date())
     }
 
     private func startMonitoring() {
         observer = calendarService.startMonitoring { [weak self] in
             Task { @MainActor in
-                self?.refreshEvents()
+                self?.loadEvents()
                 self?.scheduleCalendarAlerts()
             }
         }
@@ -59,7 +89,16 @@ class CalendarViewModel: ObservableObject {
         refreshTimer?.invalidate()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.refreshEvents()
+                self?.loadEvents()
+            }
+        }
+    }
+
+    private func startClockTimer() {
+        clockTimer?.invalidate()
+        clockTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.currentTime = Date()
             }
         }
     }
@@ -76,5 +115,6 @@ class CalendarViewModel: ObservableObject {
             NotificationCenter.default.removeObserver(observer)
         }
         refreshTimer?.invalidate()
+        clockTimer?.invalidate()
     }
 }

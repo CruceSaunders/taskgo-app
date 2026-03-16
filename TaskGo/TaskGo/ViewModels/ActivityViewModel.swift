@@ -21,6 +21,9 @@ class ActivityViewModel: ObservableObject {
     @Published var isTrackingActive = false
     @Published var eventsFlowing = false
     @Published var weekSummary: [WeekDaySummary] = []
+    @Published var permissionState: ActivityTracker.PermissionState = .unknown
+    @Published var keyboardHealthy = true
+    @Published var sttAppsDetected: [String] = []
 
     static let zoomSteps: [Double] = [1, 5, 15, 30, 60]
 
@@ -42,6 +45,18 @@ class ActivityViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .assign(to: &$eventsFlowing)
 
+        ActivityTracker.shared.$permissionState
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$permissionState)
+
+        ActivityTracker.shared.$keyboardHealthy
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$keyboardHealthy)
+
+        ActivityTracker.shared.$sttAppsDetected
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$sttAppsDetected)
+
         ActivityTracker.shared.$todayData
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newData in
@@ -52,7 +67,7 @@ class ActivityViewModel: ObservableObject {
     }
 
     var showPermissionBanner: Bool {
-        !isTrackingActive && !eventsFlowing
+        permissionState == .denied
     }
 
     var isToday: Bool {
@@ -244,10 +259,19 @@ class ActivityViewModel: ObservableObject {
     var totalScrolls: Int { currentDay?.totalScrolls ?? 0 }
     var totalMovements: Int { currentDay?.totalMovement ?? 0 }
     var totalInputs: Int { currentDay?.totalInputs ?? 0 }
+    var totalDictation: Int { currentDay?.totalDictation ?? 0 }
+    var meaningfulInputs: Int { currentDay?.meaningfulInputs ?? 0 }
+    var engagedMinutes: Int { currentDay?.engagedMinutes ?? 0 }
+
+    var engagedTime: String {
+        let mins = engagedMinutes
+        if mins >= 60 { return "\(mins / 60)h \(mins % 60)m" }
+        return "\(mins)m"
+    }
 
     var averageInputsPerActiveMinute: Int {
         guard let day = currentDay, day.totalActiveMinutes > 0 else { return 0 }
-        return day.totalInputs / day.totalActiveMinutes
+        return day.meaningfulInputs / day.totalActiveMinutes
     }
 
     var firstActivityTime: String? {

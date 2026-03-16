@@ -136,12 +136,25 @@ struct ActivityTabView: View {
                     GridItem(.flexible()),
                     GridItem(.flexible())
                 ], spacing: 3) {
-                    detailCell("Inputs", "\(day.totalInputs)")
+                    detailCell("Inputs", "\(day.meaningfulInputs)")
                     detailCell("Active", "\(day.totalActiveMinutes)m")
-                    detailCell("Idle", "\(activityVM.idleMinutes)m")
+                    detailCell("Engaged", activityVM.engagedTime)
                     detailCell("Scrolls", "\(day.totalScrolls)")
                     detailCell("Moves", "\(day.totalMovement)")
                     detailCell("Avg/min", "\(activityVM.averageInputsPerActiveMinute)")
+                }
+
+                if !activityVM.keyboardHealthy {
+                    HStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.circle.fill")
+                            .font(.system(size: 8))
+                            .foregroundStyle(.orange)
+                        Text("Keyboard tracking degraded — using fallback")
+                            .font(.system(size: 8))
+                            .foregroundStyle(.orange)
+                        Spacer()
+                    }
+                    .padding(.top, 2)
                 }
             } else {
                 Text("No data")
