@@ -425,10 +425,6 @@ class ActivityTracker: ObservableObject {
     private func startMinuteTimer() {
         minuteTimer?.invalidate()
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
-            self?.finalizeCurrentMinute()
-        }
-
         let calendar = Calendar.current
         let now = Date()
         guard let nextMinute = calendar.nextDate(

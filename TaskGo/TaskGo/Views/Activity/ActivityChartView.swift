@@ -57,19 +57,17 @@ struct ActivityChartView: View {
         let topTick = ((maxVal / step) + 1) * step
         let ticks = Array(stride(from: 0, through: topTick, by: step))
 
-        return GeometryReader { geo in
-            let chartHeight: CGFloat = 180
-            ZStack {
-                ForEach(ticks, id: \.self) { tick in
-                    let y = chartHeight - (chartHeight * CGFloat(tick) / CGFloat(topTick))
-                    Text("\(tick)")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                        .position(x: 22, y: y)
-                }
+        let chartHeight: CGFloat = 180
+        return ZStack {
+            ForEach(ticks, id: \.self) { tick in
+                let y = chartHeight - (chartHeight * CGFloat(tick) / CGFloat(topTick))
+                Text("\(tick)")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                    .position(x: 22, y: y)
             }
         }
-        .frame(height: 180)
+        .frame(width: 44, height: chartHeight)
     }
 
     private func yAxisStep(for maxVal: Int) -> Int {
