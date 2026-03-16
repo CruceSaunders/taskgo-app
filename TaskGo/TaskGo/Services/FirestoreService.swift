@@ -36,6 +36,19 @@ class FirestoreService {
         ])
     }
 
+    func saveOfficeHours(_ hours: OfficeHours, userId: String) async throws {
+        let encoded = try Firestore.Encoder().encode(hours)
+        try await userRef(userId).updateData(["officeHours": encoded])
+    }
+
+    func saveSelectedCalendarId(_ calendarId: String?, userId: String) async throws {
+        if let calendarId {
+            try await userRef(userId).updateData(["selectedCalendarId": calendarId])
+        } else {
+            try await userRef(userId).updateData(["selectedCalendarId": FieldValue.delete()])
+        }
+    }
+
     // MARK: - Username Uniqueness
 
     func isUsernameAvailable(_ username: String) async throws -> Bool {

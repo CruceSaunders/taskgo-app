@@ -11,6 +11,8 @@ struct UserProfile: Identifiable, Codable {
     var weeklyXP: Int
     var weeklyXPResetDate: Date
     var createdAt: Date
+    var officeHours: OfficeHours?
+    var selectedCalendarId: String?
 
     init(
         id: String? = nil,
@@ -21,7 +23,9 @@ struct UserProfile: Identifiable, Codable {
         level: Int = 1,
         weeklyXP: Int = 0,
         weeklyXPResetDate: Date = UserProfile.nextMondayMidnight(),
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        officeHours: OfficeHours? = nil,
+        selectedCalendarId: String? = nil
     ) {
         self.id = id
         self.email = email
@@ -32,6 +36,8 @@ struct UserProfile: Identifiable, Codable {
         self.weeklyXP = weeklyXP
         self.weeklyXPResetDate = weeklyXPResetDate
         self.createdAt = createdAt
+        self.officeHours = officeHours
+        self.selectedCalendarId = selectedCalendarId
     }
 
     /// Calculate the next Monday at midnight for weekly XP reset

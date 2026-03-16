@@ -1,4 +1,5 @@
 import Foundation
+import EventKit
 import FirebaseAuth
 import FirebaseFirestore
 import Combine
@@ -9,14 +10,48 @@ enum PlanFilter: String, CaseIterable {
     case all = "All"
 }
 
+enum ConversionState: Equatable {
+    case idle
+    case validating
+    case scheduling
+    case creatingEvents
+    case success(Int)
+    case error(ConversionError)
+}
+
+enum ConversionError: Equatable {
+    case noOfficeHours
+    case noCalendarAccess
+    case noCalendarSelected
+    case missingDurations(count: Int, daysMissing: [String])
+    case dayOverflow(details: [DayOverflowDetail])
+    case nothingToConvert
+    case alreadyConverted(Date)
+    case aiError(String)
+    case calendarWriteError(String)
+}
+
+struct DayOverflowDetail: Equatable {
+    let date: String
+    let neededMinutes: Int
+    let availableMinutes: Int
+}
+
 @MainActor
 class PlannerViewModel: ObservableObject {
     @Published var plans: [Plan] = []
     @Published var selectedPlan: Plan?
     @Published var showCreatePlan = false
     @Published var filter: PlanFilter = .active
+    @Published var conversionState: ConversionState = .idle
+    @Published var officeHours: OfficeHours?
+    @Published var availableCalendars: [EKCalendar] = []
+    @Published var selectedCalendarId: String?
+    @Published var showAlreadyConvertedConfirm = false
 
     private let firestoreService = FirestoreService.shared
+    private let calendarService = CalendarService.shared
+    private let aiScheduler = AISchedulerService.shared
     private var listener: ListenerRegistration?
     private var terminationObserver: NSObjectProtocol?
     private var authListener: AuthStateDidChangeListenerHandle?
@@ -319,6 +354,238 @@ class PlannerViewModel: ObservableObject {
             semaphore.signal()
         }
         _ = semaphore.wait(timeout: .now() + 2)
+    }
+
+    // MARK: - Office Hours & Calendar Selection
+
+    func loadOfficeHoursAndCalendar() {
+        Task {
+            guard let userId = Auth.auth().currentUser?.uid else { return }
+            if let profile = try? await firestoreService.getUserProfile(userId: userId) {
+                self.officeHours = profile.officeHours
+                self.selectedCalendarId = profile.selectedCalendarId
+            }
+            self.availableCalendars = calendarService.getWritableCalendars()
+        }
+    }
+
+    func saveOfficeHours(_ hours: OfficeHours) {
+        self.officeHours = hours
+        Task {
+            guard let userId = Auth.auth().currentUser?.uid else { return }
+            try? await firestoreService.saveOfficeHours(hours, userId: userId)
+        }
+    }
+
+    func saveSelectedCalendar(_ calendarId: String) {
+        self.selectedCalendarId = calendarId
+        Task {
+            guard let userId = Auth.auth().currentUser?.uid else { return }
+            try? await firestoreService.saveSelectedCalendarId(calendarId, userId: userId)
+        }
+    }
+
+    func refreshCalendars() {
+        availableCalendars = calendarService.getWritableCalendars()
+    }
+
+    // MARK: - Duration Management
+
+    func updateObjectiveDuration(objectiveId: String, date: String?, minutes: Int?) {
+        guard selectedPlan != nil else { return }
+        if let date {
+            if let idx = selectedPlan?.dailyObjectives[date]?.firstIndex(where: { $0.id == objectiveId }) {
+                selectedPlan?.dailyObjectives[date]?[idx].estimatedMinutes = minutes
+            }
+        } else {
+            if let idx = selectedPlan?.overallObjectives.firstIndex(where: { $0.id == objectiveId }) {
+                selectedPlan?.overallObjectives[idx].estimatedMinutes = minutes
+            }
+        }
+        selectedPlan?.updatedAt = Date()
+        markDirtyAndSave()
+    }
+
+    // MARK: - Convert to Calendar
+
+    func convertToCalendar(forceReconvert: Bool = false) {
+        guard let plan = selectedPlan, !plan.isComplete else { return }
+
+        Task {
+            conversionState = .validating
+
+            // Check if already converted
+            if !forceReconvert, let lastConverted = plan.lastConvertedAt {
+                conversionState = .error(.alreadyConverted(lastConverted))
+                return
+            }
+
+            // Validate office hours
+            guard let oh = officeHours else {
+                conversionState = .error(.noOfficeHours)
+                return
+            }
+
+            // Validate calendar access
+            guard calendarService.hasAccess else {
+                conversionState = .error(.noCalendarAccess)
+                return
+            }
+
+            // Validate calendar selected
+            guard let calId = selectedCalendarId else {
+                conversionState = .error(.noCalendarSelected)
+                return
+            }
+
+            // Check that there are incomplete daily objectives to convert
+            let workDays = plan.dateRange.filter { dateStr in
+                guard let date = Plan.dateFmt.date(from: dateStr) else { return false }
+                let weekday = Calendar.current.component(.weekday, from: date)
+                return oh.isWorkDay(weekday)
+            }
+
+            let allIncompleteObjectives = workDays.flatMap { dateStr in
+                (plan.dailyObjectives[dateStr] ?? []).filter { !$0.isComplete }
+            }
+
+            guard !allIncompleteObjectives.isEmpty else {
+                conversionState = .error(.nothingToConvert)
+                return
+            }
+
+            // Check all durations are set
+            let daysMissing = plan.daysWithMissingDurations().filter { dateStr in
+                guard let date = Plan.dateFmt.date(from: dateStr) else { return false }
+                let weekday = Calendar.current.component(.weekday, from: date)
+                return oh.isWorkDay(weekday)
+            }
+
+            if !daysMissing.isEmpty {
+                let count = daysMissing.reduce(0) { total, dateStr in
+                    total + (plan.dailyObjectives[dateStr] ?? []).filter { !$0.isComplete && ($0.estimatedMinutes ?? 0) == 0 }.count
+                }
+                conversionState = .error(.missingDurations(count: count, daysMissing: daysMissing))
+                return
+            }
+
+            // Per-day availability check
+            var overflowDetails: [DayOverflowDetail] = []
+            for dateStr in workDays {
+                let neededMinutes = plan.totalMinutesForDay(dateStr)
+                guard neededMinutes > 0 else { continue }
+
+                guard let date = Plan.dateFmt.date(from: dateStr) else { continue }
+                let existingEvents = calendarService.fetchEvents(for: date, startTime: oh.startTime, endTime: oh.endTime)
+                let busyMinutes = existingEvents.reduce(0) { $0 + Int(max(0, $1.endDate.timeIntervalSince($1.startDate) / 60)) }
+                let availableMinutes = oh.totalMinutesPerDay - busyMinutes
+
+                if neededMinutes > availableMinutes {
+                    overflowDetails.append(DayOverflowDetail(date: dateStr, neededMinutes: neededMinutes, availableMinutes: max(0, availableMinutes)))
+                }
+            }
+
+            if !overflowDetails.isEmpty {
+                conversionState = .error(.dayOverflow(details: overflowDetails))
+                return
+            }
+
+            // AI scheduling phase
+            conversionState = .scheduling
+            var allScheduledBlocks: [(date: Date, blocks: [ScheduledBlock])] = []
+
+            for dateStr in workDays {
+                let objectives = (plan.dailyObjectives[dateStr] ?? []).filter { !$0.isComplete }
+                guard !objectives.isEmpty else { continue }
+                guard let date = Plan.dateFmt.date(from: dateStr) else { continue }
+
+                let taskInputs = objectives.map { obj in
+                    ScheduleTaskInput(
+                        objectiveId: obj.id,
+                        title: obj.text,
+                        durationMinutes: obj.estimatedMinutes ?? 30
+                    )
+                }
+
+                let existingEvents = calendarService.fetchEvents(for: date, startTime: oh.startTime, endTime: oh.endTime)
+                let timeFmt = DateFormatter()
+                timeFmt.dateFormat = "HH:mm"
+                let existingInputs = existingEvents.map { event in
+                    ExistingEventInput(
+                        title: event.title,
+                        startTime: timeFmt.string(from: event.startDate),
+                        endTime: timeFmt.string(from: event.endDate)
+                    )
+                }
+
+                do {
+                    let blocks = try await aiScheduler.generateSchedule(
+                        tasks: taskInputs,
+                        existingEvents: existingInputs,
+                        officeHoursStart: oh.startTime,
+                        officeHoursEnd: oh.endTime,
+                        dateLabel: Plan.displayDayLabel(for: dateStr)
+                    )
+                    allScheduledBlocks.append((date: date, blocks: blocks))
+                } catch {
+                    print("[Planner] AI scheduling failed for \(dateStr): \(error). Using fallback.")
+                    let fallbackBlocks = aiScheduler.sequentialFallback(
+                        tasks: taskInputs,
+                        existingEvents: existingInputs,
+                        officeHoursStart: oh.startTime,
+                        officeHoursEnd: oh.endTime
+                    )
+                    allScheduledBlocks.append((date: date, blocks: fallbackBlocks))
+                }
+            }
+
+            // Event creation phase
+            conversionState = .creatingEvents
+            var totalCreated = 0
+            let cal = Calendar.current
+            let timeFmt = DateFormatter()
+            timeFmt.dateFormat = "HH:mm"
+
+            for (date, blocks) in allScheduledBlocks {
+                let startOfDay = cal.startOfDay(for: date)
+                for block in blocks {
+                    guard let startParsed = timeFmt.date(from: block.startTime),
+                          let endParsed = timeFmt.date(from: block.endTime) else { continue }
+
+                    let startComps = cal.dateComponents([.hour, .minute], from: startParsed)
+                    let endComps = cal.dateComponents([.hour, .minute], from: endParsed)
+
+                    guard let eventStart = cal.date(bySettingHour: startComps.hour ?? 0, minute: startComps.minute ?? 0, second: 0, of: startOfDay),
+                          let eventEnd = cal.date(bySettingHour: endComps.hour ?? 0, minute: endComps.minute ?? 0, second: 0, of: startOfDay) else { continue }
+
+                    do {
+                        _ = try calendarService.createEvent(
+                            title: block.title,
+                            startDate: eventStart,
+                            endDate: eventEnd,
+                            calendarIdentifier: calId
+                        )
+                        totalCreated += 1
+                    } catch {
+                        print("[Planner] Failed to create event '\(block.title)': \(error)")
+                        conversionState = .error(.calendarWriteError(error.localizedDescription))
+                        return
+                    }
+                }
+            }
+
+            // Mark plan as converted
+            selectedPlan?.lastConvertedAt = Date()
+            selectedPlan?.updatedAt = Date()
+            markDirtyAndSave()
+
+            conversionState = .success(totalCreated)
+        }
+    }
+
+    func dismissConversionResult() {
+        conversionState = .idle
+        showAlreadyConvertedConfirm = false
     }
 
     deinit {

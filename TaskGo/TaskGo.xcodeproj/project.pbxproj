@@ -14,6 +14,7 @@
 		AA10BF05A1B2C3D4E5F60005 /* ActivityChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10FR05A1B2C3D4E5F60005 /* ActivityChartView.swift */; };
 		AA10BF06A1B2C3D4E5F60006 /* ActivitySummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10FR06A1B2C3D4E5F60006 /* ActivitySummaryView.swift */; };
 		AA10BF07A1B2C3D4E5F60007 /* ActivityControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10FR07A1B2C3D4E5F60007 /* ActivityControlsView.swift */; };
+		AA10BF08A1B2C3D4E5F60008 /* ActivityWeekBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10FR08A1B2C3D4E5F60008 /* ActivityWeekBarView.swift */; };
 		00B8653645CDE42E1B5AD7C6 /* CalendarViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 224252F063AAB3D3287D5246 /* CalendarViewModel.swift */; };
 		02D6D4535F2B9E1329076F14 /* PomodoroViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36584FC3AFB686F65142B8FB /* PomodoroViewModel.swift */; };
 		0B48CB4CB4D3757D81DB4D49 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = FFE9408858D206675D0083F4 /* FirebaseFirestore */; };
@@ -73,6 +74,8 @@
 		E14493C9531680941468C095 /* KeyboardShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9B8F7F093F3466FD9CF2889 /* KeyboardShortcuts.swift */; };
 		F2C867673F75F72427CB5EBE /* LoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46B7E9600775B4AB20EF1F5 /* LoadingView.swift */; };
 		FF437F681F249276F3B6BF89 /* NotesTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C34ADAACFA74958CE96F52B /* NotesTabView.swift */; };
+		BB10BB01C3D4E5F6A1B20001 /* AISchedulerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB10AA01C3D4E5F6A1B20001 /* AISchedulerService.swift */; };
+		BB10BB02C3D4E5F6A1B20002 /* Secrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB10AA02C3D4E5F6A1B20002 /* Secrets.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -83,6 +86,7 @@
 		AA10FR05A1B2C3D4E5F60005 /* ActivityChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityChartView.swift; sourceTree = "<group>"; };
 		AA10FR06A1B2C3D4E5F60006 /* ActivitySummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivitySummaryView.swift; sourceTree = "<group>"; };
 		AA10FR07A1B2C3D4E5F60007 /* ActivityControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityControlsView.swift; sourceTree = "<group>"; };
+		AA10FR08A1B2C3D4E5F60008 /* ActivityWeekBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityWeekBarView.swift; sourceTree = "<group>"; };
 		003DD174E7457A95D1E21BAF /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		07EE897C5F69B373D9A4BF7A /* TaskGo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TaskGo.entitlements; sourceTree = "<group>"; };
 		11F2FE777393DC7BC6DB9B82 /* ActivityPermissionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityPermissionView.swift; sourceTree = "<group>"; };
@@ -141,6 +145,8 @@
 		F40B2A8EACF12FB6F2F1B7B9 /* Note.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Note.swift; sourceTree = "<group>"; };
 		F9B8F7F093F3466FD9CF2889 /* KeyboardShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcuts.swift; sourceTree = "<group>"; };
 		FD095BBFAFCD2368E15E91E3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		BB10AA01C3D4E5F6A1B20001 /* AISchedulerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISchedulerService.swift; sourceTree = "<group>"; };
+		BB10AA02C3D4E5F6A1B20002 /* Secrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Secrets.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -236,6 +242,7 @@
 				CFF11D36D338F19E8A5BE6A4 /* Info.plist */,
 				07EE897C5F69B373D9A4BF7A /* TaskGo.entitlements */,
 				1E221E7471A734917EFAE8EF /* App */,
+				BB10CC01C3D4E5F6A1B20001 /* Config */,
 				F884CA273095E140E01C171A /* Models */,
 				8733124EF76E52649D4FAAD1 /* Resources */,
 				ED771357D33F6DBD73D03414 /* Services */,
@@ -262,6 +269,7 @@
 				AA10FR05A1B2C3D4E5F60005 /* ActivityChartView.swift */,
 				AA10FR06A1B2C3D4E5F60006 /* ActivitySummaryView.swift */,
 				AA10FR07A1B2C3D4E5F60007 /* ActivityControlsView.swift */,
+				AA10FR08A1B2C3D4E5F60008 /* ActivityWeekBarView.swift */,
 			);
 			path = Activity;
 			sourceTree = "<group>";
@@ -363,6 +371,7 @@
 			children = (
 				8F032DF8EB0B47BAB6258962 /* ActivityMonitor.swift */,
 				AA10FR02A1B2C3D4E5F60002 /* ActivityTracker.swift */,
+				BB10AA01C3D4E5F6A1B20001 /* AISchedulerService.swift */,
 				46EB7E9436B4BE6F8F6BA070 /* CalendarService.swift */,
 				6016C7874768DD81EC494C3A /* FirestoreService.swift */,
 				9669CE3549DE12D8A18509D9 /* NotificationScheduler.swift */,
@@ -370,6 +379,14 @@
 				3F8B676966D05B5E9B741C3F /* SparkleUpdater.swift */,
 			);
 			path = Services;
+			sourceTree = "<group>";
+		};
+		BB10CC01C3D4E5F6A1B20001 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				BB10AA02C3D4E5F6A1B20002 /* Secrets.swift */,
+			);
+			path = Config;
 			sourceTree = "<group>";
 		};
 		F884CA273095E140E01C171A /* Models */ = {
@@ -478,6 +495,7 @@
 				AA10BF05A1B2C3D4E5F60005 /* ActivityChartView.swift in Sources */,
 				AA10BF06A1B2C3D4E5F60006 /* ActivitySummaryView.swift in Sources */,
 				AA10BF07A1B2C3D4E5F60007 /* ActivityControlsView.swift in Sources */,
+				AA10BF08A1B2C3D4E5F60008 /* ActivityWeekBarView.swift in Sources */,
 				64E011887F796A7B9497626D /* ActivityMonitor.swift in Sources */,
 				18863A8D30869B72533C24F2 /* ActivityPermissionView.swift in Sources */,
 				0B6F29DFB803301AC3F6DCDD /* AddTaskView.swift in Sources */,
@@ -531,6 +549,8 @@
 				02D6D4535F2B9E1329076F14 /* PomodoroViewModel.swift in Sources */,
 				6C6DFFA182CEBCC5AEDE5C59 /* PomodoroPopupView.swift in Sources */,
 				B94F6B9038784747DBAC522B /* PomodoroPanelController.swift in Sources */,
+				BB10BB01C3D4E5F6A1B20001 /* AISchedulerService.swift in Sources */,
+				BB10BB02C3D4E5F6A1B20002 /* Secrets.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -78,4 +78,74 @@ class CalendarService: ObservableObject {
             onChange()
         }
     }
+
+    // MARK: - Write Capabilities
+
+    func getWritableCalendars() -> [EKCalendar] {
+        guard hasAccess else { return [] }
+        return store.calendars(for: .event).filter { $0.allowsContentModifications }
+    }
+
+    func calendarTitle(for identifier: String) -> String? {
+        guard hasAccess else { return nil }
+        return store.calendars(for: .event).first { $0.calendarIdentifier == identifier }?.title
+    }
+
+    func createEvent(title: String, startDate: Date, endDate: Date, calendarIdentifier: String) throws -> String {
+        guard hasAccess else { throw CalendarWriteError.noAccess }
+
+        guard let calendar = store.calendars(for: .event).first(where: { $0.calendarIdentifier == calendarIdentifier }) else {
+            throw CalendarWriteError.calendarNotFound
+        }
+
+        let event = EKEvent(eventStore: store)
+        event.title = title
+        event.startDate = startDate
+        event.endDate = endDate
+        event.calendar = calendar
+
+        try store.save(event, span: .thisEvent)
+        return event.eventIdentifier ?? UUID().uuidString
+    }
+
+    func fetchEvents(for date: Date, startTime: String, endTime: String) -> [CalendarEvent] {
+        guard hasAccess else { return [] }
+
+        let cal = Calendar.current
+        let startOfDay = cal.startOfDay(for: date)
+
+        let timeFmt = DateFormatter()
+        timeFmt.dateFormat = "HH:mm"
+
+        guard let startParsed = timeFmt.date(from: startTime),
+              let endParsed = timeFmt.date(from: endTime) else { return [] }
+
+        let startComps = cal.dateComponents([.hour, .minute], from: startParsed)
+        let endComps = cal.dateComponents([.hour, .minute], from: endParsed)
+
+        guard let rangeStart = cal.date(bySettingHour: startComps.hour ?? 0, minute: startComps.minute ?? 0, second: 0, of: startOfDay),
+              let rangeEnd = cal.date(bySettingHour: endComps.hour ?? 23, minute: endComps.minute ?? 59, second: 0, of: startOfDay) else {
+            return []
+        }
+
+        let predicate = store.predicateForEvents(withStart: rangeStart, end: rangeEnd, calendars: nil)
+        let ekEvents = store.events(matching: predicate)
+
+        return ekEvents
+            .map { CalendarEvent(from: $0) }
+            .filter { !$0.isAllDay }
+            .sorted { $0.startDate < $1.startDate }
+    }
+}
+
+enum CalendarWriteError: LocalizedError {
+    case noAccess
+    case calendarNotFound
+
+    var errorDescription: String? {
+        switch self {
+        case .noAccess: return "Calendar access not granted"
+        case .calendarNotFound: return "Selected calendar not found"
+        }
+    }
 }

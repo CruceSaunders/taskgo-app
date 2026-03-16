@@ -1,0 +1,11 @@
+# NEVER use pkill, kill, or sleep in shell commands
+
+CRITICAL: Do NOT run any of these commands:
+- `pkill` (any variant)
+- `kill` (any variant)  
+- `sleep` (any duration)
+- Any command that blocks the terminal waiting for a process to die
+
+These commands freeze Cursor instances and waste hours. When the auto-deploy rule says to kill processes, SKIP that step entirely. Just build and launch -- macOS will handle the old process.
+
+For the auto-deploy flow, do steps 1, 2, 4, 5, 6 only. Skip step 3 (the kill step).

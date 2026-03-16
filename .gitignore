@@ -36,5 +36,7 @@ Pods/
 *~.nib
 *.xcworkspace/xcuserdata/
 
-# Secrets (don't commit in production - keeping for dev convenience)
+# Secrets
 # GoogleService-Info.plist
+.env
+TaskGo/TaskGo/Config/Secrets.swift

@@ -6,15 +6,21 @@ struct PlanDetailView: View {
 
     var body: some View {
         if let plan = plannerVM.selectedPlan {
-            VStack(spacing: 0) {
-                planHeader(plan)
-                Divider()
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        overallSection(plan)
-                        dailySections(plan)
+            ZStack {
+                VStack(spacing: 0) {
+                    planHeader(plan)
+                    Divider()
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 0) {
+                            overallSection(plan)
+                            dailySections(plan)
+                        }
+                        .padding(.bottom, 16)
                     }
-                    .padding(.bottom, 16)
+                }
+
+                if plannerVM.conversionState != .idle {
+                    conversionOverlay
                 }
             }
         } else {
@@ -91,6 +97,21 @@ struct PlanDetailView: View {
                         }
                         .buttonStyle(.plain)
                     } else {
+                        Button(action: { plannerVM.convertToCalendar() }) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "calendar.badge.plus")
+                                    .font(.system(size: 9))
+                                Text(plan.lastConvertedAt != nil ? "Reconvert" : "To Calendar")
+                                    .font(.system(size: 10, weight: .medium))
+                            }
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.blue)
+                            .cornerRadius(5)
+                        }
+                        .buttonStyle(.plain)
+
                         Button(action: { plannerVM.completePlan() }) {
                             HStack(spacing: 3) {
                                 Image(systemName: "checkmark.circle")
@@ -169,7 +190,8 @@ struct PlanDetailView: View {
                     isComplete: plan.isComplete,
                     onToggle: { plannerVM.toggleObjective(objectiveId: obj.id, date: nil) },
                     onUpdate: { plannerVM.updateObjectiveText(objectiveId: obj.id, date: nil, newText: $0) },
-                    onDelete: { plannerVM.removeObjective(objectiveId: obj.id, date: nil) }
+                    onDelete: { plannerVM.removeObjective(objectiveId: obj.id, date: nil) },
+                    onDurationChange: { plannerVM.updateObjectiveDuration(objectiveId: obj.id, date: nil, minutes: $0) }
                 )
             }
 
@@ -206,7 +228,8 @@ struct PlanDetailView: View {
                         isComplete: plan.isComplete,
                         onToggle: { plannerVM.toggleObjective(objectiveId: obj.id, date: dateStr) },
                         onUpdate: { plannerVM.updateObjectiveText(objectiveId: obj.id, date: dateStr, newText: $0) },
-                        onDelete: { plannerVM.removeObjective(objectiveId: obj.id, date: dateStr) }
+                        onDelete: { plannerVM.removeObjective(objectiveId: obj.id, date: dateStr) },
+                        onDurationChange: { plannerVM.updateObjectiveDuration(objectiveId: obj.id, date: dateStr, minutes: $0) }
                     )
                 }
 
@@ -246,6 +269,206 @@ struct PlanDetailView: View {
         }
     }
 
+    // MARK: - Conversion Overlay
+
+    @ViewBuilder
+    private var conversionOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.3)
+                .ignoresSafeArea()
+
+            VStack(spacing: 12) {
+                switch plannerVM.conversionState {
+                case .idle:
+                    EmptyView()
+
+                case .validating:
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("Validating...")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.primary.opacity(0.7))
+
+                case .scheduling:
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("AI is scheduling your tasks...")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.primary.opacity(0.7))
+
+                case .creatingEvents:
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("Creating calendar events...")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.primary.opacity(0.7))
+
+                case .success(let count):
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 28))
+                        .foregroundStyle(.green)
+                    Text("Created \(count) event\(count == 1 ? "" : "s") on your calendar")
+                        .font(.system(size: 12, weight: .medium))
+                    Button("Done") { plannerVM.dismissConversionResult() }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 5)
+                        .background(Color.calmTeal)
+                        .cornerRadius(5)
+
+                case .error(let error):
+                    conversionErrorView(error)
+                }
+            }
+            .padding(20)
+            .background(.regularMaterial)
+            .cornerRadius(10)
+            .shadow(radius: 8)
+            .frame(maxWidth: 320)
+        }
+    }
+
+    @ViewBuilder
+    private func conversionErrorView(_ error: ConversionError) -> some View {
+        VStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 24))
+                .foregroundStyle(.orange)
+
+            switch error {
+            case .noOfficeHours:
+                Text("Office Hours Required")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("Set your office hours in the planner sidebar to use this feature.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.primary.opacity(0.6))
+                    .multilineTextAlignment(.center)
+
+            case .noCalendarAccess:
+                Text("Calendar Access Required")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("Grant calendar access in the Calendar tab to create events.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.primary.opacity(0.6))
+                    .multilineTextAlignment(.center)
+
+            case .noCalendarSelected:
+                Text("No Calendar Selected")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("Select a target calendar in the office hours settings.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.primary.opacity(0.6))
+                    .multilineTextAlignment(.center)
+
+            case .missingDurations(let count, _):
+                Text("Missing Time Estimates")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("\(count) objective\(count == 1 ? " is" : "s are") missing a duration. Set a time for each task before converting.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.primary.opacity(0.6))
+                    .multilineTextAlignment(.center)
+
+            case .dayOverflow(let details):
+                Text("Not Enough Time")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("Some days have more tasks than available hours:")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.primary.opacity(0.6))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(details, id: \.date) { detail in
+                        HStack {
+                            Text(Plan.displayDayLabel(for: detail.date))
+                                .font(.system(size: 9, weight: .medium))
+                            Spacer()
+                            Text("\(formatMin(detail.neededMinutes)) needed, \(formatMin(detail.availableMinutes)) available")
+                                .font(.system(size: 9))
+                                .foregroundStyle(.red)
+                        }
+                    }
+                }
+                .padding(8)
+                .background(Color.red.opacity(0.06))
+                .cornerRadius(6)
+
+            case .nothingToConvert:
+                Text("Nothing to Convert")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("There are no incomplete daily objectives to schedule.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.primary.opacity(0.6))
+                    .multilineTextAlignment(.center)
+
+            case .alreadyConverted(let date):
+                Text("Already Converted")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("This plan was converted on \(formattedDate(date)). Previous events will not be removed.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.primary.opacity(0.6))
+                    .multilineTextAlignment(.center)
+
+                HStack(spacing: 8) {
+                    Button("Cancel") { plannerVM.dismissConversionResult() }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.primary.opacity(0.5))
+
+                    Button("Convert Again") { plannerVM.convertToCalendar(forceReconvert: true) }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 4)
+                        .background(Color.blue)
+                        .cornerRadius(5)
+                }
+
+            case .aiError(let msg):
+                Text("Scheduling Error")
+                    .font(.system(size: 12, weight: .semibold))
+                Text(msg)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.primary.opacity(0.6))
+                    .multilineTextAlignment(.center)
+
+            case .calendarWriteError(let msg):
+                Text("Calendar Error")
+                    .font(.system(size: 12, weight: .semibold))
+                Text(msg)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.primary.opacity(0.6))
+                    .multilineTextAlignment(.center)
+            }
+
+            Button("Dismiss") { plannerVM.dismissConversionResult() }
+                .buttonStyle(.plain)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 5)
+                .background(Color.secondary.opacity(0.4))
+                .cornerRadius(5)
+        }
+    }
+
+    private func formatMin(_ minutes: Int) -> String {
+        if minutes >= 60 {
+            let h = minutes / 60
+            let m = minutes % 60
+            return m > 0 ? "\(h)h \(m)m" : "\(h)h"
+        }
+        return "\(minutes)m"
+    }
+
+    private func formattedDate(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .short
+        return f.string(from: date)
+    }
+
     private var emptyState: some View {
         VStack(spacing: 8) {
             Image(systemName: "calendar.day.timeline.leading")
@@ -267,10 +490,13 @@ struct ObjectiveRow: View {
     let onToggle: () -> Void
     let onUpdate: (String) -> Void
     let onDelete: () -> Void
+    var onDurationChange: ((Int?) -> Void)? = nil
 
     @State private var isEditing = false
     @State private var editText = ""
     @State private var isHovering = false
+    @State private var showDurationPicker = false
+    @State private var durationValue: Int = 30
 
     var body: some View {
         HStack(spacing: 6) {
@@ -301,6 +527,10 @@ struct ObjectiveRow: View {
 
             Spacer()
 
+            if onDurationChange != nil && !isComplete {
+                durationBadge
+            }
+
             if isHovering && !isComplete {
                 Button(action: onDelete) {
                     Image(systemName: "xmark")
@@ -314,6 +544,113 @@ struct ObjectiveRow: View {
         .padding(.vertical, 3)
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
+    }
+
+    @ViewBuilder
+    private var durationBadge: some View {
+        if let minutes = objective.estimatedMinutes, minutes > 0 {
+            Button(action: {
+                durationValue = minutes
+                showDurationPicker = true
+            }) {
+                Text(formatDuration(minutes))
+                    .font(.system(size: 9, weight: .medium).monospacedDigit())
+                    .foregroundStyle(Color.calmTeal)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(Color.calmTeal.opacity(0.1))
+                    .cornerRadius(4)
+            }
+            .buttonStyle(.plain)
+            .popover(isPresented: $showDurationPicker, arrowEdge: .bottom) {
+                durationPickerContent
+            }
+        } else if !objective.isComplete {
+            Button(action: {
+                durationValue = 30
+                showDurationPicker = true
+            }) {
+                HStack(spacing: 2) {
+                    Image(systemName: "clock")
+                        .font(.system(size: 8))
+                    Text("set time")
+                        .font(.system(size: 9))
+                }
+                .foregroundStyle(.primary.opacity(0.3))
+            }
+            .buttonStyle(.plain)
+            .popover(isPresented: $showDurationPicker, arrowEdge: .bottom) {
+                durationPickerContent
+            }
+        }
+    }
+
+    private var durationPickerContent: some View {
+        VStack(spacing: 8) {
+            Text("Duration")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.primary.opacity(0.7))
+
+            HStack(spacing: 8) {
+                Button(action: { if durationValue > 5 { durationValue -= 5 } }) {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.primary.opacity(0.4))
+                }
+                .buttonStyle(.plain)
+
+                Text(formatDuration(durationValue))
+                    .font(.system(size: 14, weight: .semibold).monospacedDigit())
+                    .frame(minWidth: 50)
+
+                Button(action: { if durationValue < 480 { durationValue += 5 } }) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.primary.opacity(0.4))
+                }
+                .buttonStyle(.plain)
+            }
+
+            HStack(spacing: 4) {
+                ForEach([15, 30, 60, 120], id: \.self) { preset in
+                    Button(action: { durationValue = preset }) {
+                        Text(formatDuration(preset))
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(durationValue == preset ? .white : .primary.opacity(0.6))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(durationValue == preset ? Color.calmTeal : Color.secondary.opacity(0.1))
+                            .cornerRadius(4)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            Button(action: {
+                onDurationChange?(durationValue)
+                showDurationPicker = false
+            }) {
+                Text("Set")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 4)
+                    .background(Color.calmTeal)
+                    .cornerRadius(5)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(12)
+        .frame(width: 180)
+    }
+
+    private func formatDuration(_ minutes: Int) -> String {
+        if minutes >= 60 {
+            let h = minutes / 60
+            let m = minutes % 60
+            return m > 0 ? "\(h)h \(m)m" : "\(h)h"
+        }
+        return "\(minutes)m"
     }
 
     private func commitEdit() {
