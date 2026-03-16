@@ -34,11 +34,11 @@ struct ActivityChartView: View {
         } else if needsScroll {
             ScrollView(.horizontal, showsIndicators: true) {
                 chart
-                    .frame(width: chartWidth, height: 180)
+                    .frame(width: chartWidth, height: 200)
             }
         } else {
             chart
-                .frame(height: 180)
+                .frame(height: 200)
         }
     }
 
@@ -61,11 +61,11 @@ struct ActivityChartView: View {
         ])
         .chartXScale(domain: 0...1440)
         .chartXAxis {
-            AxisMarks(values: .stride(by: Double(xAxisInterval))) { value in
-                AxisValueLabel {
+            AxisMarks(values: .stride(by: 60.0)) { value in
+                AxisValueLabel(anchor: .top) {
                     if let minute = value.as(Int.self) {
-                        Text(formatMinute(minute))
-                            .font(.system(size: 10))
+                        Text(formatHour(minute))
+                            .font(.system(size: 9))
                     }
                 }
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.3))
@@ -83,26 +83,13 @@ struct ActivityChartView: View {
             }
         }
         .chartLegend(.hidden)
-        .padding(.leading, 4)
     }
 
-    private var xAxisInterval: Int {
-        switch activityVM.snappedZoomLevel {
-        case 1: return 30
-        case 5: return 60
-        case 15: return 60
-        case 30: return 120
-        default: return 120
-        }
-    }
-
-    private func formatMinute(_ minute: Int) -> String {
+    private func formatHour(_ minute: Int) -> String {
         let h = minute / 60
-        let m = minute % 60
-        let ampm = h >= 12 ? "p" : "a"
         let h12 = h == 0 ? 12 : (h > 12 ? h - 12 : h)
-        if m == 0 { return "\(h12)\(ampm)" }
-        return String(format: "%d:%02d", h12, m)
+        let ampm = h >= 12 ? "PM" : "AM"
+        return "\(h12) \(ampm)"
     }
 
     private var emptyState: some View {
