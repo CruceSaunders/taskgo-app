@@ -1,38 +1,47 @@
-# Avoid pkill -f Self-Match Loop
+# Shell Commands with TaskGo! (CRITICAL)
 
-## The Problem
+## The Root Cause
 
-`pkill -f "TaskGo!"` matches its OWN process (because the string "TaskGo!" appears in the command arguments). This causes the shell to kill itself or hang indefinitely.
+The app is named "TaskGo!" -- the `!` character triggers **zsh history expansion** inside double quotes, causing the shell to hang indefinitely.
 
-## The Fix
+`killall "TaskGo!"` -- HANGS (! triggers history expansion)
+`killall 'TaskGo!'` -- WORKS (single quotes prevent interpretation)
 
-NEVER use `pkill -f "TaskGo!"`. Instead, use one of these safe alternatives:
+This applies to EVERY shell command that references the app name or path containing `!`.
 
-### Option 1: killall with exact binary name (preferred)
+## Rules (MUST FOLLOW)
+
+1. **ALWAYS use single quotes** around any string containing `TaskGo!` or any path with `!`
+2. **NEVER use double quotes** around strings containing `!`
+3. **NEVER chain kill commands with &&** to the build. Use `;` so build runs regardless.
+
+## Correct Commands
+
+Kill the app:
 ```bash
-killall "TaskGo!" 2>/dev/null || true
-sleep 1
+killall 'TaskGo!' 2>/dev/null || true
 ```
 
-### Option 2: pkill with regex that excludes itself
+Build:
 ```bash
-pkill -x "TaskGo!" 2>/dev/null || true
-sleep 1
+xcodebuild -project TaskGo/TaskGo.xcodeproj -scheme TaskGo -configuration Debug build 2>&1 | tail -5
 ```
 
-### Option 3: Find PID first, then kill
+Launch:
 ```bash
-pgrep -x "TaskGo!" | xargs kill 2>/dev/null || true
-sleep 1
+open '/Users/crucegauntlet/Library/Developer/Xcode/DerivedData/TaskGo-gbsqnqzrmpfrzpaghxowvfsqppoi/Build/Products/Debug/TaskGo!.app'
 ```
 
-## Updated Auto-Deploy Kill Step
-
-Replace the kill step in auto-deploy with:
+Full deploy sequence (each step separate, using ; not &&):
 ```bash
-killall "TaskGo!" 2>/dev/null || true; sleep 1
+killall 'TaskGo!' 2>/dev/null || true; sleep 1
 ```
+Then build separately. Then open separately.
 
-## General Rule
+## NEVER DO THIS
 
-For ANY `pkill -f` command, verify the pattern won't match the pkill command itself. If unsure, use `killall` with the exact process name instead.
+```bash
+killall "TaskGo!"          # HANGS - ! in double quotes
+open "...TaskGo!.app"      # HANGS - ! in double quotes  
+pkill -f "TaskGo!"         # HANGS - matches itself AND ! issue
+```
