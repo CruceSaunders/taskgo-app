@@ -87,13 +87,12 @@ async function authenticateApiKey(req) {
 // ============================================================
 // generateApiKey - Callable from the app
 // ============================================================
-exports.generateApiKey = functions.https.onCall(async (request) => {
-    var _a;
-    if (!request.auth) {
+exports.generateApiKey = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "Must be signed in");
     }
-    const userId = request.auth.uid;
-    const label = ((_a = request.data) === null || _a === void 0 ? void 0 : _a.label) || "API Key";
+    const userId = context.auth.uid;
+    const label = (data === null || data === void 0 ? void 0 : data.label) || "API Key";
     const existing = await db
         .collection("apiKeys")
         .where("userId", "==", userId)
@@ -116,13 +115,12 @@ exports.generateApiKey = functions.https.onCall(async (request) => {
 // ============================================================
 // revokeApiKey - Callable from the app
 // ============================================================
-exports.revokeApiKey = functions.https.onCall(async (request) => {
-    var _a;
-    if (!request.auth) {
+exports.revokeApiKey = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "Must be signed in");
     }
-    const userId = request.auth.uid;
-    const prefix = (_a = request.data) === null || _a === void 0 ? void 0 : _a.prefix;
+    const userId = context.auth.uid;
+    const prefix = data === null || data === void 0 ? void 0 : data.prefix;
     if (!prefix) {
         throw new functions.https.HttpsError("invalid-argument", "prefix is required");
     }
@@ -141,11 +139,11 @@ exports.revokeApiKey = functions.https.onCall(async (request) => {
 // ============================================================
 // listApiKeys - Callable from the app
 // ============================================================
-exports.listApiKeys = functions.https.onCall(async (request) => {
-    if (!request.auth) {
+exports.listApiKeys = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "Must be signed in");
     }
-    const userId = request.auth.uid;
+    const userId = context.auth.uid;
     const snapshot = await db
         .collection("apiKeys")
         .where("userId", "==", userId)

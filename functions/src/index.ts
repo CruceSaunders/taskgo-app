@@ -62,16 +62,16 @@ async function authenticateApiKey(
 // generateApiKey - Callable from the app
 // ============================================================
 
-export const generateApiKey = functions.https.onCall(async (request) => {
-  if (!request.auth) {
+export const generateApiKey = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
     throw new functions.https.HttpsError(
       "unauthenticated",
       "Must be signed in"
     );
   }
 
-  const userId = request.auth.uid;
-  const label = (request.data?.label as string) || "API Key";
+  const userId = context.auth.uid;
+  const label = (data?.label as string) || "API Key";
 
   const existing = await db
     .collection("apiKeys")
@@ -103,16 +103,16 @@ export const generateApiKey = functions.https.onCall(async (request) => {
 // revokeApiKey - Callable from the app
 // ============================================================
 
-export const revokeApiKey = functions.https.onCall(async (request) => {
-  if (!request.auth) {
+export const revokeApiKey = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
     throw new functions.https.HttpsError(
       "unauthenticated",
       "Must be signed in"
     );
   }
 
-  const userId = request.auth.uid;
-  const prefix = request.data?.prefix as string;
+  const userId = context.auth.uid;
+  const prefix = data?.prefix as string;
   if (!prefix) {
     throw new functions.https.HttpsError(
       "invalid-argument",
@@ -139,15 +139,15 @@ export const revokeApiKey = functions.https.onCall(async (request) => {
 // listApiKeys - Callable from the app
 // ============================================================
 
-export const listApiKeys = functions.https.onCall(async (request) => {
-  if (!request.auth) {
+export const listApiKeys = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
     throw new functions.https.HttpsError(
       "unauthenticated",
       "Must be signed in"
     );
   }
 
-  const userId = request.auth.uid;
+  const userId = context.auth.uid;
   const snapshot = await db
     .collection("apiKeys")
     .where("userId", "==", userId)
