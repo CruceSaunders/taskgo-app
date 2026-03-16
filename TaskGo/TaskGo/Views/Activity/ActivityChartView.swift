@@ -4,7 +4,7 @@ import Charts
 struct ActivityChartView: View {
     @EnvironmentObject var activityVM: ActivityViewModel
 
-    private var chartWidth: CGFloat {
+    private var minChartWidth: CGFloat {
         switch activityVM.snappedZoomLevel {
         case 1: return 4000
         case 5: return 2000
@@ -28,44 +28,48 @@ struct ActivityChartView: View {
         if activityVM.chartData.isEmpty || activityVM.chartData.allSatisfy({ $0.value == 0 }) {
             emptyState
         } else {
-            HStack(alignment: .top, spacing: 0) {
-                yAxisLabels
-                    .frame(width: 40)
+            GeometryReader { outer in
+                let availableWidth = outer.size.width - 44
+                let useWidth = max(minChartWidth, availableWidth)
 
-                VStack(spacing: 0) {
+                HStack(alignment: .top, spacing: 0) {
+                    yAxisLabels
+                        .frame(width: 44)
+
                     ScrollView(.horizontal, showsIndicators: false) {
                         VStack(spacing: 0) {
                             chartBody
-                                .frame(width: chartWidth, height: 180)
+                                .frame(width: useWidth, height: 180)
 
                             hourLabelsRow
-                                .frame(width: chartWidth, height: 28)
+                                .frame(width: useWidth, height: 28)
                         }
                     }
                 }
             }
-            .frame(height: 208)
+            .frame(height: 212)
         }
     }
 
     private var yAxisLabels: some View {
         let maxVal = activityVM.chartData.map(\.value).max() ?? 100
         let step = yAxisStep(for: maxVal)
-        let ticks = stride(from: 0, through: maxVal + step, by: step).map { $0 }
+        let topTick = ((maxVal / step) + 1) * step
+        let ticks = Array(stride(from: 0, through: topTick, by: step))
 
         return GeometryReader { geo in
             let chartHeight: CGFloat = 180
-            let maxTick = ticks.last ?? 1
-            ZStack(alignment: .topTrailing) {
+            ZStack {
                 ForEach(ticks, id: \.self) { tick in
-                    let y = chartHeight - (chartHeight * CGFloat(tick) / CGFloat(maxTick))
+                    let y = chartHeight - (chartHeight * CGFloat(tick) / CGFloat(topTick))
                     Text("\(tick)")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
-                        .position(x: 20, y: y)
+                        .position(x: 22, y: y)
                 }
             }
         }
+        .frame(height: 180)
     }
 
     private func yAxisStep(for maxVal: Int) -> Int {
