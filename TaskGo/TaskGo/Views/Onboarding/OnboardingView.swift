@@ -95,7 +95,6 @@ struct OnboardingView: View {
             .padding(.bottom, 20)
         }
         .onAppear {
-            ActivityTracker.shared.checkPermission()
             hasInputMonitoring = ActivityTracker.shared.hasPermission
         }
     }
@@ -193,7 +192,6 @@ struct OnboardingView: View {
                         Button("Enable") {
                             ActivityTracker.shared.requestPermission()
                             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                ActivityTracker.shared.checkPermission()
                                 hasInputMonitoring = ActivityTracker.shared.hasPermission
                             }
                         }

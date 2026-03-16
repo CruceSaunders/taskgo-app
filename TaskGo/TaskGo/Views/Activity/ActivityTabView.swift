@@ -53,12 +53,17 @@ struct ActivityTabView: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 10))
                 .foregroundStyle(.orange)
-            Text("Input Monitoring required")
-                .font(.system(size: 9))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Accessibility permission required")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.primary)
+                Text("Grant access, then restart the app")
+                    .font(.system(size: 8))
+                    .foregroundStyle(.secondary)
+            }
+            .lineLimit(1)
             Spacer()
-            Button("Enable") {
+            Button("Grant") {
                 ActivityTracker.shared.requestPermission()
             }
             .font(.system(size: 9, weight: .semibold))

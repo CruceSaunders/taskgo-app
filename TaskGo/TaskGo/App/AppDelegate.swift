@@ -20,16 +20,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         timerPanelController = TimerPanelController()
         pomodoroPanelController = PomodoroPanelController()
 
-        // Listen for open window requests
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(openMainWindow),
             name: .openMainWindow,
             object: nil
         )
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            let diagPath = FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent(".taskgo").appendingPathComponent("diag.txt")
+            try? "AppDelegate launched at \(Date())\n".write(to: diagPath, atomically: true, encoding: .utf8)
+            ActivityTracker.shared.start()
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        ActivityTracker.shared.stop()
         timerPanelController?.close()
         pomodoroPanelController?.close()
     }

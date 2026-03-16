@@ -80,7 +80,6 @@ struct TaskGoApp: App {
         DispatchQueue.main.async {
             hasSetup = true
             setupMainWindowContentHandler()
-            ActivityTracker.shared.start()
         }
     }
 
