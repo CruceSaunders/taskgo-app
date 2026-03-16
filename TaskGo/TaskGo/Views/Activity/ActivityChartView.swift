@@ -4,17 +4,13 @@ import Charts
 struct ActivityChartView: View {
     @EnvironmentObject var activityVM: ActivityViewModel
 
-    private var needsScroll: Bool {
-        activityVM.snappedZoomLevel < 60
-    }
-
     private var chartWidth: CGFloat {
         switch activityVM.snappedZoomLevel {
         case 1: return 4000
         case 5: return 2000
         case 15: return 1200
         case 30: return 800
-        default: return 0
+        default: return 700
         }
     }
 
@@ -24,21 +20,18 @@ struct ActivityChartView: View {
         case 5: return .fixed(4)
         case 15: return .fixed(6)
         case 30: return .fixed(10)
-        default: return .fixed(14)
+        default: return .fixed(18)
         }
     }
 
     var body: some View {
         if activityVM.chartData.isEmpty || activityVM.chartData.allSatisfy({ $0.value == 0 }) {
             emptyState
-        } else if needsScroll {
+        } else {
             ScrollView(.horizontal, showsIndicators: true) {
                 chart
                     .frame(width: chartWidth, height: 200)
             }
-        } else {
-            chart
-                .frame(height: 200)
         }
     }
 
@@ -65,7 +58,7 @@ struct ActivityChartView: View {
                 AxisValueLabel(anchor: .top) {
                     if let minute = value.as(Int.self) {
                         Text(formatHour(minute))
-                            .font(.system(size: 9))
+                            .font(.system(size: 11))
                     }
                 }
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.3))
@@ -76,7 +69,7 @@ struct ActivityChartView: View {
                 AxisValueLabel {
                     if let val = value.as(Int.self) {
                         Text("\(val)")
-                            .font(.system(size: 9))
+                            .font(.system(size: 10))
                     }
                 }
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.2, dash: [2, 2]))
