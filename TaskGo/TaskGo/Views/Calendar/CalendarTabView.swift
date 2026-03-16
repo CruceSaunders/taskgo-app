@@ -129,14 +129,27 @@ struct CalendarTabView: View {
             Divider()
             remindersToggle
         }
-        .sheet(item: $activeSheet) { sheet in
-            switch sheet {
-            case .createEvent:
-                createEventSheet
-                    .environmentObject(calendarVM)
-            case .eventDetail(let event):
-                eventDetailSheet(event)
-                    .environmentObject(calendarVM)
+        .overlay {
+            if activeSheet != nil {
+                ZStack {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                        .onTapGesture { activeSheet = nil }
+
+                    Group {
+                        switch activeSheet {
+                        case .createEvent:
+                            createEventSheet
+                        case .eventDetail(let event):
+                            eventDetailSheet(event)
+                        case .none:
+                            EmptyView()
+                        }
+                    }
+                    .background(Color(.windowBackgroundColor))
+                    .cornerRadius(10)
+                    .shadow(color: .black.opacity(0.25), radius: 12)
+                }
             }
         }
         .onAppear {
