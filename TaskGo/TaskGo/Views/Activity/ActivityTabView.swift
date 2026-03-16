@@ -144,18 +144,6 @@ struct ActivityTabView: View {
                     detailCell("Avg/min", "\(activityVM.averageInputsPerActiveMinute)")
                 }
 
-                if !activityVM.keyboardHealthy {
-                    HStack(spacing: 4) {
-                        Image(systemName: "exclamationmark.circle.fill")
-                            .font(.system(size: 8))
-                            .foregroundStyle(.orange)
-                        Text("Keyboard tracking degraded — using fallback")
-                            .font(.system(size: 8))
-                            .foregroundStyle(.orange)
-                        Spacer()
-                    }
-                    .padding(.top, 2)
-                }
             } else {
                 Text("No data")
                     .font(.system(size: 9))

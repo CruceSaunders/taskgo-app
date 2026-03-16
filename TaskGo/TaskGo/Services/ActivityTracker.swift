@@ -382,7 +382,7 @@ class ActivityTracker: ObservableObject {
 
     private func checkSTTApps() {
         let running = NSWorkspace.shared.runningApplications
-        var detected: [String] = []
+        var matchedBundles = Set<String>()
 
         for app in running {
             let bundleID = app.bundleIdentifier ?? ""
@@ -392,10 +392,12 @@ class ActivityTracker: ObservableObject {
             let matchesName = knownSTTAppNameSubstrings.contains { name.localizedCaseInsensitiveContains($0) }
 
             if matchesBundle || matchesName {
-                detected.append(name.isEmpty ? bundleID : name)
+                let key = knownSTTBundleIDPrefixes.first { bundleID.hasPrefix($0) } ?? bundleID
+                matchedBundles.insert(key)
             }
         }
 
+        let detected = Array(matchedBundles)
         let hasOtherActivity = currentClicks > 0 || currentScrolls > 0 || currentMovement > 0
 
         DispatchQueue.main.async { [weak self] in

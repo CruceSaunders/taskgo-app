@@ -20,11 +20,11 @@ struct ActivityChartView: View {
 
     private var barWidth: MarkDimension {
         switch activityVM.snappedZoomLevel {
-        case 1: return .fixed(1.5)
-        case 5: return .fixed(2)
-        case 15: return .fixed(3)
-        case 30: return .fixed(5)
-        default: return .fixed(8)
+        case 1: return .fixed(2)
+        case 5: return .fixed(4)
+        case 15: return .fixed(6)
+        case 30: return .fixed(10)
+        default: return .fixed(14)
         }
     }
 
@@ -43,14 +43,15 @@ struct ActivityChartView: View {
     }
 
     private var chart: some View {
-        Chart(activityVM.chartData) { point in
+        let bucketSize = Int(activityVM.snappedZoomLevel)
+
+        return Chart(activityVM.chartData) { point in
             BarMark(
-                x: .value("Time", point.bucketStart),
+                x: .value("Time", point.bucketStart + bucketSize / 2),
                 y: .value("Count", point.value),
                 width: barWidth
             )
             .foregroundStyle(by: .value("Series", point.series.rawValue))
-            .position(by: .value("Series", point.series.rawValue))
         }
         .chartForegroundStyleScale([
             "Keyboard": Color.blue,
@@ -64,10 +65,10 @@ struct ActivityChartView: View {
                 AxisValueLabel {
                     if let minute = value.as(Int.self) {
                         Text(formatMinute(minute))
-                            .font(.system(size: 7))
+                            .font(.system(size: 10))
                     }
                 }
-                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.2))
+                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.3))
             }
         }
         .chartYAxis {
@@ -75,7 +76,7 @@ struct ActivityChartView: View {
                 AxisValueLabel {
                     if let val = value.as(Int.self) {
                         Text("\(val)")
-                            .font(.system(size: 7))
+                            .font(.system(size: 9))
                     }
                 }
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.2, dash: [2, 2]))
@@ -90,8 +91,8 @@ struct ActivityChartView: View {
         case 1: return 30
         case 5: return 60
         case 15: return 60
-        case 30: return 60
-        default: return 60
+        case 30: return 120
+        default: return 120
         }
     }
 

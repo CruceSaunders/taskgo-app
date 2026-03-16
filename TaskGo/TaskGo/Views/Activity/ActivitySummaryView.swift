@@ -34,11 +34,11 @@ struct ActivitySummaryView: View {
         if !activityVM.sttAppsDetected.isEmpty {
             HStack(spacing: 4) {
                 Image(systemName: "mic.fill")
-                    .font(.system(size: 8))
+                    .font(.system(size: 9))
                     .foregroundStyle(.purple)
-                Text("Dictation: \(activityVM.sttAppsDetected.joined(separator: ", "))")
-                    .font(.system(size: 8))
-                    .foregroundStyle(.secondary)
+                Text("Voice input active")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.purple.opacity(0.8))
                 Spacer()
             }
             .padding(.horizontal, 4)
