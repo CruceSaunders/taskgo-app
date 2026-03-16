@@ -136,7 +136,6 @@ class CalendarService: ObservableObject {
             .filter { !$0.isAllDay }
             .sorted { $0.startDate < $1.startDate }
     }
-}
 
     func deleteEvent(identifier: String) throws {
         guard hasAccess else { throw CalendarWriteError.noAccess }
