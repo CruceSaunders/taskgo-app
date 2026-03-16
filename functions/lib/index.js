@@ -149,7 +149,6 @@ exports.listApiKeys = functions.https.onCall(async (request) => {
     const snapshot = await db
         .collection("apiKeys")
         .where("userId", "==", userId)
-        .orderBy("createdAt", "desc")
         .get();
     return {
         keys: snapshot.docs.map((doc) => {

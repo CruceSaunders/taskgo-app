@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseAuth
 
 struct APIKeyView: View {
     @State private var keys: [[String: Any]] = []
@@ -8,33 +9,44 @@ struct APIKeyView: View {
     @State private var generatedKey: String?
     @State private var errorMessage: String?
 
+    private var isSignedIn: Bool {
+        Auth.auth().currentUser != nil
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("API Keys")
                     .font(.system(size: 13, weight: .bold))
                 Spacer()
-                Button(action: { showGenerate = true }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 9))
-                        Text("New Key")
-                            .font(.system(size: 10, weight: .semibold))
+                if isSignedIn {
+                    Button(action: { showGenerate = true }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 9))
+                            Text("New Key")
+                                .font(.system(size: 10, weight: .semibold))
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.calmTeal)
+                        .foregroundStyle(.white)
+                        .cornerRadius(5)
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.calmTeal)
-                    .foregroundStyle(.white)
-                    .cornerRadius(5)
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
 
             Text("Use API keys to connect external tools to your TaskGo account.")
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
 
-            if isLoading {
+            if !isSignedIn {
+                Text("Sign in to manage API keys")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary.opacity(0.6))
+                    .padding(.vertical, 8)
+            } else if isLoading {
                 HStack {
                     Spacer()
                     ProgressView().scaleEffect(0.7)
@@ -62,7 +74,9 @@ struct APIKeyView: View {
         .padding(12)
         .background(Color.secondary.opacity(0.04))
         .cornerRadius(8)
-        .onAppear { loadKeys() }
+        .onAppear {
+            if isSignedIn { loadKeys() }
+        }
         .sheet(isPresented: $showGenerate) {
             generateSheet
         }
@@ -189,6 +203,7 @@ struct APIKeyView: View {
     }
 
     private func loadKeys() {
+        guard isSignedIn else { return }
         isLoading = true
         errorMessage = nil
         Task {
@@ -211,6 +226,7 @@ struct APIKeyView: View {
         let label = newKeyLabel.trimmingCharacters(in: .whitespaces)
         showGenerate = false
         isLoading = true
+        errorMessage = nil
         Task {
             do {
                 let result = try await FirestoreService.shared.generateApiKey(label: label)
@@ -231,6 +247,7 @@ struct APIKeyView: View {
 
     private func revokeKey(prefix: String) {
         isLoading = true
+        errorMessage = nil
         Task {
             do {
                 try await FirestoreService.shared.revokeApiKey(prefix: prefix)

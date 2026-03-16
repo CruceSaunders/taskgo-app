@@ -443,7 +443,7 @@ class FirestoreService {
 
     func listApiKeys() async throws -> [[String: Any]] {
         let functions = Functions.functions()
-        let result = try await functions.httpsCallable("listApiKeys").call([:])
+        let result = try await functions.httpsCallable("listApiKeys").call()
         guard let data = result.data as? [String: Any],
               let keys = data["keys"] as? [[String: Any]] else {
             return []
