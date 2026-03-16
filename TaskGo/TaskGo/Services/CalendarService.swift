@@ -138,14 +138,25 @@ class CalendarService: ObservableObject {
     }
 }
 
+    func deleteEvent(identifier: String) throws {
+        guard hasAccess else { throw CalendarWriteError.noAccess }
+        guard let event = store.event(withIdentifier: identifier) else {
+            throw CalendarWriteError.eventNotFound
+        }
+        try store.remove(event, span: .thisEvent)
+    }
+}
+
 enum CalendarWriteError: LocalizedError {
     case noAccess
     case calendarNotFound
+    case eventNotFound
 
     var errorDescription: String? {
         switch self {
         case .noAccess: return "Calendar access not granted"
         case .calendarNotFound: return "Selected calendar not found"
+        case .eventNotFound: return "Event not found"
         }
     }
 }
