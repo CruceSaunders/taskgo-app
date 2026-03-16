@@ -30,6 +30,8 @@ class ActivityTracker: ObservableObject {
     private var flushTimer: Timer?
     private var retryTimer: Timer?
     private var sttCheckTimer: Timer?
+    private var micSampleTimer: Timer?
+    private var hidManager: IOHIDManager?
 
     private var keyboardMonitor: Any?
     private var mouseClickMonitor: Any?
@@ -45,6 +47,7 @@ class ActivityTracker: ObservableObject {
     private var currentScrolls: Int = 0
     private var currentMovement: Int = 0
     private var currentDictation: Int = 0
+    private var currentMicSeconds: Int = 0
 
     // MARK: - Per-Event-Type Health Counters (lifetime since start)
 
@@ -53,6 +56,11 @@ class ActivityTracker: ObservableObject {
     private(set) var scrollEventsReceived: Int = 0
     private(set) var moveEventsReceived: Int = 0
     private var totalEventsReceived: Int = 0
+
+    // MARK: - HID Keyboard State
+
+    private var hidKeyboardActive = false
+    private var lastHIDKeyboardTime: Date = .distantPast
 
     // MARK: - Debounce State
 
@@ -63,6 +71,7 @@ class ActivityTracker: ObservableObject {
 
     private let movementDebounceInterval: TimeInterval = 1.0
     private let scrollDebounceInterval: TimeInterval = 0.3
+    private let micSampleInterval: TimeInterval = 5.0
 
     private let knownSTTBundleIDPrefixes: [String] = [
         "ai.wispr",
@@ -149,11 +158,14 @@ class ActivityTracker: ObservableObject {
             return
         }
 
+        startHIDKeyboardMonitoring()
+
         retryTimer?.invalidate()
         retryTimer = nil
         startMinuteTimer()
         startFlushTimer()
         startSTTMonitor()
+        startMicSampler()
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak self] in
             self?.verifyEventFlow()
@@ -173,6 +185,9 @@ class ActivityTracker: ObservableObject {
         retryTimer = nil
         sttCheckTimer?.invalidate()
         sttCheckTimer = nil
+        micSampleTimer?.invalidate()
+        micSampleTimer = nil
+        stopHIDKeyboardMonitoring()
         isTracking = false
         diagLog("ActivityTracker stopped")
     }
@@ -193,6 +208,68 @@ class ActivityTracker: ObservableObject {
         if let m = mouseMoveMonitor { NSEvent.removeMonitor(m); mouseMoveMonitor = nil }
         if let m = localKeyboardMonitor { NSEvent.removeMonitor(m); localKeyboardMonitor = nil }
         if let m = localMouseClickMonitor { NSEvent.removeMonitor(m); localMouseClickMonitor = nil }
+    }
+
+    // MARK: - IOKit HID Keyboard Monitoring
+
+    private func startHIDKeyboardMonitoring() {
+        guard hidManager == nil else { return }
+
+        let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
+        let matchingDict: [[String: Any]] = [
+            [kIOHIDDeviceUsagePageKey as String: kHIDPage_GenericDesktop,
+             kIOHIDDeviceUsageKey as String: kHIDUsage_GD_Keyboard],
+            [kIOHIDDeviceUsagePageKey as String: kHIDPage_GenericDesktop,
+             kIOHIDDeviceUsageKey as String: kHIDUsage_GD_Keypad]
+        ]
+        IOHIDManagerSetDeviceMatchingMultiple(manager, matchingDict as CFArray)
+
+        let callback: IOHIDValueCallback = { context, _, _, value in
+            guard let context = context else { return }
+            let tracker = Unmanaged<ActivityTracker>.fromOpaque(context).takeUnretainedValue()
+
+            let element = IOHIDValueGetElement(value)
+            let usagePage = IOHIDElementGetUsagePage(element)
+            let usage = IOHIDElementGetUsage(element)
+            let intValue = IOHIDValueGetIntegerValue(value)
+
+            guard usagePage == kHIDPage_KeyboardOrKeypad,
+                  usage >= 4, usage <= 231,
+                  intValue == 1 else { return }
+
+            tracker.keyboardEventsReceived += 1
+            tracker.currentKeyboard += 1
+            tracker.totalEventsReceived += 1
+            tracker.lastHIDKeyboardTime = Date()
+
+            if !tracker.hidKeyboardActive {
+                tracker.hidKeyboardActive = true
+                tracker.diagLog("HID keyboard events flowing")
+            }
+
+            if !tracker.eventsAreFlowing {
+                DispatchQueue.main.async { tracker.eventsAreFlowing = true }
+            }
+            NotificationCenter.default.post(name: .activityDetected, object: nil)
+        }
+
+        IOHIDManagerRegisterInputValueCallback(manager, callback, Unmanaged.passUnretained(self).toOpaque())
+        IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue)
+        let openResult = IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
+
+        if openResult == kIOReturnSuccess {
+            hidManager = manager
+            diagLog("HID keyboard monitoring started")
+        } else {
+            diagLog("HID keyboard monitoring failed to open: \(openResult)")
+        }
+    }
+
+    private func stopHIDKeyboardMonitoring() {
+        guard let manager = hidManager else { return }
+        IOHIDManagerClose(manager, IOOptionBits(kIOHIDOptionsTypeNone))
+        IOHIDManagerUnscheduleFromRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue)
+        hidManager = nil
     }
 
     // MARK: - CGEvent Tap
@@ -322,20 +399,13 @@ class ActivityTracker: ObservableObject {
 
         let hasOtherEvents = clickEventsReceived > 0 || scrollEventsReceived > 0 || moveEventsReceived > 0
 
-        if keyboardEventsReceived == 0 && hasOtherEvents && eventTap == nil {
-            diagLog("Keyboard events not flowing via NSEvent (clicks=\(clickEventsReceived), scrolls=\(scrollEventsReceived), moves=\(moveEventsReceived)). Installing CGEvent tap fallback.")
-            keyboardHealthy = false
-
-            if let m = keyboardMonitor {
-                NSEvent.removeMonitor(m)
-                keyboardMonitor = nil
-            }
-
-            let keyboardMask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
-            if startCGEventTapTracking(eventMask: keyboardMask) {
-                diagLog("CGEvent keyboard-only fallback installed")
+        if keyboardEventsReceived == 0 && hasOtherEvents {
+            if hidKeyboardActive {
+                diagLog("NSEvent/CGEvent keyboard failed but HID is catching keyboard events — healthy")
+                keyboardHealthy = true
             } else {
-                diagLog("CGEvent keyboard fallback failed — keyboard tracking unavailable")
+                diagLog("Keyboard events not flowing via NSEvent or HID (clicks=\(clickEventsReceived), scrolls=\(scrollEventsReceived), moves=\(moveEventsReceived))")
+                keyboardHealthy = false
             }
         } else if totalEventsReceived == 0 {
             diagLog("No events received after 30s — permission likely denied")
@@ -344,7 +414,19 @@ class ActivityTracker: ObservableObject {
         } else {
             keyboardHealthy = true
             eventsAreFlowing = true
-            diagLog("Event flow OK: kb=\(keyboardEventsReceived) click=\(clickEventsReceived) scroll=\(scrollEventsReceived) move=\(moveEventsReceived)")
+            diagLog("Event flow OK: kb=\(keyboardEventsReceived) click=\(clickEventsReceived) scroll=\(scrollEventsReceived) move=\(moveEventsReceived) hidKb=\(hidKeyboardActive)")
+        }
+    }
+
+    // MARK: - Microphone Sampling (every 5 seconds)
+
+    private func startMicSampler() {
+        micSampleTimer?.invalidate()
+        micSampleTimer = Timer.scheduledTimer(withTimeInterval: micSampleInterval, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            if self.isMicrophoneInUse() {
+                self.currentMicSeconds += Int(self.micSampleInterval)
+            }
         }
     }
 
@@ -399,14 +481,9 @@ class ActivityTracker: ObservableObject {
         }
 
         let detected = Array(matchedBundles)
-        let hasOtherActivity = currentClicks > 0 || currentScrolls > 0 || currentMovement > 0
 
         DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.sttAppsDetected = detected
-            if !detected.isEmpty && hasOtherActivity && self.currentKeyboard == 0 {
-                self.currentDictation = max(self.currentDictation, 1)
-            }
+            self?.sttAppsDetected = detected
         }
     }
 
@@ -472,13 +549,16 @@ class ActivityTracker: ObservableObject {
         let sc = currentScrolls
         let mv = currentMovement
         let dc = currentDictation
-        let micActive = isMicrophoneInUse() ? 1 : 0
+        let micSecs = currentMicSeconds
+        let micActive = micSecs >= 3 ? 1 : 0
+        let speakingValue = micSecs
 
         currentKeyboard = 0
         currentClicks = 0
         currentScrolls = 0
         currentMovement = 0
         currentDictation = 0
+        currentMicSeconds = 0
 
         guard kb > 0 || cl > 0 || sc > 0 || mv > 0 || dc > 0 || micActive > 0 else { return }
 
@@ -488,7 +568,7 @@ class ActivityTracker: ObservableObject {
             clicks: cl,
             scrolls: sc,
             movement: mv,
-            dictation: dc,
+            dictation: speakingValue,
             meeting: micActive
         )
 
