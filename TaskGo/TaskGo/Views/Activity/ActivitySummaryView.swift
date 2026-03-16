@@ -30,19 +30,6 @@ struct ActivitySummaryView: View {
                 color: .orange
             )
         }
-
-        if !activityVM.sttAppsDetected.isEmpty {
-            HStack(spacing: 4) {
-                Image(systemName: "mic.fill")
-                    .font(.system(size: 9))
-                    .foregroundStyle(.purple)
-                Text("Voice input active")
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundStyle(.purple.opacity(0.8))
-                Spacer()
-            }
-            .padding(.horizontal, 4)
-        }
     }
 
     private func summaryCard(title: String, value: String, icon: String, color: Color) -> some View {
