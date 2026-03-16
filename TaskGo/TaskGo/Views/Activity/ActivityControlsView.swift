@@ -4,43 +4,38 @@ struct ActivityControlsView: View {
     @EnvironmentObject var activityVM: ActivityViewModel
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 4) {
             HStack(spacing: 4) {
                 ForEach(DataSeries.allCases) { series in
                     seriesToggle(series)
                 }
+                Spacer()
             }
 
-            HStack(spacing: 6) {
-                Image(systemName: "minus.magnifyingglass")
-                    .font(.system(size: 9))
-                    .foregroundStyle(.secondary)
-
-                Slider(
-                    value: $activityVM.zoomLevel,
-                    in: 1...60,
-                    step: 1
-                )
-                .onChange(of: activityVM.zoomLevel) { _, newValue in
-                    let snapped = ActivityViewModel.zoomSteps.min(by: {
-                        abs($0 - newValue) < abs($1 - newValue)
-                    }) ?? 60
-                    if activityVM.zoomLevel != snapped {
-                        activityVM.zoomLevel = snapped
-                    }
+            HStack(spacing: 4) {
+                ForEach(ActivityViewModel.zoomSteps, id: \.self) { step in
+                    zoomButton(step)
                 }
-
-                Image(systemName: "plus.magnifyingglass")
-                    .font(.system(size: 9))
-                    .foregroundStyle(.secondary)
-
-                Text(activityVM.zoomLabel)
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 42, alignment: .trailing)
+                Spacer()
             }
         }
-        .padding(.vertical, 4)
+    }
+
+    private func zoomButton(_ step: Double) -> some View {
+        let isSelected = activityVM.snappedZoomLevel == step
+        let label = step >= 60 ? "1h" : "\(Int(step))m"
+        return Button(action: {
+            activityVM.zoomLevel = step
+        }) {
+            Text(label)
+                .font(.system(size: 8, weight: isSelected ? .bold : .medium))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(isSelected ? Color.calmTeal.opacity(0.15) : Color.secondary.opacity(0.04))
+                .foregroundStyle(isSelected ? Color.calmTeal : Color.secondary)
+                .cornerRadius(4)
+        }
+        .buttonStyle(.plain)
     }
 
     private func seriesToggle(_ series: DataSeries) -> some View {
@@ -54,7 +49,7 @@ struct ActivityControlsView: View {
                 activityVM.visibleSeries.insert(series)
             }
         }) {
-            HStack(spacing: 3) {
+            HStack(spacing: 2) {
                 Circle()
                     .fill(colorForSeries(series))
                     .frame(width: 5, height: 5)
@@ -63,7 +58,7 @@ struct ActivityControlsView: View {
                     .lineLimit(1)
                     .fixedSize()
             }
-            .padding(.horizontal, 6)
+            .padding(.horizontal, 5)
             .padding(.vertical, 3)
             .background(isOn ? colorForSeries(series).opacity(0.12) : Color.secondary.opacity(0.04))
             .cornerRadius(4)

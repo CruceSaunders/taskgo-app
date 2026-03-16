@@ -11,7 +11,7 @@ struct ActivityTabView: View {
 
             dateHeader
                 .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .padding(.vertical, 6)
 
             Divider()
 
@@ -22,25 +22,24 @@ struct ActivityTabView: View {
                 Spacer()
             } else {
                 ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 10) {
+                    VStack(spacing: 8) {
                         ActivitySummaryView()
-                            .padding(.horizontal, 12)
-
-                        ActivityChartView()
-                            .frame(height: 200)
                             .padding(.horizontal, 12)
 
                         ActivityControlsView()
                             .padding(.horizontal, 12)
+
+                        ActivityChartView()
+                            .padding(.horizontal, 8)
 
                         Divider()
                             .padding(.horizontal, 12)
 
                         detailSection
                             .padding(.horizontal, 12)
-                            .padding(.bottom, 12)
+                            .padding(.bottom, 8)
                     }
-                    .padding(.top, 8)
+                    .padding(.top, 6)
                 }
             }
         }
@@ -49,15 +48,13 @@ struct ActivityTabView: View {
         }
     }
 
-    // MARK: - Permission Banner
-
     private var permissionBanner: some View {
         HStack(spacing: 6) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 10))
                 .foregroundStyle(.orange)
-            Text("Input Monitoring permission required")
-                .font(.system(size: 10))
+            Text("Input Monitoring required")
+                .font(.system(size: 9))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             Spacer()
@@ -69,18 +66,16 @@ struct ActivityTabView: View {
             .tint(.orange)
             .controlSize(.mini)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 5)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
         .background(Color.orange.opacity(0.08))
     }
-
-    // MARK: - Date Header
 
     private var dateHeader: some View {
         HStack {
             Button(action: { activityVM.goToPreviousDay() }) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
@@ -89,10 +84,10 @@ struct ActivityTabView: View {
 
             VStack(spacing: 1) {
                 Text(activityVM.displayDateString)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                 if let first = activityVM.firstActivityTime, let last = activityVM.lastActivityTime {
                     Text("\(first) - \(last)")
-                        .font(.system(size: 9))
+                        .font(.system(size: 8))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -100,18 +95,18 @@ struct ActivityTabView: View {
             Spacer()
 
             if activityVM.isToday {
-                HStack(spacing: 3) {
+                HStack(spacing: 2) {
                     Circle()
-                        .fill(Color.green)
+                        .fill(ActivityTracker.shared.isTracking ? Color.green : Color.orange)
                         .frame(width: 5, height: 5)
-                    Text("Live")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.green)
+                    Text(ActivityTracker.shared.isTracking ? "Live" : "Off")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(ActivityTracker.shared.isTracking ? .green : .orange)
                 }
             } else {
                 Button(action: { activityVM.goToNextDay() }) {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
@@ -119,46 +114,44 @@ struct ActivityTabView: View {
         }
     }
 
-    // MARK: - Detail Section
-
     private var detailSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             Text("Details")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(.secondary)
 
             if let day = activityVM.currentDay {
                 LazyVGrid(columns: [
                     GridItem(.flexible()),
+                    GridItem(.flexible()),
                     GridItem(.flexible())
-                ], spacing: 4) {
-                    detailRow("Total Inputs", value: "\(day.totalInputs)")
-                    detailRow("Active Minutes", value: "\(day.totalActiveMinutes)")
-                    detailRow("Engaged Minutes", value: "\(day.totalEngagedMinutes)")
-                    detailRow("Scrolls", value: "\(day.totalScrolls)")
-                    detailRow("Mouse Moves", value: "\(day.totalMovement)")
-                    detailRow("Avg/min", value: "\(activityVM.averageInputsPerActiveMinute)")
+                ], spacing: 3) {
+                    detailCell("Inputs", "\(day.totalInputs)")
+                    detailCell("Active", "\(day.totalActiveMinutes)m")
+                    detailCell("Engaged", "\(day.totalEngagedMinutes)m")
+                    detailCell("Scrolls", "\(day.totalScrolls)")
+                    detailCell("Moves", "\(day.totalMovement)")
+                    detailCell("Avg/min", "\(activityVM.averageInputsPerActiveMinute)")
                 }
             } else {
-                Text("No data available")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary.opacity(0.6))
+                Text("No data")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.secondary.opacity(0.5))
             }
         }
     }
 
-    private func detailRow(_ label: String, value: String) -> some View {
-        HStack {
-            Text(label)
-                .font(.system(size: 9))
-                .foregroundStyle(.secondary)
-            Spacer()
+    private func detailCell(_ label: String, _ value: String) -> some View {
+        VStack(spacing: 1) {
             Text(value)
-                .font(.system(size: 9, weight: .semibold))
+                .font(.system(size: 10, weight: .bold))
+            Text(label)
+                .font(.system(size: 7))
+                .foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 3)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 4)
         .background(Color.secondary.opacity(0.04))
-        .cornerRadius(3)
+        .cornerRadius(4)
     }
 }

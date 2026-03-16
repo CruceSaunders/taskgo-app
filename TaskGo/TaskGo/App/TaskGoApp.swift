@@ -61,7 +61,6 @@ struct TaskGoApp: App {
                     taskGoViewModel.xpVM = xpViewModel
                     RecurrenceService.shared.start()
                     plannerViewModel.startListening()
-                    ActivityTracker.shared.start()
                 }
         } label: {
             Image(systemName: "bolt.circle.fill")
@@ -81,6 +80,7 @@ struct TaskGoApp: App {
         DispatchQueue.main.async {
             hasSetup = true
             setupMainWindowContentHandler()
+            ActivityTracker.shared.start()
         }
     }
 

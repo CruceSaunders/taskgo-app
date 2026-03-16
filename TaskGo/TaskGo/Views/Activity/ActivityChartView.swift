@@ -4,20 +4,46 @@ import Charts
 struct ActivityChartView: View {
     @EnvironmentObject var activityVM: ActivityViewModel
 
-    var body: some View {
-        if activityVM.chartData.isEmpty {
-            emptyState
-        } else {
-            chartContent
+    private var bucketCount: Int {
+        1440 / max(1, Int(activityVM.snappedZoomLevel))
+    }
+
+    private var needsScroll: Bool {
+        activityVM.snappedZoomLevel < 60
+    }
+
+    private var chartWidth: CGFloat {
+        let zoom = activityVM.snappedZoomLevel
+        switch zoom {
+        case 1: return 4000
+        case 5: return 2000
+        case 15: return 1200
+        case 30: return 800
+        default: return 0
         }
     }
 
-    private var chartContent: some View {
+    var body: some View {
+        if activityVM.chartData.isEmpty || activityVM.chartData.allSatisfy({ $0.value == 0 }) {
+            emptyState
+        } else if needsScroll {
+            ScrollView(.horizontal, showsIndicators: true) {
+                chart
+                    .frame(width: chartWidth, height: 170)
+            }
+        } else {
+            chart
+                .frame(height: 170)
+        }
+    }
+
+    private var chart: some View {
         Chart(activityVM.chartData) { point in
             if activityVM.snappedZoomLevel >= 30 {
                 BarMark(
-                    x: .value("Time", point.label),
-                    y: .value("Count", point.value)
+                    x: .value("Time", point.bucketStart),
+                    y: .value("Count", point.value),
+                    width: activityVM.snappedZoomLevel >= 60 ? 8 : 5
                 )
                 .foregroundStyle(by: .value("Series", point.series.rawValue))
                 .position(by: .value("Series", point.series.rawValue))
@@ -27,7 +53,7 @@ struct ActivityChartView: View {
                     y: .value("Count", point.value)
                 )
                 .foregroundStyle(by: .value("Series", point.series.rawValue))
-                .opacity(0.15)
+                .opacity(0.12)
 
                 LineMark(
                     x: .value("Minute", point.bucketStart),
@@ -44,27 +70,17 @@ struct ActivityChartView: View {
             "Scrolls": Color.orange,
             "Movement": Color.gray
         ])
+        .chartXScale(domain: 0...1440)
         .chartXAxis {
-            if activityVM.snappedZoomLevel >= 30 {
-                AxisMarks(values: .automatic(desiredCount: 8)) { value in
-                    AxisValueLabel {
-                        if let label = value.as(String.self) {
-                            Text(label)
-                                .font(.system(size: 7))
-                        }
+            let interval = Double(xAxisInterval)
+            AxisMarks(values: .stride(by: interval)) { value in
+                AxisValueLabel {
+                    if let minute = value.as(Int.self) {
+                        Text(formatMinute(minute))
+                            .font(.system(size: 7))
                     }
-                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.3))
                 }
-            } else {
-                AxisMarks(values: .automatic(desiredCount: 8)) { value in
-                    AxisValueLabel {
-                        if let minute = value.as(Int.self) {
-                            Text(formatMinuteOfDay(minute))
-                                .font(.system(size: 7))
-                        }
-                    }
-                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.3))
-                }
+                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.2))
             }
         }
         .chartYAxis {
@@ -75,10 +91,33 @@ struct ActivityChartView: View {
                             .font(.system(size: 7))
                     }
                 }
-                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.3, dash: [3, 3]))
+                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.2, dash: [2, 2]))
             }
         }
         .chartLegend(.hidden)
+        .padding(.leading, 4)
+    }
+
+    private var xAxisInterval: Int {
+        let zoom = activityVM.snappedZoomLevel
+        switch zoom {
+        case 1: return 30
+        case 5: return 60
+        case 15: return 60
+        case 30: return 60
+        default: return 120
+        }
+    }
+
+    private func formatMinute(_ minute: Int) -> String {
+        let h = minute / 60
+        let m = minute % 60
+        let ampm = h >= 12 ? "p" : "a"
+        let h12 = h == 0 ? 12 : (h > 12 ? h - 12 : h)
+        if m == 0 {
+            return "\(h12)\(ampm)"
+        }
+        return String(format: "%d:%02d", h12, m)
     }
 
     private var emptyState: some View {
@@ -94,16 +133,5 @@ struct ActivityChartView: View {
                 .foregroundStyle(.secondary.opacity(0.5))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private func formatMinuteOfDay(_ minute: Int) -> String {
-        let h = minute / 60
-        let m = minute % 60
-        let ampm = h >= 12 ? "p" : "a"
-        let h12 = h == 0 ? 12 : (h > 12 ? h - 12 : h)
-        if m == 0 {
-            return "\(h12)\(ampm)"
-        }
-        return String(format: "%d:%02d", h12, m)
     }
 }
