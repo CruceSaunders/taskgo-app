@@ -72,9 +72,10 @@ struct SignInView: View {
             .tint(Color.calmTeal)
             .controlSize(.large)
             .padding(.horizontal, 24)
-            .disabled(email.isEmpty || password.isEmpty || authVM.isLoading)
+            .disabled(email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || password.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || authVM.isLoading)
 
             Button("Don't have an account? Sign Up") {
+                authVM.errorMessage = nil
                 switchToSignUp()
             }
             .font(.caption)
@@ -150,9 +151,10 @@ struct SignUpView: View {
             .tint(Color.calmTeal)
             .controlSize(.large)
             .padding(.horizontal, 24)
-            .disabled(email.isEmpty || password.count < 6 || username.isEmpty || displayName.isEmpty || authVM.isLoading)
+            .disabled(email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || password.trimmingCharacters(in: .whitespacesAndNewlines).count < 6 || username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || authVM.isLoading)
 
             Button("Already have an account? Sign In") {
+                authVM.errorMessage = nil
                 switchToSignIn()
             }
             .font(.caption)

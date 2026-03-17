@@ -38,7 +38,7 @@ class RichTextEditorCoordinator: ObservableObject {
         let range = tv.selectedRange()
 
         if range.length > 0 {
-            let storage = tv.textStorage!
+            guard let storage = tv.textStorage else { return }
             storage.beginEditing()
             storage.enumerateAttribute(.font, in: range) { value, attrRange, _ in
                 guard let font = value as? NSFont else { return }
@@ -70,7 +70,7 @@ class RichTextEditorCoordinator: ObservableObject {
         let range = tv.selectedRange()
 
         if range.length > 0 {
-            let storage = tv.textStorage!
+            guard let storage = tv.textStorage else { return }
             storage.beginEditing()
             storage.enumerateAttribute(.font, in: range) { value, attrRange, _ in
                 guard let font = value as? NSFont else { return }
@@ -101,7 +101,7 @@ class RichTextEditorCoordinator: ObservableObject {
         let range = tv.selectedRange()
 
         if range.length > 0 {
-            let storage = tv.textStorage!
+            guard let storage = tv.textStorage else { return }
             storage.beginEditing()
             var has = false
             storage.enumerateAttribute(.underlineStyle, in: range) { val, _, _ in
@@ -132,7 +132,7 @@ class RichTextEditorCoordinator: ObservableObject {
         let font = NSFont.systemFont(ofSize: size, weight: weight)
 
         if range.length > 0 {
-            let storage = tv.textStorage!
+            guard let storage = tv.textStorage else { return }
             storage.beginEditing()
             storage.addAttribute(.font, value: font, range: range)
             storage.endEditing()

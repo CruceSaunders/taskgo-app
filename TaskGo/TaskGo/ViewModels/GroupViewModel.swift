@@ -62,10 +62,12 @@ class GroupViewModel: ObservableObject {
     }
 
     func renameGroup(_ group: TaskGroup, to newName: String) async {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
         guard let userId = Auth.auth().currentUser?.uid else { return }
 
         var updated = group
-        updated.name = newName
+        updated.name = trimmed
 
         do {
             try await firestoreService.updateGroup(updated, userId: userId)
