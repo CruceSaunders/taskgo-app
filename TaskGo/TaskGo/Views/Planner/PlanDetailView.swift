@@ -8,6 +8,10 @@ struct PlanDetailView: View {
     @State private var scheduleEnd = Calendar.current.date(from: DateComponents(hour: 17, minute: 0)) ?? Date()
     @State private var selectedCalId: String = ""
     @State private var calendarInfos: [WritableCalendarInfo] = []
+    @State private var breakEnabled = false
+    @State private var breakMinutesValue: Int = 10
+    @State private var breakCountValue: Int = 2
+    @State private var confirmRemoveEvents = false
 
     // Drag-and-drop state for objectives
     @State private var draggingObjectiveId: String?
@@ -59,6 +63,9 @@ struct PlanDetailView: View {
             scheduleEnd = cal.date(from: comps) ?? scheduleEnd
         }
         selectedCalId = plan.calendarId ?? ""
+        breakEnabled = plan.breakEnabled ?? false
+        breakMinutesValue = plan.breakMinutes ?? 10
+        breakCountValue = plan.breakCount ?? 2
     }
 
     // MARK: - Header
@@ -132,11 +139,31 @@ struct PlanDetailView: View {
                         }
                         .buttonStyle(.plain)
                     } else {
+                        if plan.lastConvertedAt != nil {
+                            Button(action: {
+                                confirmRemoveEvents = true
+                            }) {
+                                Image(systemName: "calendar.badge.minus")
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(.red.opacity(0.6))
+                            }
+                            .buttonStyle(.plain)
+                            .help("Remove converted events from calendar")
+                            .alert("Remove from Calendar?", isPresented: $confirmRemoveEvents) {
+                                Button("Remove", role: .destructive) {
+                                    plannerVM.removeConvertedEvents()
+                                }
+                                Button("Cancel", role: .cancel) {}
+                            } message: {
+                                Text("This will delete the events that were created from this plan. Your other calendar events will not be affected.")
+                            }
+                        }
+
                         Button(action: { plannerVM.convertToCalendar() }) {
                             HStack(spacing: 3) {
                                 Image(systemName: "calendar.badge.plus")
                                     .font(.system(size: 9))
-                                Text(plan.lastConvertedAt != nil ? "Reconvert" : "To Cal")
+                                Text(plan.lastConvertedAt != nil ? "Reconvert" : "Convert to Calendar")
                                     .font(.system(size: 9, weight: .medium))
                                     .lineLimit(1)
                             }
@@ -292,6 +319,35 @@ struct PlanDetailView: View {
                         }
                     }
 
+                    VStack(alignment: .leading, spacing: 6) {
+                        Toggle(isOn: $breakEnabled) {
+                            Text("Include periodic breaks")
+                                .font(.system(size: 10))
+                        }
+                        .toggleStyle(.checkbox)
+
+                        if breakEnabled {
+                            HStack(spacing: 8) {
+                                HStack(spacing: 4) {
+                                    Text("Duration")
+                                        .font(.system(size: 9))
+                                        .foregroundStyle(.primary.opacity(0.5))
+                                    Stepper("\(breakMinutesValue)m", value: $breakMinutesValue, in: 5...30, step: 5)
+                                        .font(.system(size: 9))
+                                        .frame(width: 90)
+                                }
+                                HStack(spacing: 4) {
+                                    Text("Count")
+                                        .font(.system(size: 9))
+                                        .foregroundStyle(.primary.opacity(0.5))
+                                    Stepper("\(breakCountValue)", value: $breakCountValue, in: 1...10)
+                                        .font(.system(size: 9))
+                                        .frame(width: 70)
+                                }
+                            }
+                        }
+                    }
+
                     HStack {
                         Spacer()
                         if plan.hasScheduleConfig {
@@ -330,6 +386,7 @@ struct PlanDetailView: View {
         if !selectedCalId.isEmpty {
             plannerVM.updateCalendarId(selectedCalId)
         }
+        plannerVM.updateBreakConfig(enabled: breakEnabled, minutes: breakMinutesValue, count: breakCountValue)
         showScheduleConfig = false
     }
 

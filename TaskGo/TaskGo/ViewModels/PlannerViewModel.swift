@@ -395,6 +395,15 @@ class PlannerViewModel: ObservableObject {
         markDirtyAndSave()
     }
 
+    func updateBreakConfig(enabled: Bool, minutes: Int, count: Int) {
+        guard selectedPlan != nil else { return }
+        selectedPlan?.breakEnabled = enabled
+        selectedPlan?.breakMinutes = minutes
+        selectedPlan?.breakCount = count
+        selectedPlan?.updatedAt = Date()
+        markDirtyAndSave()
+    }
+
     // MARK: - Duration Management
 
     func updateObjectiveDuration(objectiveId: String, date: String?, minutes: Int?) {
@@ -458,7 +467,9 @@ class PlannerViewModel: ObservableObject {
 
             var overflowDetails: [DayOverflowDetail] = []
             for dateStr in activeDays {
-                let neededMinutes = plan.totalMinutesForDay(dateStr)
+                let taskMinutes = plan.totalMinutesForDay(dateStr)
+                let breakMinutesForDay = plan.totalBreakMinutesForDay(dateStr)
+                let neededMinutes = taskMinutes + breakMinutesForDay
                 guard neededMinutes > 0 else { continue }
                 guard let date = Plan.dateFmt.date(from: dateStr) else { continue }
 
@@ -476,6 +487,14 @@ class PlannerViewModel: ObservableObject {
                 return
             }
 
+            // Delete old events if reconverting
+            if forceReconvert, let oldIds = plan.createdEventIds {
+                for eventId in oldIds {
+                    try? calendarService.deleteEvent(identifier: eventId)
+                }
+                selectedPlan?.createdEventIds = nil
+            }
+
             conversionState = .scheduling
             var allScheduledBlocks: [(date: Date, blocks: [ScheduledBlock])] = []
 
@@ -488,6 +507,9 @@ class PlannerViewModel: ObservableObject {
                     ScheduleTaskInput(objectiveId: obj.id, title: obj.text, durationMinutes: obj.estimatedMinutes ?? 30)
                 }
 
+                let dayBreakCount = plan.effectiveBreakCountForDay(dateStr)
+                let dayBreakMinutes = plan.breakMinutes ?? 10
+
                 let existingEvents = calendarService.fetchEvents(for: date, startTime: startTime, endTime: endTime)
                 let timeFmt = DateFormatter()
                 timeFmt.dateFormat = "HH:mm"
@@ -499,14 +521,16 @@ class PlannerViewModel: ObservableObject {
                     let blocks = try await aiScheduler.generateSchedule(
                         tasks: taskInputs, existingEvents: existingInputs,
                         officeHoursStart: startTime, officeHoursEnd: endTime,
-                        dateLabel: Plan.displayDayLabel(for: dateStr)
+                        dateLabel: Plan.displayDayLabel(for: dateStr),
+                        breakCount: dayBreakCount, breakMinutes: dayBreakMinutes
                     )
                     allScheduledBlocks.append((date: date, blocks: blocks))
                 } catch {
                     print("[Planner] AI scheduling failed for \(dateStr): \(error). Using fallback.")
                     let fallbackBlocks = aiScheduler.sequentialFallback(
                         tasks: taskInputs, existingEvents: existingInputs,
-                        officeHoursStart: startTime, officeHoursEnd: endTime
+                        officeHoursStart: startTime, officeHoursEnd: endTime,
+                        breakCount: dayBreakCount, breakMinutes: dayBreakMinutes
                     )
                     allScheduledBlocks.append((date: date, blocks: fallbackBlocks))
                 }
@@ -514,6 +538,7 @@ class PlannerViewModel: ObservableObject {
 
             conversionState = .creatingEvents
             var totalCreated = 0
+            var newEventIds: [String] = []
             let cal = Calendar.current
             let timeFmt = DateFormatter()
             timeFmt.dateFormat = "HH:mm"
@@ -529,7 +554,8 @@ class PlannerViewModel: ObservableObject {
                           let eventEnd = cal.date(bySettingHour: endComps.hour ?? 0, minute: endComps.minute ?? 0, second: 0, of: startOfDay) else { continue }
 
                     do {
-                        _ = try calendarService.createEvent(title: block.title, startDate: eventStart, endDate: eventEnd, calendarIdentifier: calId)
+                        let eventId = try calendarService.createEvent(title: block.title, startDate: eventStart, endDate: eventEnd, calendarIdentifier: calId)
+                        newEventIds.append(eventId)
                         totalCreated += 1
                     } catch {
                         print("[Planner] Failed to create event '\(block.title)': \(error)")
@@ -539,12 +565,24 @@ class PlannerViewModel: ObservableObject {
                 }
             }
 
+            selectedPlan?.createdEventIds = newEventIds
             selectedPlan?.lastConvertedAt = Date()
             selectedPlan?.updatedAt = Date()
             markDirtyAndSave()
 
             conversionState = .success(totalCreated)
         }
+    }
+
+    func removeConvertedEvents() {
+        guard let eventIds = selectedPlan?.createdEventIds, !eventIds.isEmpty else { return }
+        for eventId in eventIds {
+            try? calendarService.deleteEvent(identifier: eventId)
+        }
+        selectedPlan?.createdEventIds = nil
+        selectedPlan?.lastConvertedAt = nil
+        selectedPlan?.updatedAt = Date()
+        markDirtyAndSave()
     }
 
     func dismissConversionResult() {

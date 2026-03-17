@@ -29,6 +29,10 @@ struct Plan: Identifiable, Codable, Equatable {
     var scheduleStartTime: String?  // "09:00" HH:mm -- per-plan schedule window
     var scheduleEndTime: String?    // "17:00" HH:mm
     var calendarId: String?
+    var createdEventIds: [String]?
+    var breakEnabled: Bool?
+    var breakMinutes: Int?
+    var breakCount: Int?
 
     init(
         id: String? = nil,
@@ -43,7 +47,11 @@ struct Plan: Identifiable, Codable, Equatable {
         lastConvertedAt: Date? = nil,
         scheduleStartTime: String? = nil,
         scheduleEndTime: String? = nil,
-        calendarId: String? = nil
+        calendarId: String? = nil,
+        createdEventIds: [String]? = nil,
+        breakEnabled: Bool? = nil,
+        breakMinutes: Int? = nil,
+        breakCount: Int? = nil
     ) {
         self.id = id
         self.title = title
@@ -58,6 +66,10 @@ struct Plan: Identifiable, Codable, Equatable {
         self.scheduleStartTime = scheduleStartTime
         self.scheduleEndTime = scheduleEndTime
         self.calendarId = calendarId
+        self.createdEventIds = createdEventIds
+        self.breakEnabled = breakEnabled
+        self.breakMinutes = breakMinutes
+        self.breakCount = breakCount
     }
 
     var hasScheduleConfig: Bool {
@@ -191,5 +203,26 @@ struct Plan: Identifiable, Codable, Equatable {
             let objectives = dailyObjectives[dateStr] ?? []
             return objectives.contains { !$0.isComplete && (($0.estimatedMinutes ?? 0) == 0) }
         }
+    }
+
+    func maxBreaksForDay(_ dateString: String) -> Int {
+        let bm = breakMinutes ?? 10
+        guard bm > 0 else { return 0 }
+        let taskMinutes = totalMinutesForDay(dateString)
+        let freeMinutes = scheduleMinutesPerDay - taskMinutes
+        guard freeMinutes > 0 else { return 0 }
+        let taskCount = (dailyObjectives[dateString] ?? []).filter { !$0.isComplete }.count
+        let maxGaps = max(0, taskCount - 1)
+        return min(freeMinutes / bm, maxGaps)
+    }
+
+    func effectiveBreakCountForDay(_ dateString: String) -> Int {
+        guard breakEnabled == true else { return 0 }
+        let requested = breakCount ?? 2
+        return min(requested, maxBreaksForDay(dateString))
+    }
+
+    func totalBreakMinutesForDay(_ dateString: String) -> Int {
+        effectiveBreakCountForDay(dateString) * (breakMinutes ?? 10)
     }
 }

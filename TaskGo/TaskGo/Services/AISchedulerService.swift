@@ -39,18 +39,20 @@ class AISchedulerService {
         existingEvents: [ExistingEventInput],
         officeHoursStart: String,
         officeHoursEnd: String,
-        dateLabel: String
+        dateLabel: String,
+        breakCount: Int = 0,
+        breakMinutes: Int = 10
     ) async throws -> [ScheduledBlock] {
         guard !tasks.isEmpty else { return [] }
 
-        let systemPrompt = """
+        var rules = """
         You are a time-block scheduler. Given tasks with durations and available time windows, produce an optimal schedule as JSON.
 
         Rules:
         1. Schedule ALL tasks. Never omit any.
         2. No overlaps with existing events or other tasks.
         3. All tasks must fall within the office hours window.
-        4. Add 5-minute buffers between consecutive tasks when space permits.
+        4. Schedule tasks back-to-back with no gaps between them.
         5. Prefer placing tasks that require longer focus earlier in the day.
         6. Return ONLY valid JSON matching this exact schema:
         {"schedule": [{"objectiveId": "string", "title": "string", "startTime": "HH:mm", "endTime": "HH:mm"}]}
@@ -58,12 +60,23 @@ class AISchedulerService {
         8. The schedule array must contain exactly one entry per task provided.
         """
 
+        if breakCount > 0 {
+            rules += """
+
+        9. Insert exactly \(breakCount) break(s) of \(breakMinutes) minutes each, distributed evenly between tasks.
+        10. Each break must have objectiveId "break" and title "Break".
+        11. Breaks count as scheduled blocks — no overlaps with tasks or existing events.
+        """
+        }
+
         let userPayload = buildUserMessage(
             tasks: tasks,
             existingEvents: existingEvents,
             officeHoursStart: officeHoursStart,
             officeHoursEnd: officeHoursEnd,
-            dateLabel: dateLabel
+            dateLabel: dateLabel,
+            breakCount: breakCount,
+            breakMinutes: breakMinutes
         )
 
         let requestBody: [String: Any] = [
@@ -71,7 +84,7 @@ class AISchedulerService {
             "response_format": ["type": "json_object"],
             "temperature": 0.2,
             "messages": [
-                ["role": "system", "content": systemPrompt],
+                ["role": "system", "content": rules],
                 ["role": "user", "content": userPayload]
             ]
         ]
@@ -98,7 +111,7 @@ class AISchedulerService {
 
         if let validationError = validateSchedule(parsed, tasks: tasks, officeHoursStart: officeHoursStart, officeHoursEnd: officeHoursEnd, existingEvents: existingEvents) {
             print("[AIScheduler] Validation failed: \(validationError). Using sequential fallback.")
-            return sequentialFallback(tasks: tasks, existingEvents: existingEvents, officeHoursStart: officeHoursStart, officeHoursEnd: officeHoursEnd)
+            return sequentialFallback(tasks: tasks, existingEvents: existingEvents, officeHoursStart: officeHoursStart, officeHoursEnd: officeHoursEnd, breakCount: breakCount, breakMinutes: breakMinutes)
         }
 
         return parsed
@@ -111,7 +124,9 @@ class AISchedulerService {
         existingEvents: [ExistingEventInput],
         officeHoursStart: String,
         officeHoursEnd: String,
-        dateLabel: String
+        dateLabel: String,
+        breakCount: Int,
+        breakMinutes: Int
     ) -> String {
         var parts: [String] = []
         parts.append("Date: \(dateLabel)")
@@ -129,6 +144,12 @@ class AISchedulerService {
         parts.append("Tasks to schedule:")
         for task in tasks {
             parts.append("  - id: \"\(task.objectiveId)\", title: \"\(task.title)\", duration: \(task.durationMinutes) minutes")
+        }
+
+        if breakCount > 0 {
+            parts.append("Breaks: insert \(breakCount) break(s) of \(breakMinutes) minutes each, evenly distributed.")
+        } else {
+            parts.append("No breaks. Schedule all tasks back-to-back.")
         }
 
         return parts.joined(separator: "\n")
@@ -167,10 +188,10 @@ class AISchedulerService {
         existingEvents: [ExistingEventInput]
     ) -> String? {
         let taskIds = Set(tasks.map(\.objectiveId))
-        let blockIds = Set(blocks.map(\.objectiveId))
+        let nonBreakIds = Set(blocks.filter { $0.objectiveId != "break" }.map(\.objectiveId))
 
-        if taskIds != blockIds {
-            let missing = taskIds.subtracting(blockIds)
+        if taskIds != nonBreakIds {
+            let missing = taskIds.subtracting(nonBreakIds)
             return "Missing tasks: \(missing.joined(separator: ", "))"
         }
 
@@ -224,7 +245,9 @@ class AISchedulerService {
         tasks: [ScheduleTaskInput],
         existingEvents: [ExistingEventInput],
         officeHoursStart: String,
-        officeHoursEnd: String
+        officeHoursEnd: String,
+        breakCount: Int = 0,
+        breakMinutes: Int = 10
     ) -> [ScheduledBlock] {
         let ohStart = timeToMinutes(officeHoursStart) ?? 540
         let ohEnd = timeToMinutes(officeHoursEnd) ?? 1020
@@ -248,30 +271,42 @@ class AISchedulerService {
             freeWindows.append((cursor, ohEnd))
         }
 
+        var breakInsertionPoints: Set<Int> = []
+        if breakCount > 0 && tasks.count > 1 {
+            let step = tasks.count / (breakCount + 1)
+            for i in 1...breakCount {
+                let idx = min(i * step, tasks.count - 1)
+                breakInsertionPoints.insert(idx)
+            }
+        }
+
         var result: [ScheduledBlock] = []
         var windowIdx = 0
         var windowCursor = freeWindows.isEmpty ? ohStart : freeWindows[0].start
 
-        for task in tasks {
+        func advanceCursor(by minutes: Int) {
+            windowCursor += minutes
+            while windowIdx < freeWindows.count && windowCursor >= freeWindows[windowIdx].end {
+                windowIdx += 1
+                if windowIdx < freeWindows.count {
+                    windowCursor = max(windowCursor, freeWindows[windowIdx].start)
+                }
+            }
+        }
+
+        func placeBlock(id: String, title: String, duration: Int) -> Bool {
             while windowIdx < freeWindows.count {
                 let window = freeWindows[windowIdx]
-                let availableInWindow = window.end - windowCursor
-                if availableInWindow >= task.durationMinutes {
-                    let block = ScheduledBlock(
-                        objectiveId: task.objectiveId,
-                        title: task.title,
+                let available = window.end - windowCursor
+                if available >= duration {
+                    result.append(ScheduledBlock(
+                        objectiveId: id,
+                        title: title,
                         startTime: minutesToTime(windowCursor),
-                        endTime: minutesToTime(windowCursor + task.durationMinutes)
-                    )
-                    result.append(block)
-                    windowCursor = windowCursor + task.durationMinutes + 5
-                    if windowCursor > window.end {
-                        windowIdx += 1
-                        if windowIdx < freeWindows.count {
-                            windowCursor = freeWindows[windowIdx].start
-                        }
-                    }
-                    break
+                        endTime: minutesToTime(windowCursor + duration)
+                    ))
+                    advanceCursor(by: duration)
+                    return true
                 } else {
                     windowIdx += 1
                     if windowIdx < freeWindows.count {
@@ -279,6 +314,14 @@ class AISchedulerService {
                     }
                 }
             }
+            return false
+        }
+
+        for (index, task) in tasks.enumerated() {
+            if breakInsertionPoints.contains(index) {
+                _ = placeBlock(id: "break", title: "Break", duration: breakMinutes)
+            }
+            _ = placeBlock(id: task.objectiveId, title: task.title, duration: task.durationMinutes)
         }
 
         return result
