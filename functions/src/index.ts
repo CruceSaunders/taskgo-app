@@ -281,10 +281,39 @@ async function handleTasks(
     }
     res.json({id: doc.id, ...doc.data()});
   } else if (req.method === "POST") {
-    const ref = await col.add({
-      ...req.body,
+    const body = req.body || {};
+    if (!body.name) {
+      res.status(400).json({error: "name is required"});
+      return;
+    }
+    if (!body.groupId) {
+      res.status(400).json({error: "groupId is required"});
+      return;
+    }
+
+    const existingSnap = await col
+      .where("groupId", "==", body.groupId)
+      .where("isComplete", "==", false)
+      .get();
+
+    const task: Record<string, unknown> = {
+      name: body.name,
+      description: body.description || null,
+      timeEstimate: body.timeEstimate || 0,
+      position: body.position ?? (existingSnap.size + 1),
+      isComplete: body.isComplete ?? false,
+      groupId: body.groupId,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+      completedAt: null,
+      batchId: body.batchId || null,
+      batchTimeEstimate: body.batchTimeEstimate || null,
+      chainId: body.chainId || null,
+      chainOrder: body.chainOrder || null,
+      colorTag: body.colorTag || null,
+      groupTitle: body.groupTitle || null,
+    };
+
+    const ref = await col.add(task);
     res.status(201).json({id: ref.id});
   } else if (req.method === "PATCH" && taskId) {
     await col.doc(taskId).update(req.body);

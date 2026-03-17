@@ -246,6 +246,7 @@ async function handleProfile(req, res, userId) {
     }
 }
 async function handleTasks(req, res, userId, taskId) {
+    var _a, _b;
     const col = db.collection(`users/${userId}/tasks`);
     if (req.method === "GET" && !taskId) {
         const groupId = req.query.groupId;
@@ -264,10 +265,36 @@ async function handleTasks(req, res, userId, taskId) {
         res.json({ id: doc.id, ...doc.data() });
     }
     else if (req.method === "POST") {
-        const ref = await col.add({
-            ...req.body,
+        const body = req.body || {};
+        if (!body.name) {
+            res.status(400).json({ error: "name is required" });
+            return;
+        }
+        if (!body.groupId) {
+            res.status(400).json({ error: "groupId is required" });
+            return;
+        }
+        const existingSnap = await col
+            .where("groupId", "==", body.groupId)
+            .where("isComplete", "==", false)
+            .get();
+        const task = {
+            name: body.name,
+            description: body.description || null,
+            timeEstimate: body.timeEstimate || 0,
+            position: (_a = body.position) !== null && _a !== void 0 ? _a : (existingSnap.size + 1),
+            isComplete: (_b = body.isComplete) !== null && _b !== void 0 ? _b : false,
+            groupId: body.groupId,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+            completedAt: null,
+            batchId: body.batchId || null,
+            batchTimeEstimate: body.batchTimeEstimate || null,
+            chainId: body.chainId || null,
+            chainOrder: body.chainOrder || null,
+            colorTag: body.colorTag || null,
+            groupTitle: body.groupTitle || null,
+        };
+        const ref = await col.add(task);
         res.status(201).json({ id: ref.id });
     }
     else if (req.method === "PATCH" && taskId) {
