@@ -675,7 +675,7 @@ struct PlanDetailView: View {
             case .alreadyConverted(let date):
                 Text("Already Converted")
                     .font(.system(size: 12, weight: .semibold))
-                Text("This plan was converted on \(formattedDate(date)). Previous events will not be removed.")
+                Text("This plan was converted on \(formattedDate(date)). Reconverting will replace the previous events.")
                     .font(.system(size: 10))
                     .foregroundStyle(.primary.opacity(0.6))
                     .multilineTextAlignment(.center)
@@ -686,7 +686,7 @@ struct PlanDetailView: View {
                         .font(.system(size: 10))
                         .foregroundStyle(.primary.opacity(0.5))
 
-                    Button("Convert Again") { plannerVM.convertToCalendar(forceReconvert: true) }
+                    Button("Reconvert") { plannerVM.convertToCalendar(forceReconvert: true) }
                         .buttonStyle(.plain)
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(.white)
