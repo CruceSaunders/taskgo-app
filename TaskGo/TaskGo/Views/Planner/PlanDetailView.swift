@@ -72,12 +72,13 @@ struct PlanDetailView: View {
 
     private func planHeader(_ plan: Plan) -> some View {
         VStack(spacing: 6) {
-            HStack(alignment: .center) {
+            HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 2) {
                     EditableTitle(
                         text: plan.title,
                         onCommit: { plannerVM.updatePlanTitle($0) }
                     )
+                    .lineLimit(1)
                     HStack(spacing: 6) {
                         Text(plan.displayDateRange)
                             .font(.system(size: 10))
@@ -88,8 +89,10 @@ struct PlanDetailView: View {
                             .font(.system(size: 10))
                             .foregroundStyle(.primary.opacity(0.5))
                     }
+                    .lineLimit(1)
                 }
-                Spacer()
+                .layoutPriority(1)
+                Spacer(minLength: 4)
                 if confirmDelete {
                     Text("Delete?")
                         .font(.system(size: 10))
@@ -163,7 +166,7 @@ struct PlanDetailView: View {
                             HStack(spacing: 3) {
                                 Image(systemName: "calendar.badge.plus")
                                     .font(.system(size: 9))
-                                Text(plan.lastConvertedAt != nil ? "Reconvert" : "Convert to Calendar")
+                                Text(plan.lastConvertedAt != nil ? "Reconvert" : "To Cal")
                                     .font(.system(size: 9, weight: .medium))
                                     .lineLimit(1)
                             }
@@ -255,12 +258,15 @@ struct PlanDetailView: View {
                             Text(label)
                                 .font(.system(size: 10))
                                 .foregroundStyle(.primary.opacity(0.6))
+                                .lineLimit(1)
                         }
                         if let calId = plan.calendarId,
                            let info = calendarInfos.first(where: { $0.identifier == calId }) {
                             Text("on \(info.displayLabel)")
                                 .font(.system(size: 10))
                                 .foregroundStyle(.primary.opacity(0.4))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
                         }
                         Spacer()
                         Image(systemName: "pencil")
@@ -303,6 +309,7 @@ struct PlanDetailView: View {
                         Text("Calendar")
                             .font(.system(size: 10))
                             .foregroundStyle(.primary.opacity(0.5))
+                            .fixedSize()
                         if calendarInfos.isEmpty {
                             Text("No writable calendars found")
                                 .font(.system(size: 9))
@@ -315,7 +322,7 @@ struct PlanDetailView: View {
                                 }
                             }
                             .labelsHidden()
-                            .frame(maxWidth: 200)
+                            .lineLimit(1)
                         }
                     }
 
