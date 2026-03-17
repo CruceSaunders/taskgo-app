@@ -163,16 +163,22 @@ struct PlanDetailView: View {
                         }
 
                         Button(action: { plannerVM.convertToCalendar() }) {
-                            HStack(spacing: 3) {
-                                Image(systemName: "calendar.badge.plus")
-                                    .font(.system(size: 9))
-                                Text(plan.lastConvertedAt != nil ? "Reconvert" : "To Cal")
-                                    .font(.system(size: 9, weight: .medium))
-                                    .lineLimit(1)
+                            ViewThatFits {
+                                HStack(spacing: 3) {
+                                    Image(systemName: "calendar.badge.plus").font(.system(size: 9))
+                                    Text(plan.lastConvertedAt != nil ? "Reconvert" : "Convert to Calendar")
+                                        .font(.system(size: 10, weight: .medium)).lineLimit(1)
+                                }
+                                .fixedSize()
+                                HStack(spacing: 3) {
+                                    Image(systemName: "calendar.badge.plus").font(.system(size: 9))
+                                    Text(plan.lastConvertedAt != nil ? "Reconvert" : "To Cal")
+                                        .font(.system(size: 9, weight: .medium)).lineLimit(1)
+                                }
+                                .fixedSize()
                             }
-                            .fixedSize()
                             .foregroundStyle(.white)
-                            .padding(.horizontal, 6)
+                            .padding(.horizontal, 8)
                             .padding(.vertical, 4)
                             .background(Color.blue)
                             .cornerRadius(5)
@@ -180,16 +186,20 @@ struct PlanDetailView: View {
                         .buttonStyle(.plain)
 
                         Button(action: { plannerVM.completePlan() }) {
-                            HStack(spacing: 3) {
-                                Image(systemName: "checkmark.circle")
-                                    .font(.system(size: 9))
-                                Text("Done")
-                                    .font(.system(size: 9, weight: .medium))
-                                    .lineLimit(1)
+                            ViewThatFits {
+                                HStack(spacing: 3) {
+                                    Image(systemName: "checkmark.circle").font(.system(size: 9))
+                                    Text("Complete").font(.system(size: 10, weight: .medium)).lineLimit(1)
+                                }
+                                .fixedSize()
+                                HStack(spacing: 3) {
+                                    Image(systemName: "checkmark.circle").font(.system(size: 9))
+                                    Text("Done").font(.system(size: 9, weight: .medium)).lineLimit(1)
+                                }
+                                .fixedSize()
                             }
-                            .fixedSize()
                             .foregroundStyle(.white)
-                            .padding(.horizontal, 6)
+                            .padding(.horizontal, 8)
                             .padding(.vertical, 4)
                             .background(Color.calmTeal)
                             .cornerRadius(5)

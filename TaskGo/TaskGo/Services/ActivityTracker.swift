@@ -670,57 +670,36 @@ class ActivityTracker: ObservableObject {
         return runStatus == noErr && isRunning != 0
     }
 
-    // MARK: - Media Playback Detection
-
-    private var cachedMediaPlaying = false
-    private var lastMediaCheck: Date = .distantPast
+    // MARK: - Media Playback Detection (audio output)
 
     private func isMediaPlaying() -> Bool {
-        if Date().timeIntervalSince(lastMediaCheck) < 4 {
-            return cachedMediaPlaying
-        }
-        lastMediaCheck = Date()
+        var defaultDeviceID = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
 
-        let script = """
-        ObjC.import('Foundation');
-        var bundle = $.NSBundle.bundleWithPath('/System/Library/PrivateFrameworks/MediaRemote.framework');
-        if (!bundle.load()) { 'stopped'; } else {
-            var info = Ref();
-            var fn = ObjC.castRefToObject($.dlsym($.dlopen('/System/Library/PrivateFrameworks/MediaRemote.framework/MediaRemote', 1), 'MRMediaRemoteGetNowPlayingInfo'));
-            if (!fn) { 'stopped'; } else {
-                var sem = $.dispatch_semaphore_create(0);
-                var result = 'stopped';
-                ObjC.bindFunction('MRMediaRemoteGetNowPlayingInfo', ['void', ['id', 'id']]);
-                $.MRMediaRemoteGetNowPlayingInfo($.dispatch_get_global_queue(0, 0), $(function(info) {
-                    var rate = ObjC.unwrap(info.objectForKey('kMRMediaRemoteNowPlayingInfoPlaybackRate'));
-                    if (rate !== undefined && rate !== null && parseFloat(rate) > 0) result = 'playing';
-                    $.dispatch_semaphore_signal(sem);
-                }));
-                $.dispatch_semaphore_wait(sem, $.dispatch_time(0, 500000000));
-                result;
-            }
-        }
-        """
+        let status = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address, 0, nil, &size, &defaultDeviceID
+        )
+        guard status == noErr, defaultDeviceID != 0 else { return false }
 
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = ["-l", "JavaScript", "-e", script]
+        var isRunning: UInt32 = 0
+        var runningSize = UInt32(MemoryLayout<UInt32>.size)
+        var runningAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyDeviceIsRunningSomewhere,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
 
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            cachedMediaPlaying = output == "playing"
-        } catch {
-            cachedMediaPlaying = false
-        }
-
-        return cachedMediaPlaying
+        let runStatus = AudioObjectGetPropertyData(
+            defaultDeviceID,
+            &runningAddress, 0, nil, &runningSize, &isRunning
+        )
+        return runStatus == noErr && isRunning != 0
     }
 
     // MARK: - Day Rollover
