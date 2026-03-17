@@ -183,6 +183,9 @@ exports.api = functions.https.onRequest(async (req, res) => {
     const resourceId = segments[1] || "";
     try {
         switch (resource) {
+            case "docs":
+                res.json(getApiDocs());
+                break;
             case "profile":
                 await handleProfile(req, res, userId);
                 break;
@@ -214,6 +217,137 @@ exports.api = functions.https.onRequest(async (req, res) => {
         res.status(500).json({ error: message });
     }
 });
+// ============================================================
+// API DOCUMENTATION (GET /docs)
+// ============================================================
+function getApiDocs() {
+    return {
+        app: "TaskGo!",
+        description: "A macOS productivity app that tracks tasks, notes, plans, reminders, and computer activity. This API gives full access to a user's account.",
+        auth: "Include 'Authorization: Bearer tg_sk_...' header on every request.",
+        base_url: "https://us-central1-taskgo-prod.cloudfunctions.net/api",
+        important_notes: [
+            "All requests require the Authorization header with a valid API key.",
+            "All responses are JSON.",
+            "Dates are ISO 8601 or Firestore timestamps.",
+            "Times (timeEstimate) are in SECONDS, not minutes. 15 minutes = 900.",
+            "Always call GET /docs first to understand the schema before making changes.",
+        ],
+        endpoints: {
+            "GET /docs": {
+                description: "Returns this documentation.",
+            },
+            "GET /profile": {
+                description: "Get the user's profile.",
+                response: "{ id, email, username, displayName, totalXP, level, weeklyXP }",
+            },
+            "PATCH /profile": {
+                description: "Update profile fields.",
+                body: "{ displayName?, username? }",
+                note: "Only displayName and username can be changed via API.",
+            },
+            "GET /groups": {
+                description: "List all task groups. Every task belongs to a group.",
+                response: "{ groups: [{ id, name, order, isDefault }] }",
+                note: "You MUST know the groupId before creating a task. Call this first.",
+            },
+            "POST /groups": {
+                description: "Create a new task group.",
+                body: "{ name: string, order: number, isDefault?: boolean }",
+            },
+            "DELETE /groups/:id": {
+                description: "Delete a task group.",
+            },
+            "GET /tasks": {
+                description: "List tasks. Optionally filter by group.",
+                query: "?groupId=xxx (optional)",
+                response: "{ tasks: [{ id, name, description, timeEstimate, position, isComplete, groupId, createdAt, ... }] }",
+            },
+            "GET /tasks/:id": {
+                description: "Get a single task by ID.",
+            },
+            "POST /tasks": {
+                description: "Create a task.",
+                body: {
+                    name: "string (REQUIRED) - the task title",
+                    groupId: "string (REQUIRED) - which group this task belongs to. Get IDs from GET /groups",
+                    timeEstimate: "number (optional, default 0) - estimated time in SECONDS. 15 min = 900, 1 hour = 3600",
+                    description: "string (optional) - additional details",
+                    position: "number (optional, auto-assigned) - sort order within the group",
+                    isComplete: "boolean (optional, default false)",
+                    colorTag: "string (optional) - one of: red, blue, green, yellow, purple, orange, pink, teal",
+                },
+                example: '{ "name": "Write report", "groupId": "abc123", "timeEstimate": 1800, "description": "Q1 summary" }',
+            },
+            "PATCH /tasks/:id": {
+                description: "Update a task. Send only the fields you want to change.",
+                body: "Any task fields: { name?, description?, timeEstimate?, isComplete?, position?, colorTag? }",
+                example: '{ "isComplete": true }',
+            },
+            "DELETE /tasks/:id": {
+                description: "Delete a task permanently.",
+            },
+            "GET /notes": {
+                description: "List recent notes or get a specific day's note.",
+                query: "?date=YYYY-MM-DD (optional, returns that day's note)",
+                response: "{ notes: [{ id, date, content, updatedAt }] } or single note",
+            },
+            "POST /notes": {
+                description: "Create or update a note for a specific date.",
+                body: {
+                    date: "string (REQUIRED) - format YYYY-MM-DD, e.g. '2026-03-16'",
+                    content: "string (REQUIRED) - the note text",
+                },
+            },
+            "DELETE /notes/:id": {
+                description: "Delete a note. The id is the date string (YYYY-MM-DD).",
+            },
+            "GET /plans": {
+                description: "List all plans.",
+                response: "{ plans: [{ id, title, startDate, endDate, objectives, ... }] }",
+            },
+            "GET /plans/:id": {
+                description: "Get a single plan by ID.",
+            },
+            "POST /plans": {
+                description: "Create a new plan.",
+                body: "{ title: string, startDate: string, endDate: string, ... }",
+            },
+            "PATCH /plans/:id": {
+                description: "Update a plan.",
+            },
+            "DELETE /plans/:id": {
+                description: "Delete a plan.",
+            },
+            "GET /reminders": {
+                description: "List all reminders.",
+                response: "{ reminders: [{ id, title, scheduledDate, ... }] }",
+            },
+            "POST /reminders": {
+                description: "Create a reminder.",
+                body: "{ title: string, scheduledDate: ISO8601 string, ... }",
+            },
+            "DELETE /reminders/:id": {
+                description: "Delete a reminder.",
+            },
+            "GET /activity?date=YYYY-MM-DD": {
+                description: "Get activity data for a specific day.",
+                response: "Full minute-by-minute breakdown: keyboard, clicks, scrolls, movement, speaking, watching per minute.",
+            },
+            "GET /activity/summary?from=YYYY-MM-DD&to=YYYY-MM-DD": {
+                description: "Get activity summary for a date range.",
+                response: "{ days: [{ date, totalActiveMinutes, totalKeyboard, totalClicks, totalScrolls, totalMovement, totalInputs }] }",
+            },
+        },
+        workflow_tips: [
+            "To create a task: first GET /groups to find the right groupId, then POST /tasks with name + groupId + timeEstimate.",
+            "timeEstimate is in SECONDS. Common values: 5min=300, 15min=900, 30min=1800, 1hr=3600.",
+            "To mark a task complete: PATCH /tasks/:id with { isComplete: true }.",
+            "Notes are keyed by date (YYYY-MM-DD). POST /notes with { date: '2026-03-16', content: '...' }.",
+            "Activity data is read-only. Use GET /activity?date=YYYY-MM-DD to check productivity.",
+        ],
+    };
+}
 // ============================================================
 // RESOURCE HANDLERS
 // ============================================================
