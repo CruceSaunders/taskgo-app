@@ -9,6 +9,11 @@ struct PlanDetailView: View {
     @State private var selectedCalId: String = ""
     @State private var calendarInfos: [WritableCalendarInfo] = []
 
+    // Drag-and-drop state for objectives
+    @State private var draggingObjectiveId: String?
+    @State private var draggingFromDate: String?
+    @State private var dragObjectiveOffset: CGFloat = 0
+
     var body: some View {
         if let plan = plannerVM.selectedPlan {
             ZStack {
@@ -375,7 +380,9 @@ struct PlanDetailView: View {
                 .padding(.bottom, 4)
 
                 let objectives = plan.dailyObjectives[dateStr] ?? []
-                ForEach(objectives) { obj in
+                ForEach(Array(objectives.enumerated()), id: \.element.id) { index, obj in
+                    let isDragging = draggingObjectiveId == obj.id
+
                     ObjectiveRow(
                         objective: obj,
                         isComplete: plan.isComplete,
@@ -383,6 +390,62 @@ struct PlanDetailView: View {
                         onUpdate: { plannerVM.updateObjectiveText(objectiveId: obj.id, date: dateStr, newText: $0) },
                         onDelete: { plannerVM.removeObjective(objectiveId: obj.id, date: dateStr) },
                         onDurationChange: { plannerVM.updateObjectiveDuration(objectiveId: obj.id, date: dateStr, minutes: $0) }
+                    )
+                    .opacity(isDragging ? 0.5 : 1.0)
+                    .offset(y: isDragging ? dragObjectiveOffset : 0)
+                    .zIndex(isDragging ? 100 : 0)
+                    .simultaneousGesture(
+                        plan.isComplete ? nil : DragGesture(minimumDistance: 8)
+                            .onChanged { value in
+                                if draggingObjectiveId == nil {
+                                    draggingObjectiveId = obj.id
+                                    draggingFromDate = dateStr
+                                }
+                                guard draggingObjectiveId == obj.id else { return }
+                                dragObjectiveOffset = value.translation.height
+                            }
+                            .onEnded { value in
+                                guard draggingObjectiveId == obj.id,
+                                      let fromDate = draggingFromDate else {
+                                    resetDragState()
+                                    return
+                                }
+
+                                let verticalDistance = value.translation.height
+                                let rowH: CGFloat = 36
+
+                                if abs(verticalDistance) > 60, let plan = plannerVM.selectedPlan {
+                                    let dayDelta = verticalDistance > 0 ? 1 : -1
+                                    let dateRange = plan.dateRange
+                                    if let currentIdx = dateRange.firstIndex(of: fromDate) {
+                                        let newIdx = currentIdx + dayDelta
+                                        if newIdx >= 0 && newIdx < dateRange.count {
+                                            let toDate = dateRange[newIdx]
+                                            plannerVM.moveObjectiveBetweenDays(
+                                                objectiveId: obj.id,
+                                                fromDate: fromDate,
+                                                toDate: toDate
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    let rowsMoved = Int(round(verticalDistance / rowH))
+                                    if rowsMoved != 0 {
+                                        let newIndex = min(max(index + rowsMoved, 0), objectives.count - 1)
+                                        if newIndex != index {
+                                            plannerVM.reorderObjective(
+                                                date: dateStr,
+                                                fromIndex: index,
+                                                toIndex: newIndex
+                                            )
+                                        }
+                                    }
+                                }
+
+                                withAnimation(.easeOut(duration: 0.15)) {
+                                    resetDragState()
+                                }
+                            }
                     )
                 }
 
@@ -406,6 +469,12 @@ struct PlanDetailView: View {
                     .padding(.top, 4)
             }
         }
+    }
+
+    private func resetDragState() {
+        draggingObjectiveId = nil
+        draggingFromDate = nil
+        dragObjectiveOffset = 0
     }
 
     // MARK: - Helpers

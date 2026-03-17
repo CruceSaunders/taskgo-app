@@ -287,6 +287,34 @@ class PlannerViewModel: ObservableObject {
         markDirtyAndSave()
     }
 
+    func reorderObjective(date: String, fromIndex: Int, toIndex: Int) {
+        guard selectedPlan != nil,
+              var objs = selectedPlan?.dailyObjectives[date],
+              fromIndex >= 0, fromIndex < objs.count,
+              toIndex >= 0, toIndex < objs.count,
+              fromIndex != toIndex else { return }
+        let item = objs.remove(at: fromIndex)
+        objs.insert(item, at: toIndex)
+        selectedPlan?.dailyObjectives[date] = objs
+        selectedPlan?.updatedAt = Date()
+        markDirtyAndSave()
+    }
+
+    func moveObjectiveBetweenDays(objectiveId: String, fromDate: String, toDate: String) {
+        guard selectedPlan != nil,
+              fromDate != toDate,
+              let fromIdx = selectedPlan?.dailyObjectives[fromDate]?.firstIndex(where: { $0.id == objectiveId })
+        else { return }
+        let obj = selectedPlan!.dailyObjectives[fromDate]![fromIdx]
+        selectedPlan?.dailyObjectives[fromDate]?.remove(at: fromIdx)
+        if selectedPlan?.dailyObjectives[toDate] == nil {
+            selectedPlan?.dailyObjectives[toDate] = []
+        }
+        selectedPlan?.dailyObjectives[toDate]?.append(obj)
+        selectedPlan?.updatedAt = Date()
+        markDirtyAndSave()
+    }
+
     func updatePlanTitle(_ newTitle: String) {
         guard selectedPlan != nil, !newTitle.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         selectedPlan?.title = newTitle.trimmingCharacters(in: .whitespaces)
