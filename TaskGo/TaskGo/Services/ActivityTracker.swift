@@ -469,6 +469,8 @@ class ActivityTracker: ObservableObject {
 
     // MARK: - Microphone Sampling (every 5 seconds)
 
+    private var lastMediaLogTime: Date = .distantPast
+
     private func startMicSampler() {
         micSampleTimer?.invalidate()
         micSampleTimer = Timer.scheduledTimer(withTimeInterval: micSampleInterval, repeats: true) { [weak self] _ in
@@ -476,8 +478,13 @@ class ActivityTracker: ObservableObject {
             if self.isMicrophoneInUse() {
                 self.currentMicSeconds += Int(self.micSampleInterval)
             }
-            if self.isMediaPlaying() {
+            let mediaActive = self.isMediaPlaying()
+            if mediaActive {
                 self.currentWatching = 1
+                if Date().timeIntervalSince(self.lastMediaLogTime) > 300 {
+                    self.diagLog("Audio output active — marking minute as watching")
+                    self.lastMediaLogTime = Date()
+                }
             }
         }
     }
