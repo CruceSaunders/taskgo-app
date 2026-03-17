@@ -465,6 +465,14 @@ class PlannerViewModel: ObservableObject {
                 return
             }
 
+            // Delete old events BEFORE overflow check so they don't count as busy time
+            if forceReconvert, let oldIds = plan.createdEventIds {
+                for eventId in oldIds {
+                    try? calendarService.deleteEvent(identifier: eventId)
+                }
+                selectedPlan?.createdEventIds = nil
+            }
+
             var overflowDetails: [DayOverflowDetail] = []
             for dateStr in activeDays {
                 let taskMinutes = plan.totalMinutesForDay(dateStr)
@@ -485,14 +493,6 @@ class PlannerViewModel: ObservableObject {
             if !overflowDetails.isEmpty {
                 conversionState = .error(.dayOverflow(details: overflowDetails))
                 return
-            }
-
-            // Delete old events if reconverting
-            if forceReconvert, let oldIds = plan.createdEventIds {
-                for eventId in oldIds {
-                    try? calendarService.deleteEvent(identifier: eventId)
-                }
-                selectedPlan?.createdEventIds = nil
             }
 
             conversionState = .scheduling
