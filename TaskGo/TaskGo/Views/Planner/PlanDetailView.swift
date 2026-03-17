@@ -625,6 +625,14 @@ struct PlanDetailView: View {
                     .foregroundStyle(.primary.opacity(0.6))
                     .multilineTextAlignment(.center)
 
+            case .noAPIKey:
+                Text("AI Key Required")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("Set your AI provider API key in Settings to use calendar conversion.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.primary.opacity(0.6))
+                    .multilineTextAlignment(.center)
+
             case .noCalendarAccess:
                 Text("Calendar Access Required")
                     .font(.system(size: 12, weight: .semibold))

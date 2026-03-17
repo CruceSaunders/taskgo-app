@@ -76,7 +76,9 @@
 		F2C867673F75F72427CB5EBE /* LoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46B7E9600775B4AB20EF1F5 /* LoadingView.swift */; };
 		FF437F681F249276F3B6BF89 /* NotesTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C34ADAACFA74958CE96F52B /* NotesTabView.swift */; };
 		BB10BB01C3D4E5F6A1B20001 /* AISchedulerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB10AA01C3D4E5F6A1B20001 /* AISchedulerService.swift */; };
-		BB10BB02C3D4E5F6A1B20002 /* Secrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB10AA02C3D4E5F6A1B20002 /* Secrets.swift */; };
+		CC20BB01D4E5F7G7B2C30001 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC20AA01D4E5F7G7B2C30001 /* KeychainService.swift */; };
+		CC20BB02D4E5F7G7B2C30002 /* LLMProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC20AA02D4E5F7G7B2C30002 /* LLMProvider.swift */; };
+
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -148,7 +150,9 @@
 		F9B8F7F093F3466FD9CF2889 /* KeyboardShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcuts.swift; sourceTree = "<group>"; };
 		FD095BBFAFCD2368E15E91E3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB10AA01C3D4E5F6A1B20001 /* AISchedulerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISchedulerService.swift; sourceTree = "<group>"; };
-		BB10AA02C3D4E5F6A1B20002 /* Secrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Secrets.swift; sourceTree = "<group>"; };
+		CC20AA01D4E5F7G7B2C30001 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
+		CC20AA02D4E5F7G7B2C30002 /* LLMProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMProvider.swift; sourceTree = "<group>"; };
+
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -244,7 +248,6 @@
 				CFF11D36D338F19E8A5BE6A4 /* Info.plist */,
 				07EE897C5F69B373D9A4BF7A /* TaskGo.entitlements */,
 				1E221E7471A734917EFAE8EF /* App */,
-				BB10CC01C3D4E5F6A1B20001 /* Config */,
 				F884CA273095E140E01C171A /* Models */,
 				8733124EF76E52649D4FAAD1 /* Resources */,
 				ED771357D33F6DBD73D03414 /* Services */,
@@ -376,6 +379,7 @@
 				AA10FR02A1B2C3D4E5F60002 /* ActivityTracker.swift */,
 				BB10AA01C3D4E5F6A1B20001 /* AISchedulerService.swift */,
 				46EB7E9436B4BE6F8F6BA070 /* CalendarService.swift */,
+				CC20AA01D4E5F7G7B2C30001 /* KeychainService.swift */,
 				6016C7874768DD81EC494C3A /* FirestoreService.swift */,
 				9669CE3549DE12D8A18509D9 /* NotificationScheduler.swift */,
 				42901AEE4F28CDDEB150925C /* RecurrenceService.swift */,
@@ -384,19 +388,12 @@
 			path = Services;
 			sourceTree = "<group>";
 		};
-		BB10CC01C3D4E5F6A1B20001 /* Config */ = {
-			isa = PBXGroup;
-			children = (
-				BB10AA02C3D4E5F6A1B20002 /* Secrets.swift */,
-			);
-			path = Config;
-			sourceTree = "<group>";
-		};
 		F884CA273095E140E01C171A /* Models */ = {
 			isa = PBXGroup;
 			children = (
 				AA10FR01A1B2C3D4E5F60001 /* ActivityDay.swift */,
 				AB4AA4A9E228834991934C51 /* CalendarEvent.swift */,
+				CC20AA02D4E5F7G7B2C30002 /* LLMProvider.swift */,
 				F40B2A8EACF12FB6F2F1B7B9 /* Note.swift */,
 				562090B772799861E835524C /* Plan.swift */,
 				32FEB150AB9B8EBA8E81A012 /* Reminder.swift */,
@@ -554,7 +551,9 @@
 				6C6DFFA182CEBCC5AEDE5C59 /* PomodoroPopupView.swift in Sources */,
 				B94F6B9038784747DBAC522B /* PomodoroPanelController.swift in Sources */,
 				BB10BB01C3D4E5F6A1B20001 /* AISchedulerService.swift in Sources */,
-				BB10BB02C3D4E5F6A1B20002 /* Secrets.swift in Sources */,
+				CC20BB01D4E5F7G7B2C30001 /* KeychainService.swift in Sources */,
+				CC20BB02D4E5F7G7B2C30002 /* LLMProvider.swift in Sources */,
+
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

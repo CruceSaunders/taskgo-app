@@ -672,29 +672,55 @@ class ActivityTracker: ObservableObject {
 
     // MARK: - Media Playback Detection
 
+    private var cachedMediaPlaying = false
+    private var lastMediaCheck: Date = .distantPast
+
     private func isMediaPlaying() -> Bool {
-        guard let bundle = CFBundleCreate(kCFAllocatorDefault,
-            URL(fileURLWithPath: "/System/Library/PrivateFrameworks/MediaRemote.framework") as CFURL)
-        else { return false }
+        if Date().timeIntervalSince(lastMediaCheck) < 4 {
+            return cachedMediaPlaying
+        }
+        lastMediaCheck = Date()
 
-        guard let ptr = CFBundleGetFunctionPointerForName(bundle, "MRMediaRemoteGetNowPlayingInfo" as CFString)
-        else { return false }
-
-        typealias MRFunc = @convention(c) (DispatchQueue, @escaping ([String: Any]) -> Void) -> Void
-        let getInfo = unsafeBitCast(ptr, to: MRFunc.self)
-
-        var playing = false
-        let semaphore = DispatchSemaphore(value: 0)
-
-        getInfo(DispatchQueue.global(qos: .utility)) { info in
-            if let rate = info["kMRMediaRemoteNowPlayingInfoPlaybackRate"] as? Double, rate > 0 {
-                playing = true
+        let script = """
+        ObjC.import('Foundation');
+        var bundle = $.NSBundle.bundleWithPath('/System/Library/PrivateFrameworks/MediaRemote.framework');
+        if (!bundle.load()) { 'stopped'; } else {
+            var info = Ref();
+            var fn = ObjC.castRefToObject($.dlsym($.dlopen('/System/Library/PrivateFrameworks/MediaRemote.framework/MediaRemote', 1), 'MRMediaRemoteGetNowPlayingInfo'));
+            if (!fn) { 'stopped'; } else {
+                var sem = $.dispatch_semaphore_create(0);
+                var result = 'stopped';
+                ObjC.bindFunction('MRMediaRemoteGetNowPlayingInfo', ['void', ['id', 'id']]);
+                $.MRMediaRemoteGetNowPlayingInfo($.dispatch_get_global_queue(0, 0), $(function(info) {
+                    var rate = ObjC.unwrap(info.objectForKey('kMRMediaRemoteNowPlayingInfoPlaybackRate'));
+                    if (rate !== undefined && rate !== null && parseFloat(rate) > 0) result = 'playing';
+                    $.dispatch_semaphore_signal(sem);
+                }));
+                $.dispatch_semaphore_wait(sem, $.dispatch_time(0, 500000000));
+                result;
             }
-            semaphore.signal()
+        }
+        """
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = ["-l", "JavaScript", "-e", script]
+
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            cachedMediaPlaying = output == "playing"
+        } catch {
+            cachedMediaPlaying = false
         }
 
-        _ = semaphore.wait(timeout: .now() + 0.5)
-        return playing
+        return cachedMediaPlaying
     }
 
     // MARK: - Day Rollover

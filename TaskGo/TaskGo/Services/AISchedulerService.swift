@@ -31,9 +31,6 @@ class AISchedulerService {
     static let shared = AISchedulerService()
     private init() {}
 
-    private let endpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
-    private let model = "gpt-4o-mini"
-
     func generateSchedule(
         tasks: [ScheduleTaskInput],
         existingEvents: [ExistingEventInput],
@@ -44,6 +41,12 @@ class AISchedulerService {
         breakMinutes: Int = 10
     ) async throws -> [ScheduledBlock] {
         guard !tasks.isEmpty else { return [] }
+
+        let provider = LLMProvider.selectedProvider
+        guard let apiKey = LLMProvider.currentAPIKey else {
+            throw AISchedulerError.noAPIKey
+        }
+        let model = LLMProvider.effectiveModel
 
         var rules = """
         You are a time-block scheduler. Given tasks with durations and available time windows, produce an optimal schedule as JSON.
@@ -79,21 +82,47 @@ class AISchedulerService {
             breakMinutes: breakMinutes
         )
 
-        let requestBody: [String: Any] = [
-            "model": model,
-            "response_format": ["type": "json_object"],
-            "temperature": 0.2,
-            "messages": [
-                ["role": "system", "content": rules],
-                ["role": "user", "content": userPayload]
-            ]
-        ]
+        var request: URLRequest
+        guard let url = URL(string: provider.baseURL) else {
+            throw AISchedulerError.networkError("Invalid provider URL")
+        }
 
-        var request = URLRequest(url: endpoint)
-        request.httpMethod = "POST"
-        request.addValue("Bearer \(Secrets.openAIAPIKey)", forHTTPHeaderField: "Authorization")
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        if provider.isOpenAICompatible {
+            var body: [String: Any] = [
+                "model": model,
+                "temperature": 0.2,
+                "messages": [
+                    ["role": "system", "content": rules],
+                    ["role": "user", "content": userPayload]
+                ]
+            ]
+            if provider.supportsJSONMode {
+                body["response_format"] = ["type": "json_object"]
+            }
+
+            request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+            request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        } else {
+            let combinedPrompt = rules + "\n\n" + userPayload + "\n\nRespond with ONLY the JSON object."
+            let body: [String: Any] = [
+                "model": model,
+                "max_tokens": 4096,
+                "messages": [
+                    ["role": "user", "content": combinedPrompt]
+                ]
+            ]
+
+            request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.addValue(apiKey, forHTTPHeaderField: "x-api-key")
+            request.addValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+            request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        }
+
         request.timeoutInterval = 30
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -107,7 +136,7 @@ class AISchedulerService {
             throw AISchedulerError.apiError(httpResponse.statusCode, body)
         }
 
-        let parsed = try parseResponse(data: data)
+        let parsed = try parseResponse(data: data, provider: provider)
 
         if let validationError = validateSchedule(parsed, tasks: tasks, officeHoursStart: officeHoursStart, officeHoursEnd: officeHoursEnd, existingEvents: existingEvents) {
             print("[AIScheduler] Validation failed: \(validationError). Using sequential fallback.")
@@ -157,21 +186,42 @@ class AISchedulerService {
 
     // MARK: - Response Parsing
 
-    private func parseResponse(data: Data) throws -> [ScheduledBlock] {
-        struct OpenAIResponse: Decodable {
-            struct Choice: Decodable {
-                struct Message: Decodable {
-                    let content: String?
+    private func parseResponse(data: Data, provider: LLMProvider) throws -> [ScheduledBlock] {
+        let content: String
+
+        if provider.isOpenAICompatible {
+            struct OpenAIResponse: Decodable {
+                struct Choice: Decodable {
+                    struct Message: Decodable { let content: String? }
+                    let message: Message
                 }
-                let message: Message
+                let choices: [Choice]
             }
-            let choices: [Choice]
+            let resp = try JSONDecoder().decode(OpenAIResponse.self, from: data)
+            guard let c = resp.choices.first?.message.content else {
+                throw AISchedulerError.malformedResponse("No content in response")
+            }
+            content = c
+        } else {
+            struct AnthropicResponse: Decodable {
+                struct ContentBlock: Decodable { let text: String? }
+                let content: [ContentBlock]
+            }
+            let resp = try JSONDecoder().decode(AnthropicResponse.self, from: data)
+            guard let c = resp.content.first?.text else {
+                throw AISchedulerError.malformedResponse("No content in Anthropic response")
+            }
+            content = c
         }
 
-        let openAIResp = try JSONDecoder().decode(OpenAIResponse.self, from: data)
-        guard let content = openAIResp.choices.first?.message.content,
-              let contentData = content.data(using: .utf8) else {
-            throw AISchedulerError.malformedResponse("No content in response")
+        var jsonString = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        if jsonString.hasPrefix("```json") { jsonString = String(jsonString.dropFirst(7)) }
+        if jsonString.hasPrefix("```") { jsonString = String(jsonString.dropFirst(3)) }
+        if jsonString.hasSuffix("```") { jsonString = String(jsonString.dropLast(3)) }
+        jsonString = jsonString.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard let contentData = jsonString.data(using: .utf8) else {
+            throw AISchedulerError.malformedResponse("Could not encode content as UTF-8")
         }
 
         let schedule = try JSONDecoder().decode(AIScheduleResponse.self, from: contentData)
@@ -345,12 +395,14 @@ class AISchedulerService {
 // MARK: - Errors
 
 enum AISchedulerError: LocalizedError {
+    case noAPIKey
     case networkError(String)
     case apiError(Int, String)
     case malformedResponse(String)
 
     var errorDescription: String? {
         switch self {
+        case .noAPIKey: return "No AI API key configured. Set one in Settings."
         case .networkError(let msg): return "Network error: \(msg)"
         case .apiError(let code, let body): return "API error (\(code)): \(body)"
         case .malformedResponse(let msg): return "Invalid AI response: \(msg)"

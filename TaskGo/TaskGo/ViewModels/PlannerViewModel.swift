@@ -21,6 +21,7 @@ enum ConversionState: Equatable {
 enum ConversionError: Equatable {
     case noScheduleConfig
     case noCalendarAccess
+    case noAPIKey
     case missingDurations(count: Int, daysMissing: [String])
     case dayOverflow(details: [DayOverflowDetail])
     case nothingToConvert
@@ -443,6 +444,11 @@ class PlannerViewModel: ObservableObject {
 
             guard calendarService.hasAccess else {
                 conversionState = .error(.noCalendarAccess)
+                return
+            }
+
+            guard LLMProvider.isConfigured else {
+                conversionState = .error(.noAPIKey)
                 return
             }
 
