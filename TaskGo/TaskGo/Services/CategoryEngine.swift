@@ -141,7 +141,8 @@ class CategoryEngine {
         // ── Coding (+2) ──
         add("Coding", .veryProductive, .bundleID, "com.apple.dt.Xcode")
         add("Coding", .veryProductive, .bundleID, "com.microsoft.VSCode")
-        add("Coding", .veryProductive, .bundleID, "com.todesktop.230313mzl4w4u92")  // Cursor
+        add("Coding", .veryProductive, .bundleID, "com.todesktop.230313mzl4w4u92")
+        add("Coding", .veryProductive, .appName, "Cursor")
         add("Coding", .veryProductive, .bundleID, "com.sublimetext")
         add("Coding", .veryProductive, .bundleID, "com.jetbrains")
         add("Coding", .veryProductive, .appName, "IntelliJ")

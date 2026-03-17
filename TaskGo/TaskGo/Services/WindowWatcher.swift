@@ -54,6 +54,17 @@ class WindowWatcher: ObservableObject {
         }
     }
 
+    @Published var lastHarvestInfo: String = ""
+    @Published var totalSegmentsToday: Int = 0
+    @Published var totalSegmentSecondsToday: Int = 0
+
+    private lazy var diagLogURL: URL = {
+        let dir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".taskgo").appendingPathComponent("activity")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("watcher-diag.log")
+    }()
+
     private init() {
         preferences = TrackingPreferences.load()
         setupNotifications()
@@ -195,14 +206,17 @@ class WindowWatcher: ObservableObject {
         segmentLock.lock()
         defer { segmentLock.unlock() }
 
-        if let active = activeSegment,
+        if var active = activeSegment,
            active.bundleID == bundleID,
            active.windowTitle == windowTitle,
            active.domain == domain {
-            activeSegment?.accumulatedSeconds += Int(pollInterval)
+            active.accumulatedSeconds += Int(pollInterval)
+            activeSegment = active
+            wDiagLog("[POLL] app=\(appName) category=\(result.category) score=\(result.productivityLevel.rawValue) action=EXTEND seconds=\(active.accumulatedSeconds)")
         } else {
             if let active = activeSegment {
                 completedSegments.append(active.toAppSegment())
+                wDiagLog("[SEGMENT] app=\(active.appName) seconds=\(active.accumulatedSeconds) category=\(active.category)")
             }
             activeSegment = LiveSegment(
                 bundleID: bundleID,
@@ -215,6 +229,7 @@ class WindowWatcher: ObservableObject {
                 accumulatedSeconds: Int(pollInterval),
                 taskName: activeTaskName
             )
+            wDiagLog("[POLL] app=\(appName) category=\(result.category) score=\(result.productivityLevel.rawValue) action=NEW domain=\(domain ?? "nil")")
         }
     }
 
@@ -266,13 +281,42 @@ class WindowWatcher: ObservableObject {
 
         var result = completedSegments
 
-        if let active = activeSegment, active.accumulatedSeconds > 0 {
+        if var active = activeSegment, active.accumulatedSeconds > 0 {
             result.append(active.toAppSegment())
-            activeSegment?.accumulatedSeconds = 0
-            activeSegment?.startTime = Date()
+            active.accumulatedSeconds = 0
+            active.startTime = Date()
+            activeSegment = active
         }
 
         completedSegments.removeAll()
+
+        let totalSec = result.reduce(0) { $0 + $1.seconds }
+        let activeInfo = activeSegment.map { "\($0.appName)(\($0.accumulatedSeconds)s)" } ?? "none"
+        wDiagLog("[HARVEST] segments=\(result.count) totalSeconds=\(totalSec) activeSegment=\(activeInfo)")
+
+        totalSegmentsToday += result.count
+        totalSegmentSecondsToday += totalSec
+        DispatchQueue.main.async {
+            self.lastHarvestInfo = "\(result.count) segs, \(totalSec)s"
+        }
+
         return result
+    }
+
+    // MARK: - Diagnostic Logging
+
+    private func wDiagLog(_ message: String) {
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let line = "[\(timestamp)] \(message)\n"
+        guard let data = line.data(using: .utf8) else { return }
+        if FileManager.default.fileExists(atPath: diagLogURL.path) {
+            if let handle = try? FileHandle(forWritingTo: diagLogURL) {
+                handle.seekToEndOfFile()
+                handle.write(data)
+                handle.closeFile()
+            }
+        } else {
+            try? data.write(to: diagLogURL, options: .atomic)
+        }
     }
 }

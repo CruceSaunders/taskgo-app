@@ -13,6 +13,7 @@ struct SettingsView: View {
     @State private var testResult: String?
     @State private var isTesting = false
     @State private var showingCategoryRules = false
+    @State private var showingDiagnostics = false
 
     @State private var trackWindowTitles: Bool = true
     @State private var trackBrowserURLs: Bool = true
@@ -61,6 +62,11 @@ struct SettingsView: View {
 
                 Button("Manage Category Rules...") {
                     showingCategoryRules = true
+                }
+                .font(.system(size: 11))
+
+                Button("Diagnostics...") {
+                    showingDiagnostics = true
                 }
                 .font(.system(size: 11))
             }
@@ -173,6 +179,9 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showingCategoryRules) {
             CategoryRulesView()
+        }
+        .sheet(isPresented: $showingDiagnostics) {
+            TrackingDiagnosticView()
         }
     }
 

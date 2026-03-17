@@ -191,7 +191,13 @@ class ActivityTracker: ObservableObject {
             return
         }
 
-        startHIDKeyboardMonitoring()
+        let nsKeyboardOK = keyboardMonitor != nil
+        if !nsKeyboardOK {
+            diagLog("NSEvent keyboard not available — starting HID fallback")
+            startHIDKeyboardMonitoring()
+        } else {
+            diagLog("NSEvent keyboard active — skipping HID to avoid double-counting")
+        }
 
         retryTimer?.invalidate()
         retryTimer = nil
@@ -681,6 +687,16 @@ class ActivityTracker: ObservableObject {
             todayData.firstActivity = now
         }
         todayData.lastActivity = now
+
+        let segCount = appSegments.count
+        let segSec = appSegments.reduce(0) { $0 + $1.seconds }
+        let dominant = entry.dominantApp ?? "none"
+        diagLog("[MINUTE] minute=\(minuteOfDay) kb=\(kb) cl=\(cl) sc=\(sc) mv=\(mv) segments=\(segCount) segSeconds=\(segSec) dominant=\(dominant)")
+
+        let violations = todayData.validateIntegrity()
+        for v in violations {
+            diagLog("[WARN] \(v)")
+        }
 
         objectWillChange.send()
         flushToDisk()

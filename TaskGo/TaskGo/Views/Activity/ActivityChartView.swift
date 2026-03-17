@@ -33,50 +33,74 @@ struct ActivityChartView: View {
                activityVM.chartData.contains { $0.value > 0 }
     }
 
+    private var bucketSize: Int { Int(activityVM.snappedZoomLevel) }
+
+    private var computedYMax: Int {
+        if activityVM.viewMode == .productivity {
+            let maxVal = activityVM.productivityChartData.map(\.activeMinutes).max() ?? bucketSize
+            let step = yAxisStep(for: maxVal)
+            return max(((maxVal / step) + 1) * step, bucketSize)
+        }
+        let maxVal = activityVM.chartData.map(\.value).max() ?? 100
+        let step = yAxisStep(for: maxVal)
+        return ((maxVal / step) + 1) * step
+    }
+
+    private var bucketLabel: String {
+        let s = bucketSize
+        if s >= 60 { return "per hour" }
+        return "per \(s) min"
+    }
+
     var body: some View {
         if !hasData {
             emptyState
         } else {
-            GeometryReader { outer in
-                let availableWidth = outer.size.width - 44
-                let useWidth = max(minChartWidth, availableWidth)
+            VStack(spacing: 2) {
+                GeometryReader { outer in
+                    let availableWidth = outer.size.width - 44
+                    let useWidth = max(minChartWidth, availableWidth)
+                    let yMax = computedYMax
 
-                HStack(alignment: .top, spacing: 0) {
-                    yAxisLabels
-                        .frame(width: 44)
+                    HStack(alignment: .top, spacing: 0) {
+                        yAxisLabels(yMax: yMax)
+                            .frame(width: 44)
 
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        VStack(spacing: 0) {
-                            if activityVM.viewMode == .activity {
-                                activityChartBody
-                                    .frame(width: useWidth, height: 180)
-                            } else {
-                                productivityChartBody
-                                    .frame(width: useWidth, height: 180)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            VStack(spacing: 0) {
+                                if activityVM.viewMode == .activity {
+                                    activityChartBody(yMax: yMax)
+                                        .frame(width: useWidth, height: 180)
+                                } else {
+                                    productivityChartBody(yMax: yMax)
+                                        .frame(width: useWidth, height: 180)
+                                }
+
+                                hourLabelsRow
+                                    .frame(width: useWidth, height: 28)
                             }
-
-                            hourLabelsRow
-                                .frame(width: useWidth, height: 28)
                         }
                     }
                 }
+                .frame(height: 212)
+
+                Text(bucketLabel)
+                    .font(.system(size: 8, weight: .medium))
+                    .foregroundStyle(.secondary.opacity(0.5))
             }
-            .frame(height: 212)
         }
     }
 
-    // MARK: - Y Axis
+    // MARK: - Y Axis (uses shared yMax)
 
-    private var yAxisLabels: some View {
-        let maxVal = yAxisMax
-        let step = yAxisStep(for: maxVal)
-        let topTick = ((maxVal / step) + 1) * step
-        let ticks = Array(stride(from: 0, through: topTick, by: step))
+    private func yAxisLabels(yMax: Int) -> some View {
+        let step = yAxisStep(for: yMax > 0 ? yMax : 1)
+        let ticks = Array(stride(from: 0, through: yMax, by: step))
 
         let chartHeight: CGFloat = 180
         return ZStack {
             ForEach(ticks, id: \.self) { tick in
-                let y = chartHeight - (chartHeight * CGFloat(tick) / CGFloat(topTick))
+                let y = chartHeight - (chartHeight * CGFloat(tick) / CGFloat(max(yMax, 1)))
                 Text("\(tick)")
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
@@ -84,13 +108,6 @@ struct ActivityChartView: View {
             }
         }
         .frame(width: 44, height: chartHeight)
-    }
-
-    private var yAxisMax: Int {
-        if activityVM.viewMode == .productivity {
-            return activityVM.productivityChartData.map(\.activeMinutes).max() ?? Int(activityVM.snappedZoomLevel)
-        }
-        return activityVM.chartData.map(\.value).max() ?? 100
     }
 
     private func yAxisStep(for maxVal: Int) -> Int {
@@ -105,15 +122,10 @@ struct ActivityChartView: View {
         return 2000
     }
 
-    // MARK: - Activity Chart (multi-series)
+    // MARK: - Activity Chart (uses shared yMax)
 
-    private var activityChartBody: some View {
-        let bucketSize = Int(activityVM.snappedZoomLevel)
-        let maxVal = activityVM.chartData.map(\.value).max() ?? 100
-        let step = yAxisStep(for: maxVal)
-        let yMax = ((maxVal / step) + 1) * step
-
-        return Chart(activityVM.chartData) { point in
+    private func activityChartBody(yMax: Int) -> some View {
+        Chart(activityVM.chartData) { point in
             BarMark(
                 x: .value("Time", point.bucketStart + bucketSize / 2),
                 y: .value("Count", point.value),
@@ -136,15 +148,10 @@ struct ActivityChartView: View {
         .chartLegend(.hidden)
     }
 
-    // MARK: - Productivity Chart (single series: active minutes)
+    // MARK: - Productivity Chart (uses shared yMax)
 
-    private var productivityChartBody: some View {
-        let bucketSize = Int(activityVM.snappedZoomLevel)
-        let maxVal = activityVM.productivityChartData.map(\.activeMinutes).max() ?? bucketSize
-        let step = yAxisStep(for: maxVal)
-        let yMax = max(((maxVal / step) + 1) * step, bucketSize)
-
-        return Chart(activityVM.productivityChartData) { point in
+    private func productivityChartBody(yMax: Int) -> some View {
+        Chart(activityVM.productivityChartData) { point in
             BarMark(
                 x: .value("Time", point.bucketStart + bucketSize / 2),
                 y: .value("Minutes", point.activeMinutes),

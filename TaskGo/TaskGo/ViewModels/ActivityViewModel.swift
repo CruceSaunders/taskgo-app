@@ -349,16 +349,27 @@ class ActivityViewModel: ObservableObject {
         currentDay?.appSummary ?? []
     }
 
+    var productiveSeconds: Int { secondsForScores([1, 2]) }
+    var neutralSeconds: Int { secondsForScores([0]) }
+    var distractingSeconds: Int { secondsForScores([-1, -2]) }
+
+    var uncategorizedSeconds: Int {
+        guard let day = currentDay else { return 0 }
+        let totalActiveSeconds = day.totalActiveMinutes * 60
+        let categorized = productiveSeconds + neutralSeconds + distractingSeconds
+        return max(0, totalActiveSeconds - categorized)
+    }
+
     var productiveTimeString: String {
-        formatSecondsToTime(secondsForScores([1, 2]))
+        formatSecondsToTime(productiveSeconds)
     }
 
     var neutralTimeString: String {
-        formatSecondsToTime(secondsForScores([0]))
+        formatSecondsToTime(neutralSeconds + uncategorizedSeconds)
     }
 
     var distractingTimeString: String {
-        formatSecondsToTime(secondsForScores([-1, -2]))
+        formatSecondsToTime(distractingSeconds)
     }
 
     var timelineSegments: [TimelineSegment] {

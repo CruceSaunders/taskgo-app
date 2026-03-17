@@ -20,6 +20,7 @@
 		CC30BF03D5E6F8H8C3D40003 /* WindowWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC30FR03D5E6F8H8C3D40003 /* WindowWatcher.swift */; };
 		CC30BF04D5E6F8H8C3D40004 /* BrowserTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC30FR04D5E6F8H8C3D40004 /* BrowserTracker.swift */; };
 		CC30BF05D5E6F8H8C3D40005 /* CategoryRulesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC30FR05D5E6F8H8C3D40005 /* CategoryRulesView.swift */; };
+		DD40BF01E6F7G9I9D4E50001 /* TrackingDiagnosticView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD40FR01E6F7G9I9D4E50001 /* TrackingDiagnosticView.swift */; };
 		CC30BF06D5E6F8H8C3D40006 /* AppTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC30FR06D5E6F8H8C3D40006 /* AppTimelineView.swift */; };
 		CC30BF07D5E6F8H8C3D40007 /* AppBreakdownView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC30FR07D5E6F8H8C3D40007 /* AppBreakdownView.swift */; };
 		00B8653645CDE42E1B5AD7C6 /* CalendarViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 224252F063AAB3D3287D5246 /* CalendarViewModel.swift */; };
@@ -102,6 +103,7 @@
 		CC30FR03D5E6F8H8C3D40003 /* WindowWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowWatcher.swift; sourceTree = "<group>"; };
 		CC30FR04D5E6F8H8C3D40004 /* BrowserTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTracker.swift; sourceTree = "<group>"; };
 		CC30FR05D5E6F8H8C3D40005 /* CategoryRulesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryRulesView.swift; sourceTree = "<group>"; };
+		DD40FR01E6F7G9I9D4E50001 /* TrackingDiagnosticView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackingDiagnosticView.swift; sourceTree = "<group>"; };
 		CC30FR06D5E6F8H8C3D40006 /* AppTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTimelineView.swift; sourceTree = "<group>"; };
 		CC30FR07D5E6F8H8C3D40007 /* AppBreakdownView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBreakdownView.swift; sourceTree = "<group>"; };
 		003DD174E7457A95D1E21BAF /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -299,6 +301,7 @@
 			isa = PBXGroup;
 			children = (
 				CC30FR05D5E6F8H8C3D40005 /* CategoryRulesView.swift */,
+				DD40FR01E6F7G9I9D4E50001 /* TrackingDiagnosticView.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -530,6 +533,7 @@
 				CC30BF03D5E6F8H8C3D40003 /* WindowWatcher.swift in Sources */,
 				CC30BF04D5E6F8H8C3D40004 /* BrowserTracker.swift in Sources */,
 				CC30BF05D5E6F8H8C3D40005 /* CategoryRulesView.swift in Sources */,
+				DD40BF01E6F7G9I9D4E50001 /* TrackingDiagnosticView.swift in Sources */,
 				CC30BF06D5E6F8H8C3D40006 /* AppTimelineView.swift in Sources */,
 				CC30BF07D5E6F8H8C3D40007 /* AppBreakdownView.swift in Sources */,
 				64E011887F796A7B9497626D /* ActivityMonitor.swift in Sources */,

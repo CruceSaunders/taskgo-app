@@ -113,7 +113,10 @@ struct MinuteEntry: Codable, Identifiable {
 
     var meaningfulInputs: Int { keyboard + clicks + dictation }
 
-    var isActive: Bool { totalInputs > 0 || dictation > 0 || meeting > 0 || watching > 0 }
+    var isActive: Bool {
+        totalInputs > 0 || dictation > 0 || meeting > 0 || watching > 0
+        || (appSegments != nil && !(appSegments?.isEmpty ?? true))
+    }
 
     func value(for series: DataSeries) -> Int {
         switch series {
@@ -421,6 +424,85 @@ struct ActivityDay: Codable, Identifiable {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.string(from: Date())
+    }
+
+    // MARK: - Data Integrity Validation
+
+    func validateIntegrity() -> [String] {
+        var violations: [String] = []
+
+        for entry in minuteData {
+            if entry.minute < 0 || entry.minute > 1439 {
+                violations.append("[RANGE] Minute \(entry.minute) out of valid range 0-1439")
+            }
+        }
+
+        let computedActiveMinutes = minuteData.filter { $0.isActive }.count
+        if computedActiveMinutes != totalActiveMinutes {
+            violations.append("[ACTIVE] totalActiveMinutes (\(totalActiveMinutes)) != computed active count (\(computedActiveMinutes))")
+        }
+
+        let computedKeyboard = minuteData.reduce(0) { $0 + $1.keyboard }
+        if computedKeyboard != totalKeyboard {
+            violations.append("[SUM] totalKeyboard (\(totalKeyboard)) != sum of minute keyboard (\(computedKeyboard))")
+        }
+        let computedClicks = minuteData.reduce(0) { $0 + $1.clicks }
+        if computedClicks != totalClicks {
+            violations.append("[SUM] totalClicks (\(totalClicks)) != sum of minute clicks (\(computedClicks))")
+        }
+
+        for entry in minuteData {
+            if let segs = entry.appSegments, !segs.isEmpty {
+                if entry.dominantApp == nil {
+                    violations.append("[DOMINANT] Minute \(entry.minute) has \(segs.count) segments but no dominantApp")
+                }
+                for seg in segs {
+                    if seg.seconds > 300 {
+                        violations.append("[SEGMENT] Minute \(entry.minute) segment \(seg.appName) has \(seg.seconds)s (>300s max)")
+                    }
+                    if seg.seconds <= 0 {
+                        violations.append("[SEGMENT] Minute \(entry.minute) segment \(seg.appName) has \(seg.seconds)s (<=0)")
+                    }
+                }
+            }
+        }
+
+        if let summary = appSummary {
+            var segmentSumByBundle: [String: Int] = [:]
+            for entry in minuteData {
+                guard let segs = entry.appSegments else { continue }
+                for seg in segs {
+                    segmentSumByBundle[seg.bundleID, default: 0] += seg.seconds
+                }
+            }
+            for app in summary {
+                let segSum = segmentSumByBundle[app.bundleID] ?? 0
+                if app.totalSeconds != segSum {
+                    violations.append("[APPSUMMARY] \(app.appName) summary (\(app.totalSeconds)s) != segment sum (\(segSum)s)")
+                }
+            }
+        }
+
+        for h in 0..<24 {
+            guard h < hourlySummary.count else { continue }
+            let minutesInHour = minuteData.filter { $0.minute / 60 == h && $0.isActive }.count
+            if hourlySummary[h].activeMinutes != minutesInHour {
+                violations.append("[HOURLY] Hour \(h) activeMinutes (\(hourlySummary[h].activeMinutes)) != computed (\(minutesInHour))")
+            }
+        }
+
+        if hasAppTrackingData {
+            var allSegs: [AppSegment] = []
+            for entry in minuteData {
+                if let segs = entry.appSegments { allSegs.append(contentsOf: segs) }
+            }
+            let recomputedPulse = CategoryEngine.productivityPulse(from: allSegs)
+            if let storedPulse = productivityPulse, abs(storedPulse - recomputedPulse) > 0.1 {
+                violations.append("[PULSE] Stored pulse (\(String(format: "%.1f", storedPulse))) != recomputed (\(String(format: "%.1f", recomputedPulse)))")
+            }
+        }
+
+        return violations
     }
 }
 
