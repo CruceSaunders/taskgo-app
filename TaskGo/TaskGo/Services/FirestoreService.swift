@@ -426,6 +426,11 @@ class FirestoreService {
     // MARK: - API Keys
 
     func generateApiKey(label: String) async throws -> (key: String, prefix: String) {
+        guard let user = Auth.auth().currentUser else {
+            throw NSError(domain: "TaskGo", code: 401,
+                          userInfo: [NSLocalizedDescriptionKey: "Not signed in. Sign out and back in."])
+        }
+        _ = try await user.getIDTokenResult(forcingRefresh: true)
         let functions = Functions.functions()
         let result = try await functions.httpsCallable("generateApiKey").call(["label": label])
         guard let data = result.data as? [String: Any],
@@ -437,11 +442,17 @@ class FirestoreService {
     }
 
     func revokeApiKey(prefix: String) async throws {
+        if let user = Auth.auth().currentUser {
+            _ = try await user.getIDTokenResult(forcingRefresh: true)
+        }
         let functions = Functions.functions()
         _ = try await functions.httpsCallable("revokeApiKey").call(["prefix": prefix])
     }
 
     func listApiKeys() async throws -> [[String: Any]] {
+        if let user = Auth.auth().currentUser {
+            _ = try await user.getIDTokenResult(forcingRefresh: true)
+        }
         let functions = Functions.functions()
         let result = try await functions.httpsCallable("listApiKeys").call()
         guard let data = result.data as? [String: Any],
