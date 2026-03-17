@@ -164,6 +164,22 @@ class CalendarService: ObservableObject {
         }
         try store.remove(event, span: .thisEvent)
     }
+
+    func deleteEvents(matching titles: Set<String>, onCalendar calendarIdentifier: String, from startDate: Date, to endDate: Date) -> Int {
+        guard hasAccess else { return 0 }
+        guard let calendar = store.calendars(for: .event).first(where: { $0.calendarIdentifier == calendarIdentifier }) else { return 0 }
+
+        let predicate = store.predicateForEvents(withStart: startDate, end: endDate, calendars: [calendar])
+        let events = store.events(matching: predicate)
+        var deleted = 0
+        for event in events {
+            if let title = event.title, titles.contains(title) {
+                try? store.remove(event, span: .thisEvent)
+                deleted += 1
+            }
+        }
+        return deleted
+    }
 }
 
 struct WritableCalendarInfo: Identifiable, Equatable {

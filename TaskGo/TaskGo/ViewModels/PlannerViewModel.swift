@@ -466,9 +466,20 @@ class PlannerViewModel: ObservableObject {
             }
 
             // Delete old events BEFORE overflow check so they don't count as busy time
-            if forceReconvert, let oldIds = plan.createdEventIds {
-                for eventId in oldIds {
-                    try? calendarService.deleteEvent(identifier: eventId)
+            if forceReconvert {
+                if let oldIds = plan.createdEventIds, !oldIds.isEmpty {
+                    for eventId in oldIds {
+                        try? calendarService.deleteEvent(identifier: eventId)
+                    }
+                } else if plan.lastConvertedAt != nil {
+                    let allTitles = plan.dateRange.flatMap { dateStr in
+                        (plan.dailyObjectives[dateStr] ?? []).filter { !$0.isComplete }.map(\.text)
+                    }
+                    let titleSet = Set(allTitles + ["Break"])
+                    if let planStart = Plan.dateFmt.date(from: plan.startDate),
+                       let planEnd = Calendar.current.date(byAdding: .day, value: 1, to: Plan.dateFmt.date(from: plan.endDate) ?? planStart) {
+                        _ = calendarService.deleteEvents(matching: titleSet, onCalendar: calId, from: planStart, to: planEnd)
+                    }
                 }
                 selectedPlan?.createdEventIds = nil
             }
@@ -575,10 +586,23 @@ class PlannerViewModel: ObservableObject {
     }
 
     func removeConvertedEvents() {
-        guard let eventIds = selectedPlan?.createdEventIds, !eventIds.isEmpty else { return }
-        for eventId in eventIds {
-            try? calendarService.deleteEvent(identifier: eventId)
+        guard let plan = selectedPlan, plan.lastConvertedAt != nil else { return }
+
+        if let eventIds = plan.createdEventIds, !eventIds.isEmpty {
+            for eventId in eventIds {
+                try? calendarService.deleteEvent(identifier: eventId)
+            }
+        } else if let calId = plan.calendarId {
+            let allTitles = plan.dateRange.flatMap { dateStr in
+                (plan.dailyObjectives[dateStr] ?? []).map(\.text)
+            }
+            let titleSet = Set(allTitles + ["Break"])
+            if let planStart = Plan.dateFmt.date(from: plan.startDate),
+               let planEnd = Calendar.current.date(byAdding: .day, value: 1, to: Plan.dateFmt.date(from: plan.endDate) ?? planStart) {
+                _ = calendarService.deleteEvents(matching: titleSet, onCalendar: calId, from: planStart, to: planEnd)
+            }
         }
+
         selectedPlan?.createdEventIds = nil
         selectedPlan?.lastConvertedAt = nil
         selectedPlan?.updatedAt = Date()
