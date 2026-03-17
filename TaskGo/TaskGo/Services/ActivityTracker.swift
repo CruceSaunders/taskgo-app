@@ -89,6 +89,35 @@ class ActivityTracker: ObservableObject {
         "Wispr", "Dragon", "Talon", "Otter", "Dictation"
     ]
 
+    private let browserBundleIDs: Set<String> = [
+        "com.google.Chrome", "com.google.Chrome.canary",
+        "com.apple.Safari", "com.apple.SafariTechnologyPreview",
+        "org.mozilla.firefox", "org.mozilla.firefoxdeveloperedition",
+        "company.thebrowser.Browser", "com.microsoft.edgemac",
+        "com.brave.Browser", "com.operasoftware.Opera",
+        "com.vivaldi.Vivaldi", "org.chromium.Chromium",
+        "com.sigmaos.sigmaos.macos", "com.nickvision.nickvision"
+    ]
+
+    private let videoAppBundleIDs: Set<String> = [
+        "com.netflix.Netflix", "com.amazon.PrimeVideo",
+        "com.disney.disneyplus", "tv.twitch.desktop",
+        "com.apple.TV", "tv.plex.player", "tv.plex.Plex",
+        "com.HBO.HBONow", "com.hbo.HBOMax",
+        "com.hulu.plus", "com.google.ios.youtube",
+        "com.atebits.Tweetbot", "us.zoom.xos",
+        "com.apple.FaceTime", "com.loom.desktop"
+    ]
+
+    private let audioOnlyBundleIDs: Set<String> = [
+        "com.spotify.client", "com.apple.Music",
+        "com.apple.iTunes", "com.tidal.desktop",
+        "com.amazon.Music", "com.pandora.desktop",
+        "com.audible.desktop", "ru.ya.music",
+        "com.roon.Roon", "com.plexamp.Plexamp",
+        "com.soundcloud.desktop", "com.deezer.deezer-desktop"
+    ]
+
     // MARK: - Storage
 
     let localStorageDir: URL = {
@@ -478,11 +507,11 @@ class ActivityTracker: ObservableObject {
             if self.isMicrophoneInUse() {
                 self.currentMicSeconds += Int(self.micSampleInterval)
             }
-            let mediaActive = self.isMediaPlaying()
-            if mediaActive {
+            if self.isActivelyWatchingMedia() {
                 self.currentWatching = 1
                 if Date().timeIntervalSince(self.lastMediaLogTime) > 300 {
-                    self.diagLog("Audio output active — marking minute as watching")
+                    let appName = NSWorkspace.shared.frontmostApplication?.localizedName ?? "unknown"
+                    self.diagLog("Watching detected — frontmost: \(appName), audio: active")
                     self.lastMediaLogTime = Date()
                 }
             }
@@ -677,9 +706,9 @@ class ActivityTracker: ObservableObject {
         return runStatus == noErr && isRunning != 0
     }
 
-    // MARK: - Media Playback Detection (audio output)
+    // MARK: - Media Watching Detection
 
-    private func isMediaPlaying() -> Bool {
+    private func isAudioOutputActive() -> Bool {
         var defaultDeviceID = AudioDeviceID(0)
         var size = UInt32(MemoryLayout<AudioDeviceID>.size)
         var address = AudioObjectPropertyAddress(
@@ -707,6 +736,17 @@ class ActivityTracker: ObservableObject {
             &runningAddress, 0, nil, &runningSize, &isRunning
         )
         return runStatus == noErr && isRunning != 0
+    }
+
+    private func isActivelyWatchingMedia() -> Bool {
+        guard isAudioOutputActive() else { return false }
+
+        guard let frontApp = NSWorkspace.shared.frontmostApplication,
+              let bundleID = frontApp.bundleIdentifier else { return false }
+
+        if audioOnlyBundleIDs.contains(bundleID) { return false }
+
+        return browserBundleIDs.contains(bundleID) || videoAppBundleIDs.contains(bundleID)
     }
 
     // MARK: - Day Rollover
