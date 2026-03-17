@@ -16,12 +16,12 @@ struct CalendarEvent: Identifiable {
         self.startDate = ekEvent.startDate
         self.endDate = ekEvent.endDate
         self.isAllDay = ekEvent.isAllDay
-        if let cgColor = ekEvent.calendar.cgColor {
+        if let cgColor = ekEvent.calendar?.cgColor {
             self.calendarColor = Color(cgColor: cgColor)
         } else {
             self.calendarColor = .blue
         }
-        self.calendarName = ekEvent.calendar.title
+        self.calendarName = ekEvent.calendar?.title ?? "Calendar"
     }
 
     var timeFormatted: String {

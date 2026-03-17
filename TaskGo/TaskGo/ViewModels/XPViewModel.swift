@@ -10,6 +10,7 @@ class XPViewModel: ObservableObject {
     @Published var xpToNextLevel: Int = 0
 
     private let firestoreService = FirestoreService.shared
+    private var weeklyXPResetDate: Date = UserProfile.nextMondayMidnight()
 
     func loadXP() async {
         guard let userId = Auth.auth().currentUser?.uid else { return }
@@ -19,6 +20,8 @@ class XPViewModel: ObservableObject {
                 totalXP = profile.totalXP
                 level = profile.level
                 weeklyXP = profile.weeklyXP
+                weeklyXPResetDate = profile.weeklyXPResetDate
+                try? await checkAndResetWeeklyIfNeeded(userId: userId)
                 updateDerivedValues()
             }
         } catch {
@@ -28,6 +31,8 @@ class XPViewModel: ObservableObject {
 
     func awardXP(activeMinutes: Int) async {
         guard let userId = Auth.auth().currentUser?.uid else { return }
+
+        try? await checkAndResetWeeklyIfNeeded(userId: userId)
 
         let earnedXP = XPSystem.calculateXP(activeMinutes: activeMinutes)
         guard earnedXP > 0 else { return }
@@ -42,11 +47,25 @@ class XPViewModel: ObservableObject {
                 userId: userId,
                 totalXP: totalXP,
                 level: level,
-                weeklyXP: weeklyXP
+                weeklyXP: weeklyXP,
+                weeklyXPResetDate: weeklyXPResetDate
             )
         } catch {
             print("Error saving XP: \(error.localizedDescription)")
         }
+    }
+
+    private func checkAndResetWeeklyIfNeeded(userId: String) async throws {
+        guard Date() >= weeklyXPResetDate else { return }
+        weeklyXP = 0
+        weeklyXPResetDate = UserProfile.nextMondayMidnight()
+        try await firestoreService.updateUserXP(
+            userId: userId,
+            totalXP: totalXP,
+            level: level,
+            weeklyXP: weeklyXP,
+            weeklyXPResetDate: weeklyXPResetDate
+        )
     }
 
     private func updateDerivedValues() {

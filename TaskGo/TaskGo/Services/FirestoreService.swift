@@ -29,12 +29,16 @@ class FirestoreService {
         return try? doc.data(as: UserProfile.self)
     }
 
-    func updateUserXP(userId: String, totalXP: Int, level: Int, weeklyXP: Int) async throws {
-        try await userRef(userId).updateData([
+    func updateUserXP(userId: String, totalXP: Int, level: Int, weeklyXP: Int, weeklyXPResetDate: Date? = nil) async throws {
+        var data: [String: Any] = [
             "totalXP": totalXP,
             "level": level,
             "weeklyXP": weeklyXP
-        ])
+        ]
+        if let resetDate = weeklyXPResetDate {
+            data["weeklyXPResetDate"] = resetDate
+        }
+        try await userRef(userId).updateData(data)
     }
 
     // MARK: - Username Uniqueness
