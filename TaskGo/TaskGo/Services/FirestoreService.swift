@@ -432,7 +432,8 @@ class FirestoreService {
         }
         _ = try await user.getIDTokenResult(forcingRefresh: true)
         let functions = Functions.functions()
-        let result = try await functions.httpsCallable("generateApiKey").call(["label": label])
+        let callable = functions.httpsCallable("generateApiKey")
+        let result = try await callable.call(["label": label] as [String: Any])
         guard let data = result.data as? [String: Any],
               let key = data["key"] as? String,
               let prefix = data["prefix"] as? String else {
