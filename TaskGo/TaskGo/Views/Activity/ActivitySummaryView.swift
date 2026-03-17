@@ -4,6 +4,44 @@ struct ActivitySummaryView: View {
     @EnvironmentObject var activityVM: ActivityViewModel
 
     var body: some View {
+        VStack(spacing: 8) {
+            if activityVM.hasAppTrackingData {
+                productivityCards
+            }
+            inputCards
+        }
+    }
+
+    private var productivityCards: some View {
+        HStack(spacing: 8) {
+            summaryCard(
+                title: "Pulse",
+                value: String(format: "%.0f", activityVM.productivityPulse),
+                icon: "gauge.high",
+                color: pulseColor(activityVM.productivityPulse)
+            )
+            summaryCard(
+                title: "Productive",
+                value: activityVM.productiveTimeString,
+                icon: "checkmark.circle.fill",
+                color: .green
+            )
+            summaryCard(
+                title: "Neutral",
+                value: activityVM.neutralTimeString,
+                icon: "minus.circle.fill",
+                color: .gray
+            )
+            summaryCard(
+                title: "Distracting",
+                value: activityVM.distractingTimeString,
+                icon: "xmark.circle.fill",
+                color: .red
+            )
+        }
+    }
+
+    private var inputCards: some View {
         HStack(spacing: 8) {
             summaryCard(
                 title: "Active",
@@ -30,6 +68,13 @@ struct ActivitySummaryView: View {
                 color: .orange
             )
         }
+    }
+
+    private func pulseColor(_ pulse: Double) -> Color {
+        if pulse >= 75 { return .green }
+        if pulse >= 50 { return .calmTeal }
+        if pulse >= 25 { return .orange }
+        return .red
     }
 
     private func summaryCard(title: String, value: String, icon: String, color: Color) -> some View {

@@ -171,6 +171,7 @@ class TaskGoViewModel: ObservableObject {
             showTimerPanel()
         }
         notifyPanelResize()
+        WindowWatcher.shared.activeTaskName = task.name
     }
 
     // MARK: - Stop
@@ -183,6 +184,7 @@ class TaskGoViewModel: ObservableObject {
         isActive = false
         stopAlarm()
         hideTimerPanel()
+        WindowWatcher.shared.activeTaskName = nil
     }
 
     func removeLane(_ lane: TaskGoLane) {

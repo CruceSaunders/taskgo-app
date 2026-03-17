@@ -334,4 +334,88 @@ class ActivityViewModel: ObservableObject {
         formatter.dateFormat = "EEEE, MMM d"
         return formatter.string(from: selectedDate)
     }
+
+    // MARK: - App Tracking Properties
+
+    var hasAppTrackingData: Bool {
+        currentDay?.hasAppTrackingData ?? false
+    }
+
+    var productivityPulse: Double {
+        currentDay?.productivityPulse ?? 0
+    }
+
+    var topApps: [AppDaySummary] {
+        currentDay?.appSummary ?? []
+    }
+
+    var productiveTimeString: String {
+        formatSecondsToTime(secondsForScores([1, 2]))
+    }
+
+    var neutralTimeString: String {
+        formatSecondsToTime(secondsForScores([0]))
+    }
+
+    var distractingTimeString: String {
+        formatSecondsToTime(secondsForScores([-1, -2]))
+    }
+
+    var timelineSegments: [TimelineSegment] {
+        guard let day = currentDay else { return [] }
+        var segments: [TimelineSegment] = []
+
+        for entry in day.minuteData {
+            guard let segs = entry.appSegments, !segs.isEmpty else { continue }
+            if let dominant = segs.max(by: { $0.seconds < $1.seconds }) {
+                if let last = segments.last,
+                   last.bundleID == dominant.bundleID,
+                   last.windowTitle == dominant.windowTitle,
+                   last.endMinute == entry.minute {
+                    segments[segments.count - 1] = TimelineSegment(
+                        startMinute: last.startMinute,
+                        endMinute: entry.minute + 1,
+                        appName: last.appName,
+                        bundleID: last.bundleID,
+                        category: last.category,
+                        productivityScore: last.productivityScore,
+                        windowTitle: last.windowTitle,
+                        domain: last.domain
+                    )
+                } else {
+                    segments.append(TimelineSegment(
+                        startMinute: entry.minute,
+                        endMinute: entry.minute + 1,
+                        appName: dominant.appName,
+                        bundleID: dominant.bundleID,
+                        category: dominant.category,
+                        productivityScore: dominant.productivityScore,
+                        windowTitle: dominant.windowTitle,
+                        domain: dominant.domain
+                    ))
+                }
+            }
+        }
+        return segments
+    }
+
+    var categoryBreakdown: [String: Int] {
+        guard let apps = currentDay?.appSummary else { return [:] }
+        var result: [String: Int] = [:]
+        for app in apps {
+            result[app.category, default: 0] += app.totalSeconds
+        }
+        return result
+    }
+
+    private func secondsForScores(_ scores: [Int]) -> Int {
+        guard let apps = currentDay?.appSummary else { return 0 }
+        return apps.filter { scores.contains($0.productivityScore) }.reduce(0) { $0 + $1.totalSeconds }
+    }
+
+    private func formatSecondsToTime(_ seconds: Int) -> String {
+        let minutes = seconds / 60
+        if minutes >= 60 { return "\(minutes / 60)h \(minutes % 60)m" }
+        return "\(minutes)m"
+    }
 }

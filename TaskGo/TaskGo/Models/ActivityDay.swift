@@ -23,6 +23,75 @@ enum DataSeries: String, CaseIterable, Codable, Identifiable {
     }
 }
 
+// MARK: - App Tracking Models
+
+struct AppSegment: Codable, Identifiable {
+    var id: UUID = UUID()
+    let bundleID: String
+    let appName: String
+    let windowTitle: String
+    let domain: String?
+    let category: String
+    let productivityScore: Int
+    var seconds: Int
+    var taskName: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, bundleID, appName, windowTitle, domain, category, productivityScore, seconds, taskName
+    }
+
+    init(bundleID: String, appName: String, windowTitle: String, domain: String? = nil,
+         category: String, productivityScore: Int, seconds: Int, taskName: String? = nil) {
+        self.id = UUID()
+        self.bundleID = bundleID
+        self.appName = appName
+        self.windowTitle = windowTitle
+        self.domain = domain
+        self.category = category
+        self.productivityScore = productivityScore
+        self.seconds = seconds
+        self.taskName = taskName
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        bundleID = try container.decode(String.self, forKey: .bundleID)
+        appName = try container.decode(String.self, forKey: .appName)
+        windowTitle = try container.decode(String.self, forKey: .windowTitle)
+        domain = try container.decodeIfPresent(String.self, forKey: .domain)
+        category = try container.decode(String.self, forKey: .category)
+        productivityScore = try container.decode(Int.self, forKey: .productivityScore)
+        seconds = try container.decode(Int.self, forKey: .seconds)
+        taskName = try container.decodeIfPresent(String.self, forKey: .taskName)
+    }
+}
+
+struct AppDaySummary: Codable, Identifiable {
+    var id: String { bundleID }
+    let bundleID: String
+    let appName: String
+    let category: String
+    let productivityScore: Int
+    var totalSeconds: Int
+
+    enum CodingKeys: String, CodingKey {
+        case bundleID, appName, category, productivityScore, totalSeconds
+    }
+}
+
+struct TimelineSegment: Identifiable {
+    let id = UUID()
+    let startMinute: Int
+    let endMinute: Int
+    let appName: String
+    let bundleID: String
+    let category: String
+    let productivityScore: Int
+    let windowTitle: String
+    let domain: String?
+}
+
 struct MinuteEntry: Codable, Identifiable {
     var minute: Int         // 0-1439 (minute of day)
     var keyboard: Int
@@ -32,6 +101,11 @@ struct MinuteEntry: Codable, Identifiable {
     var dictation: Int
     var meeting: Int        // 1 if mic was active (speaking/call)
     var watching: Int       // 1 if media was playing
+
+    var appSegments: [AppSegment]?
+    var dominantApp: String?
+    var dominantCategory: String?
+    var minuteProductivityScore: Double?
 
     var id: Int { minute }
 
@@ -52,7 +126,9 @@ struct MinuteEntry: Codable, Identifiable {
         }
     }
 
-    init(minute: Int, keyboard: Int, clicks: Int, scrolls: Int, movement: Int, dictation: Int = 0, meeting: Int = 0, watching: Int = 0) {
+    init(minute: Int, keyboard: Int, clicks: Int, scrolls: Int, movement: Int,
+         dictation: Int = 0, meeting: Int = 0, watching: Int = 0,
+         appSegments: [AppSegment]? = nil) {
         self.minute = minute
         self.keyboard = keyboard
         self.clicks = clicks
@@ -61,10 +137,23 @@ struct MinuteEntry: Codable, Identifiable {
         self.dictation = dictation
         self.meeting = meeting
         self.watching = watching
+        self.appSegments = appSegments
+
+        if let segs = appSegments, !segs.isEmpty {
+            let dominant = segs.max(by: { $0.seconds < $1.seconds })
+            self.dominantApp = dominant?.appName
+            self.dominantCategory = dominant?.category
+            let total = segs.reduce(0) { $0 + $1.seconds }
+            if total > 0 {
+                let weighted = segs.reduce(0.0) { $0 + Double($1.productivityScore) * Double($1.seconds) }
+                self.minuteProductivityScore = weighted / Double(total)
+            }
+        }
     }
 
     enum CodingKeys: String, CodingKey {
         case minute, keyboard, clicks, scrolls, movement, dictation, meeting, watching
+        case appSegments, dominantApp, dominantCategory, minuteProductivityScore
     }
 
     init(from decoder: Decoder) throws {
@@ -77,6 +166,22 @@ struct MinuteEntry: Codable, Identifiable {
         dictation = try container.decodeIfPresent(Int.self, forKey: .dictation) ?? 0
         meeting = try container.decodeIfPresent(Int.self, forKey: .meeting) ?? 0
         watching = try container.decodeIfPresent(Int.self, forKey: .watching) ?? 0
+        appSegments = try container.decodeIfPresent([AppSegment].self, forKey: .appSegments)
+        dominantApp = try container.decodeIfPresent(String.self, forKey: .dominantApp)
+        dominantCategory = try container.decodeIfPresent(String.self, forKey: .dominantCategory)
+        minuteProductivityScore = try container.decodeIfPresent(Double.self, forKey: .minuteProductivityScore)
+    }
+
+    mutating func recomputeDominant() {
+        guard let segs = appSegments, !segs.isEmpty else { return }
+        let dominant = segs.max(by: { $0.seconds < $1.seconds })
+        dominantApp = dominant?.appName
+        dominantCategory = dominant?.category
+        let total = segs.reduce(0) { $0 + $1.seconds }
+        if total > 0 {
+            let weighted = segs.reduce(0.0) { $0 + Double($1.productivityScore) * Double($1.seconds) }
+            minuteProductivityScore = weighted / Double(total)
+        }
     }
 }
 
@@ -155,12 +260,19 @@ struct ActivityDay: Codable, Identifiable {
     var firstActivity: Date?
     var lastActivity: Date?
 
+    var productivityPulse: Double?
+    var appSummary: [AppDaySummary]?
+
     var totalInputs: Int { totalKeyboard + totalClicks + totalScrolls + totalMovement }
 
     var meaningfulInputs: Int { totalKeyboard + totalClicks + totalDictation }
 
     var engagedMinutes: Int {
         minuteData.filter { $0.keyboard > 0 || $0.dictation > 0 || $0.clicks > 0 }.count
+    }
+
+    var hasAppTrackingData: Bool {
+        minuteData.contains { $0.appSegments != nil && !($0.appSegments?.isEmpty ?? true) }
     }
 
     var dateString: String {
@@ -173,6 +285,7 @@ struct ActivityDay: Codable, Identifiable {
         case id, date, minuteData, hourlySummary
         case totalKeyboard, totalClicks, totalScrolls, totalMovement, totalDictation
         case totalMeetingMinutes, totalActiveMinutes, firstActivity, lastActivity
+        case productivityPulse, appSummary
     }
 
     init(
@@ -221,6 +334,8 @@ struct ActivityDay: Codable, Identifiable {
         totalActiveMinutes = try container.decodeIfPresent(Int.self, forKey: .totalActiveMinutes) ?? 0
         firstActivity = try container.decodeIfPresent(Date.self, forKey: .firstActivity)
         lastActivity = try container.decodeIfPresent(Date.self, forKey: .lastActivity)
+        productivityPulse = try container.decodeIfPresent(Double.self, forKey: .productivityPulse)
+        appSummary = try container.decodeIfPresent([AppDaySummary].self, forKey: .appSummary)
     }
 
     mutating func addMinuteEntry(_ entry: MinuteEntry) {
@@ -232,6 +347,14 @@ struct ActivityDay: Codable, Identifiable {
             minuteData[idx].dictation += entry.dictation
             minuteData[idx].meeting = max(minuteData[idx].meeting, entry.meeting)
             minuteData[idx].watching = max(minuteData[idx].watching, entry.watching)
+            if let newSegs = entry.appSegments {
+                if minuteData[idx].appSegments == nil {
+                    minuteData[idx].appSegments = newSegs
+                } else {
+                    minuteData[idx].appSegments?.append(contentsOf: newSegs)
+                }
+                minuteData[idx].recomputeDominant()
+            }
         } else {
             minuteData.append(entry)
             minuteData.sort { $0.minute < $1.minute }
@@ -248,6 +371,7 @@ struct ActivityDay: Codable, Identifiable {
         totalMeetingMinutes = minuteData.filter { $0.meeting > 0 }.count
         totalActiveMinutes = minuteData.filter { $0.isActive }.count
         rebuildHourlySummary()
+        rebuildAppSummary()
     }
 
     mutating func rebuildHourlySummary() {
@@ -265,6 +389,32 @@ struct ActivityDay: Codable, Identifiable {
             if entry.isActive { summary[h].activeMinutes += 1 }
         }
         hourlySummary = summary
+    }
+
+    mutating func rebuildAppSummary() {
+        var byBundle: [String: AppDaySummary] = [:]
+        var allSegments: [AppSegment] = []
+
+        for entry in minuteData {
+            guard let segs = entry.appSegments else { continue }
+            allSegments.append(contentsOf: segs)
+            for seg in segs {
+                if var existing = byBundle[seg.bundleID] {
+                    existing.totalSeconds += seg.seconds
+                    byBundle[seg.bundleID] = existing
+                } else {
+                    byBundle[seg.bundleID] = AppDaySummary(
+                        bundleID: seg.bundleID,
+                        appName: seg.appName,
+                        category: seg.category,
+                        productivityScore: seg.productivityScore,
+                        totalSeconds: seg.seconds
+                    )
+                }
+            }
+        }
+        appSummary = byBundle.values.sorted { $0.totalSeconds > $1.totalSeconds }
+        productivityPulse = CategoryEngine.productivityPulse(from: allSegments)
     }
 
     static var todayDateString: String {

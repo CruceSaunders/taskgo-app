@@ -617,6 +617,8 @@ async function handleActivity(
             (data.totalClicks || 0) +
             (data.totalScrolls || 0) +
             (data.totalMovement || 0),
+          productivityPulse: data.productivityPulse || null,
+          appSummary: data.appSummary || null,
         };
       }),
     });

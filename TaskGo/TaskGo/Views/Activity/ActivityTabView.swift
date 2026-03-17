@@ -23,8 +23,21 @@ struct ActivityTabView: View {
             } else {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 10) {
+                        if activityVM.hasAppTrackingData {
+                            productivityPulseHeader
+                                .padding(.horizontal, 12)
+                        }
+
                         ActivitySummaryView()
                             .padding(.horizontal, 12)
+
+                        if activityVM.hasAppTrackingData {
+                            AppTimelineView(segments: activityVM.timelineSegments)
+                                .padding(.horizontal, 12)
+
+                            AppBreakdownView(apps: activityVM.topApps)
+                                .padding(.horizontal, 12)
+                        }
 
                         if !activityVM.weekSummary.isEmpty {
                             ActivityWeekBarView()
@@ -122,6 +135,27 @@ struct ActivityTabView: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+
+    private var productivityPulseHeader: some View {
+        VStack(spacing: 2) {
+            Text(String(format: "%.0f", activityVM.productivityPulse))
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundStyle(pulseHeaderColor)
+            Text("Productivity Pulse")
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 6)
+    }
+
+    private var pulseHeaderColor: Color {
+        let pulse = activityVM.productivityPulse
+        if pulse >= 75 { return .green }
+        if pulse >= 50 { return .calmTeal }
+        if pulse >= 25 { return .orange }
+        return .red
     }
 
     private var detailSection: some View {

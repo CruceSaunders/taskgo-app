@@ -15,6 +15,13 @@
 		AA10BF06A1B2C3D4E5F60006 /* ActivitySummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10FR06A1B2C3D4E5F60006 /* ActivitySummaryView.swift */; };
 		AA10BF07A1B2C3D4E5F60007 /* ActivityControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10FR07A1B2C3D4E5F60007 /* ActivityControlsView.swift */; };
 		AA10BF08A1B2C3D4E5F60008 /* ActivityWeekBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10FR08A1B2C3D4E5F60008 /* ActivityWeekBarView.swift */; };
+		CC30BF01D5E6F8H8C3D40001 /* CategoryRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC30FR01D5E6F8H8C3D40001 /* CategoryRule.swift */; };
+		CC30BF02D5E6F8H8C3D40002 /* CategoryEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC30FR02D5E6F8H8C3D40002 /* CategoryEngine.swift */; };
+		CC30BF03D5E6F8H8C3D40003 /* WindowWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC30FR03D5E6F8H8C3D40003 /* WindowWatcher.swift */; };
+		CC30BF04D5E6F8H8C3D40004 /* BrowserTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC30FR04D5E6F8H8C3D40004 /* BrowserTracker.swift */; };
+		CC30BF05D5E6F8H8C3D40005 /* CategoryRulesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC30FR05D5E6F8H8C3D40005 /* CategoryRulesView.swift */; };
+		CC30BF06D5E6F8H8C3D40006 /* AppTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC30FR06D5E6F8H8C3D40006 /* AppTimelineView.swift */; };
+		CC30BF07D5E6F8H8C3D40007 /* AppBreakdownView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC30FR07D5E6F8H8C3D40007 /* AppBreakdownView.swift */; };
 		00B8653645CDE42E1B5AD7C6 /* CalendarViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 224252F063AAB3D3287D5246 /* CalendarViewModel.swift */; };
 		02D6D4535F2B9E1329076F14 /* PomodoroViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36584FC3AFB686F65142B8FB /* PomodoroViewModel.swift */; };
 		0B48CB4CB4D3757D81DB4D49 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = FFE9408858D206675D0083F4 /* FirebaseFirestore */; };
@@ -90,6 +97,13 @@
 		AA10FR06A1B2C3D4E5F60006 /* ActivitySummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivitySummaryView.swift; sourceTree = "<group>"; };
 		AA10FR07A1B2C3D4E5F60007 /* ActivityControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityControlsView.swift; sourceTree = "<group>"; };
 		AA10FR08A1B2C3D4E5F60008 /* ActivityWeekBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityWeekBarView.swift; sourceTree = "<group>"; };
+		CC30FR01D5E6F8H8C3D40001 /* CategoryRule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryRule.swift; sourceTree = "<group>"; };
+		CC30FR02D5E6F8H8C3D40002 /* CategoryEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryEngine.swift; sourceTree = "<group>"; };
+		CC30FR03D5E6F8H8C3D40003 /* WindowWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowWatcher.swift; sourceTree = "<group>"; };
+		CC30FR04D5E6F8H8C3D40004 /* BrowserTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTracker.swift; sourceTree = "<group>"; };
+		CC30FR05D5E6F8H8C3D40005 /* CategoryRulesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryRulesView.swift; sourceTree = "<group>"; };
+		CC30FR06D5E6F8H8C3D40006 /* AppTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTimelineView.swift; sourceTree = "<group>"; };
+		CC30FR07D5E6F8H8C3D40007 /* AppBreakdownView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBreakdownView.swift; sourceTree = "<group>"; };
 		003DD174E7457A95D1E21BAF /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		07EE897C5F69B373D9A4BF7A /* TaskGo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TaskGo.entitlements; sourceTree = "<group>"; };
 		11F2FE777393DC7BC6DB9B82 /* ActivityPermissionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityPermissionView.swift; sourceTree = "<group>"; };
@@ -275,8 +289,18 @@
 				AA10FR06A1B2C3D4E5F60006 /* ActivitySummaryView.swift */,
 				AA10FR07A1B2C3D4E5F60007 /* ActivityControlsView.swift */,
 				AA10FR08A1B2C3D4E5F60008 /* ActivityWeekBarView.swift */,
+				CC30FR06D5E6F8H8C3D40006 /* AppTimelineView.swift */,
+				CC30FR07D5E6F8H8C3D40007 /* AppBreakdownView.swift */,
 			);
 			path = Activity;
+			sourceTree = "<group>";
+		};
+		CC30GR01D5E6F8H8C3D40001 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				CC30FR05D5E6F8H8C3D40005 /* CategoryRulesView.swift */,
+			);
+			path = Settings;
 			sourceTree = "<group>";
 		};
 		A07F3BD772583EF7E3BA17B0 /* Views */ = {
@@ -290,6 +314,7 @@
 				31FD9C9D89EBE8DD3D965F1F /* SettingsView.swift */,
 				AA10GR01A1B2C3D4E5F60001 /* Activity */,
 				93ECF1BD174A270A1BDEF577 /* Auth */,
+				CC30GR01D5E6F8H8C3D40001 /* Settings */,
 				BBEAE10439A3C716892D923B /* Calendar */,
 				B3B6CB650231674CAA461904 /* Groups */,
 				B6B7671A2D7725DCE773F1E6 /* Notes */,
@@ -378,12 +403,15 @@
 				8F032DF8EB0B47BAB6258962 /* ActivityMonitor.swift */,
 				AA10FR02A1B2C3D4E5F60002 /* ActivityTracker.swift */,
 				BB10AA01C3D4E5F6A1B20001 /* AISchedulerService.swift */,
+				CC30FR04D5E6F8H8C3D40004 /* BrowserTracker.swift */,
 				46EB7E9436B4BE6F8F6BA070 /* CalendarService.swift */,
-				CC20AA01D4E5F7G7B2C30001 /* KeychainService.swift */,
+				CC30FR02D5E6F8H8C3D40002 /* CategoryEngine.swift */,
 				6016C7874768DD81EC494C3A /* FirestoreService.swift */,
+				CC20AA01D4E5F7G7B2C30001 /* KeychainService.swift */,
 				9669CE3549DE12D8A18509D9 /* NotificationScheduler.swift */,
 				42901AEE4F28CDDEB150925C /* RecurrenceService.swift */,
 				3F8B676966D05B5E9B741C3F /* SparkleUpdater.swift */,
+				CC30FR03D5E6F8H8C3D40003 /* WindowWatcher.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -393,6 +421,7 @@
 			children = (
 				AA10FR01A1B2C3D4E5F60001 /* ActivityDay.swift */,
 				AB4AA4A9E228834991934C51 /* CalendarEvent.swift */,
+				CC30FR01D5E6F8H8C3D40001 /* CategoryRule.swift */,
 				CC20AA02D4E5F7G7B2C30002 /* LLMProvider.swift */,
 				F40B2A8EACF12FB6F2F1B7B9 /* Note.swift */,
 				562090B772799861E835524C /* Plan.swift */,
@@ -496,6 +525,13 @@
 				AA10BF06A1B2C3D4E5F60006 /* ActivitySummaryView.swift in Sources */,
 				AA10BF07A1B2C3D4E5F60007 /* ActivityControlsView.swift in Sources */,
 				AA10BF08A1B2C3D4E5F60008 /* ActivityWeekBarView.swift in Sources */,
+				CC30BF01D5E6F8H8C3D40001 /* CategoryRule.swift in Sources */,
+				CC30BF02D5E6F8H8C3D40002 /* CategoryEngine.swift in Sources */,
+				CC30BF03D5E6F8H8C3D40003 /* WindowWatcher.swift in Sources */,
+				CC30BF04D5E6F8H8C3D40004 /* BrowserTracker.swift in Sources */,
+				CC30BF05D5E6F8H8C3D40005 /* CategoryRulesView.swift in Sources */,
+				CC30BF06D5E6F8H8C3D40006 /* AppTimelineView.swift in Sources */,
+				CC30BF07D5E6F8H8C3D40007 /* AppBreakdownView.swift in Sources */,
 				64E011887F796A7B9497626D /* ActivityMonitor.swift in Sources */,
 				18863A8D30869B72533C24F2 /* ActivityPermissionView.swift in Sources */,
 				0B6F29DFB803301AC3F6DCDD /* AddTaskView.swift in Sources */,

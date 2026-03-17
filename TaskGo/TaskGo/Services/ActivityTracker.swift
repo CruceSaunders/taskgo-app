@@ -199,6 +199,8 @@ class ActivityTracker: ObservableObject {
         startFlushTimer()
         startSTTMonitor()
         startMicSampler()
+        WindowWatcher.shared.start()
+        startWindowWatcherInputRelay()
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak self] in
             self?.verifyEventFlow()
@@ -206,6 +208,7 @@ class ActivityTracker: ObservableObject {
     }
 
     func stop() {
+        WindowWatcher.shared.stop()
         finalizeCurrentMinute()
         flushToDisk()
         flushToFirestore()
@@ -222,6 +225,10 @@ class ActivityTracker: ObservableObject {
         micSampleTimer = nil
         stopHIDKeyboardMonitoring()
         stopKeyboardPolling()
+        if let obs = windowWatcherInputObserver {
+            NotificationCenter.default.removeObserver(obs)
+            windowWatcherInputObserver = nil
+        }
         isTracking = false
         diagLog("ActivityTracker stopped")
     }
@@ -650,7 +657,11 @@ class ActivityTracker: ObservableObject {
         currentMicSeconds = 0
         currentWatching = 0
 
-        guard kb > 0 || cl > 0 || sc > 0 || mv > 0 || dc > 0 || micActive > 0 || wa > 0 else { return }
+        let appSegments = WindowWatcher.shared.harvestSegments()
+        let hasInput = kb > 0 || cl > 0 || sc > 0 || mv > 0 || dc > 0 || micActive > 0 || wa > 0
+        let hasSegments = !appSegments.isEmpty
+
+        guard hasInput || hasSegments else { return }
 
         let entry = MinuteEntry(
             minute: minuteOfDay,
@@ -660,7 +671,8 @@ class ActivityTracker: ObservableObject {
             movement: mv,
             dictation: speakingValue,
             meeting: micActive,
-            watching: wa
+            watching: wa,
+            appSegments: hasSegments ? appSegments : nil
         )
 
         todayData.addMinuteEntry(entry)
@@ -838,6 +850,20 @@ class ActivityTracker: ObservableObject {
             if let fileDate = formatter.date(from: name), fileDate < cutoff {
                 try? FileManager.default.removeItem(at: file)
             }
+        }
+    }
+
+    // MARK: - WindowWatcher Input Relay
+
+    private var windowWatcherInputObserver: NSObjectProtocol?
+
+    private func startWindowWatcherInputRelay() {
+        windowWatcherInputObserver = NotificationCenter.default.addObserver(
+            forName: .activityDetected,
+            object: nil,
+            queue: nil
+        ) { _ in
+            WindowWatcher.shared.recordUserInput()
         }
     }
 
