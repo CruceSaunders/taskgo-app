@@ -474,7 +474,18 @@ async function handleGroups(
     const snap = await col.orderBy("order").get();
     res.json({groups: snap.docs.map((d) => ({id: d.id, ...d.data()}))});
   } else if (req.method === "POST") {
-    const ref = await col.add(req.body);
+    const body = req.body || {};
+    if (!body.name) {
+      res.status(400).json({error: "name is required"});
+      return;
+    }
+    const group: Record<string, unknown> = {
+      name: body.name,
+      order: body.order ?? 0,
+      isDefault: body.isDefault ?? false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+    const ref = await col.add(group);
     res.status(201).json({id: ref.id});
   } else if (req.method === "DELETE" && groupId) {
     await col.doc(groupId).delete();
