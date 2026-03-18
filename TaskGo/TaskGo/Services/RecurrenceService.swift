@@ -40,44 +40,38 @@ class RecurrenceService: ObservableObject {
                 let dueTasks = try await firestoreService.getRecurringTasks(userId: userId)
 
                 for task in dueTasks {
-                    guard let recurrence = task.recurrence else { continue }
+                    guard let taskId = task.id,
+                          let recurrence = task.recurrence else { continue }
 
                     if let endDate = recurrence.endDate, endDate < Date() {
-                        var expired = task
-                        expired.nextOccurrence = nil
-                        try? await firestoreService.updateTask(expired, userId: userId)
+                        try? await firestoreService.updateTaskFields(
+                            taskId: taskId,
+                            fields: ["nextOccurrence": FieldValue.delete()],
+                            userId: userId
+                        )
                         continue
                     }
 
-                    try await spawnInstance(from: task, userId: userId)
+                    let nextOcc = computeNextOccurrence(from: Date(), rule: recurrence)
+                    var fields: [String: Any] = [
+                        "nextOccurrence": nextOcc as Any
+                    ]
 
-                    var updated = task
-                    updated.nextOccurrence = computeNextOccurrence(from: Date(), rule: recurrence)
-                    try? await firestoreService.updateTask(updated, userId: userId)
+                    if task.isComplete {
+                        fields["isComplete"] = false
+                        fields["completedAt"] = FieldValue.delete()
+                    }
+
+                    try? await firestoreService.updateTaskFields(
+                        taskId: taskId,
+                        fields: fields,
+                        userId: userId
+                    )
                 }
             } catch {
                 print("[RecurrenceService] error: \(error)")
             }
         }
-    }
-
-    private func spawnInstance(from source: TaskItem, userId: String) async throws {
-        let instance = TaskItem(
-            name: source.name,
-            description: source.description,
-            timeEstimate: source.timeEstimate,
-            position: 1,
-            groupId: source.groupId,
-            colorTag: source.colorTag,
-            sourceTaskId: source.id
-        )
-
-        try await firestoreService.shiftTaskPositions(
-            groupId: source.groupId,
-            userId: userId,
-            fromPosition: 1
-        )
-        _ = try await firestoreService.createTask(instance, userId: userId)
     }
 
     // MARK: - Next Occurrence Calculation

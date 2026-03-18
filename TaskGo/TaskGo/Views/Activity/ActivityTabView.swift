@@ -32,26 +32,43 @@ struct ActivityTabView: View {
         }
     }
 
-    // MARK: - Compact Content (menu bar popover)
+    // MARK: - Compact Content (menu bar popover -- same sections, narrower cards)
 
     private var compactContent: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(spacing: 6) {
+            VStack(spacing: 8) {
                 if activityVM.hasAppTrackingData {
-                    compactPulseRow
+                    productivityPulseHeader
                 }
 
-                compactInputRow
+                VStack(spacing: 6) {
+                    if activityVM.hasAppTrackingData {
+                        compactPulseRow
+                    }
+                    compactInputRow
+                }
 
                 if activityVM.hasAppTrackingData {
                     AppTimelineView(segments: activityVM.timelineSegments)
 
-                    compactAppList
+                    AppBreakdownView(apps: activityVM.topApps)
                 }
+
+                if !activityVM.weekSummary.isEmpty {
+                    ActivityWeekBarView()
+                }
+
+                ActivityChartView()
+
+                ActivityControlsView()
+
+                Divider()
+
+                detailSection
+                    .padding(.bottom, 8)
             }
             .padding(.horizontal, 10)
             .padding(.top, 6)
-            .padding(.bottom, 8)
         }
     }
 

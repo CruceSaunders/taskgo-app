@@ -16,11 +16,17 @@ class TaskViewModel: ObservableObject {
         tasks.filter { !$0.isComplete }.sorted { $0.position < $1.position }
     }
 
-    /// Deduplicated incomplete tasks for display -- batch/chain groups show only the leader
+    /// Incomplete + completed-but-recurring tasks, sorted by position
+    private var activeDisplayTasks: [TaskItem] {
+        tasks.filter { !$0.isComplete || $0.isRecurring }
+            .sorted { $0.position < $1.position }
+    }
+
+    /// Deduplicated active tasks for display -- batch/chain groups show only the leader
     var incompleteTasksForDisplay: [TaskItem] {
         var seenGroups = Set<String>()
         var result: [TaskItem] = []
-        for task in incompleteTasks {
+        for task in activeDisplayTasks {
             if let batchId = task.batchId {
                 if !seenGroups.contains("b:\(batchId)") {
                     seenGroups.insert("b:\(batchId)")
@@ -44,7 +50,7 @@ class TaskViewModel: ObservableObject {
     }
 
     var completedTasks: [TaskItem] {
-        tasks.filter { $0.isComplete }.sorted { ($0.completedAt ?? Date.distantPast) > ($1.completedAt ?? Date.distantPast) }
+        tasks.filter { $0.isComplete && !$0.isRecurring }.sorted { ($0.completedAt ?? Date.distantPast) > ($1.completedAt ?? Date.distantPast) }
     }
 
     /// Deduplicated completed tasks
@@ -386,9 +392,14 @@ class TaskViewModel: ObservableObject {
         }
 
         do {
+            var fields: [String: Any] = ["isComplete": true, "completedAt": Date()]
+            if let recurrence = task.recurrence,
+               let nextOcc = RecurrenceService.shared.computeNextOccurrence(from: Date(), rule: recurrence) {
+                fields["nextOccurrence"] = nextOcc
+            }
             try await firestoreService.updateTaskFields(
                 taskId: taskId,
-                fields: ["isComplete": true, "completedAt": Date()],
+                fields: fields,
                 userId: userId
             )
         } catch {
@@ -419,6 +430,9 @@ class TaskViewModel: ObservableObject {
         var updated = task
         updated.isComplete = true
         updated.completedAt = Date()
+        if let recurrence = task.recurrence {
+            updated.nextOccurrence = RecurrenceService.shared.computeNextOccurrence(from: Date(), rule: recurrence)
+        }
 
         do {
             try await firestoreService.updateTask(updated, userId: userId)
@@ -474,19 +488,15 @@ class TaskViewModel: ObservableObject {
             var data: [String: Any] = ["isComplete": newComplete]
             if newComplete {
                 data["completedAt"] = Date()
+                if let recurrence = task.recurrence {
+                    if let nextOcc = RecurrenceService.shared.computeNextOccurrence(from: Date(), rule: recurrence) {
+                        data["nextOccurrence"] = nextOcc
+                    }
+                }
             } else {
                 data["completedAt"] = FieldValue.delete()
             }
             try await firestoreService.updateTaskFields(taskId: taskId, fields: data, userId: userId)
-
-            if newComplete, let recurrence = task.recurrence {
-                let nextOcc = RecurrenceService.shared.computeNextOccurrence(from: Date(), rule: recurrence)
-                var recurringUpdate = task
-                recurringUpdate.isComplete = false
-                recurringUpdate.completedAt = nil
-                recurringUpdate.nextOccurrence = nextOcc
-                try await firestoreService.updateTask(recurringUpdate, userId: userId)
-            }
         } catch {
             print("[TaskVM] toggleComplete error: \(error)")
             if let index = tasks.firstIndex(where: { $0.id == taskId }) {

@@ -85,7 +85,6 @@ struct TaskItem: Identifiable, Codable, Equatable {
     var colorTag: String? // color name for highlighting
     var groupTitle: String? // title for batch or chain groups ("red", "blue", "green", "yellow", "purple", "orange")
     var recurrence: RecurrenceRule?
-    var sourceTaskId: String?
     var nextOccurrence: Date?
 
     var timeEstimateFormatted: String {
@@ -122,10 +121,6 @@ struct TaskItem: Identifiable, Codable, Equatable {
         recurrence != nil
     }
 
-    var isSpawnedInstance: Bool {
-        sourceTaskId != nil
-    }
-
     init(
         id: String? = nil,
         name: String,
@@ -143,7 +138,6 @@ struct TaskItem: Identifiable, Codable, Equatable {
         colorTag: String? = nil,
         groupTitle: String? = nil,
         recurrence: RecurrenceRule? = nil,
-        sourceTaskId: String? = nil,
         nextOccurrence: Date? = nil
     ) {
         self.id = id
@@ -162,7 +156,6 @@ struct TaskItem: Identifiable, Codable, Equatable {
         self.colorTag = colorTag
         self.groupTitle = groupTitle
         self.recurrence = recurrence
-        self.sourceTaskId = sourceTaskId
         self.nextOccurrence = nextOccurrence
     }
 

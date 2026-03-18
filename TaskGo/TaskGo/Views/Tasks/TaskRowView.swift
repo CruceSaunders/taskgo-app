@@ -136,13 +136,13 @@ struct TaskRowView: View {
                     HStack(spacing: 3) {
                         Text(task.name)
                             .font(.system(size: 13))
-                            .strikethrough(task.isComplete)
+                            .strikethrough(task.isComplete && !task.isRecurring)
                             .foregroundStyle(task.isComplete ? .secondary : .primary)
                             .lineLimit(2)
                         if task.isRecurring {
                             Image(systemName: "repeat")
-                                .font(.system(size: 8))
-                                .foregroundStyle(Color.calmTeal.opacity(0.6))
+                                .font(.system(size: task.isComplete ? 10 : 8, weight: task.isComplete ? .bold : .regular))
+                                .foregroundStyle(task.isComplete ? Color.calmTeal : Color.calmTeal.opacity(0.6))
                         }
                     }
                 }
