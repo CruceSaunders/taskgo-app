@@ -48,7 +48,7 @@ struct MainView: View {
             case .calendar:
                 CalendarTabView()
             case .activity:
-                ActivityTabView()
+                ActivityTabView(isCompact: true)
             // case .social:  // v2: Social features deferred
             //     SocialTabView()
             case .profile:
