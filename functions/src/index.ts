@@ -263,8 +263,12 @@ function getApiDocs() {
         note: "You MUST know the groupId before creating a task. Call this first.",
       },
       "POST /groups": {
-        description: "Create a new task group.",
-        body: "{ name: string, order: number, isDefault?: boolean }",
+        description: "Create a new task group. Server automatically adds createdAt timestamp.",
+        body: "{ name: string (REQUIRED), order?: number, isDefault?: boolean }",
+      },
+      "PATCH /groups/:id": {
+        description: "Update a task group. Send only the fields you want to change.",
+        body: "{ name?, order?, isDefault? }",
       },
       "DELETE /groups/:id": {
         description: "Delete a task group.",
@@ -487,6 +491,18 @@ async function handleGroups(
     };
     const ref = await col.add(group);
     res.status(201).json({id: ref.id});
+  } else if (req.method === "PATCH" && groupId) {
+    const allowed = ["name", "order", "isDefault"];
+    const updates: Record<string, unknown> = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({error: "No valid fields to update"});
+      return;
+    }
+    await col.doc(groupId).update(updates);
+    res.json({success: true, updated: Object.keys(updates)});
   } else if (req.method === "DELETE" && groupId) {
     await col.doc(groupId).delete();
     res.json({success: true});
