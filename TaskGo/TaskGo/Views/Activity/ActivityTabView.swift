@@ -4,60 +4,70 @@ struct ActivityTabView: View {
     @EnvironmentObject var activityVM: ActivityViewModel
 
     var body: some View {
-        VStack(spacing: 0) {
-            if activityVM.showPermissionBanner {
-                permissionBanner
-            }
+        GeometryReader { geo in
+            let isCompact = geo.size.width < 500
 
-            dateHeader
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
+            VStack(spacing: 0) {
+                if activityVM.showPermissionBanner {
+                    permissionBanner
+                }
 
-            Divider()
+                dateHeader
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
 
-            if activityVM.isLoading {
-                Spacer()
-                ProgressView()
-                    .scaleEffect(0.8)
-                Spacer()
-            } else {
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 10) {
-                        if activityVM.hasAppTrackingData {
-                            productivityPulseHeader
+                Divider()
+
+                if activityVM.isLoading {
+                    Spacer()
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Spacer()
+                } else {
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(spacing: isCompact ? 8 : 10) {
+                            if activityVM.hasAppTrackingData {
+                                productivityPulseHeader(compact: isCompact)
+                                    .padding(.horizontal, 12)
+                            }
+
+                            ActivitySummaryView(isCompact: isCompact)
                                 .padding(.horizontal, 12)
+
+                            if activityVM.hasAppTrackingData {
+                                AppTimelineView(segments: activityVM.timelineSegments)
+                                    .padding(.horizontal, 12)
+
+                                AppBreakdownView(apps: activityVM.topApps, isCompact: isCompact)
+                                    .padding(.horizontal, 12)
+                            }
+
+                            if !isCompact, !activityVM.weekSummary.isEmpty {
+                                ActivityWeekBarView()
+                                    .padding(.horizontal, 12)
+                            }
+
+                            if !isCompact {
+                                ActivityChartView()
+                                    .padding(.horizontal, 8)
+
+                                ActivityControlsView()
+                                    .padding(.horizontal, 12)
+
+                                Divider()
+                                    .padding(.horizontal, 12)
+
+                                detailSection
+                                    .padding(.horizontal, 12)
+                                    .padding(.bottom, 8)
+                            } else {
+                                compactDetailsRow
+                                    .padding(.horizontal, 12)
+                                    .padding(.bottom, 8)
+                            }
                         }
-
-                        ActivitySummaryView()
-                            .padding(.horizontal, 12)
-
-                        if activityVM.hasAppTrackingData {
-                            AppTimelineView(segments: activityVM.timelineSegments)
-                                .padding(.horizontal, 12)
-
-                            AppBreakdownView(apps: activityVM.topApps)
-                                .padding(.horizontal, 12)
-                        }
-
-                        if !activityVM.weekSummary.isEmpty {
-                            ActivityWeekBarView()
-                                .padding(.horizontal, 12)
-                        }
-
-                        ActivityChartView()
-                            .padding(.horizontal, 8)
-
-                        ActivityControlsView()
-                            .padding(.horizontal, 12)
-
-                        Divider()
-                            .padding(.horizontal, 12)
-
-                        detailSection
-                            .padding(.horizontal, 12)
-                            .padding(.bottom, 8)
+                        .padding(.top, 6)
                     }
-                    .padding(.top, 6)
                 }
             }
         }
@@ -137,17 +147,17 @@ struct ActivityTabView: View {
         }
     }
 
-    private var productivityPulseHeader: some View {
+    private func productivityPulseHeader(compact: Bool) -> some View {
         VStack(spacing: 2) {
             Text(String(format: "%.0f", activityVM.productivityPulse))
-                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .font(.system(size: compact ? 22 : 28, weight: .bold, design: .rounded))
                 .foregroundStyle(pulseHeaderColor)
             Text("Productivity Pulse")
-                .font(.system(size: 9, weight: .medium))
+                .font(.system(size: compact ? 8 : 9, weight: .medium))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 6)
+        .padding(.vertical, compact ? 4 : 6)
     }
 
     private var pulseHeaderColor: Color {
@@ -156,6 +166,28 @@ struct ActivityTabView: View {
         if pulse >= 50 { return .calmTeal }
         if pulse >= 25 { return .orange }
         return .red
+    }
+
+    private var compactDetailsRow: some View {
+        HStack(spacing: 6) {
+            compactDetailCell("Scrolls", "\(activityVM.totalScrolls)")
+            compactDetailCell("Moves", "\(activityVM.totalMovements)")
+            compactDetailCell("Engaged", activityVM.engagedTime)
+        }
+    }
+
+    private func compactDetailCell(_ label: String, _ value: String) -> some View {
+        VStack(spacing: 1) {
+            Text(value)
+                .font(.system(size: 9, weight: .bold))
+            Text(label)
+                .font(.system(size: 7))
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 3)
+        .background(Color.secondary.opacity(0.04))
+        .cornerRadius(4)
     }
 
     private var detailSection: some View {
