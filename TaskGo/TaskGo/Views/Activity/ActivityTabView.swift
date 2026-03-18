@@ -94,19 +94,19 @@ struct ActivityTabView: View {
     }
 
     private func compactCard(_ title: String, _ value: String, _ color: Color) -> some View {
-        VStack(spacing: 1) {
+        VStack(spacing: 2) {
             Text(title)
-                .font(.system(size: 7, weight: .medium))
+                .font(.system(size: 8, weight: .medium))
                 .foregroundStyle(color)
                 .lineLimit(1)
             Text(value)
-                .font(.system(size: 11, weight: .bold))
+                .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
-                .minimumScaleFactor(0.6)
+                .minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 4)
+        .padding(.vertical, 5)
         .background(color.opacity(0.06))
         .cornerRadius(5)
     }
