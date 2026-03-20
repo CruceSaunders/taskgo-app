@@ -249,11 +249,27 @@ class PlannerViewModel: ObservableObject {
         markDirtyAndSave()
     }
 
+    func addSubDayObjective(date: String, text: String) {
+        guard selectedPlan != nil, !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        let obj = PlanObjective(text: text.trimmingCharacters(in: .whitespaces))
+        if selectedPlan?.subDayObjectives == nil {
+            selectedPlan?.subDayObjectives = [:]
+        }
+        if selectedPlan?.subDayObjectives?[date] == nil {
+            selectedPlan?.subDayObjectives?[date] = []
+        }
+        selectedPlan?.subDayObjectives?[date]?.append(obj)
+        selectedPlan?.updatedAt = Date()
+        markDirtyAndSave()
+    }
+
     func toggleObjective(objectiveId: String, date: String?) {
         guard selectedPlan != nil else { return }
         if let date {
             if let idx = selectedPlan?.dailyObjectives[date]?.firstIndex(where: { $0.id == objectiveId }) {
                 selectedPlan?.dailyObjectives[date]?[idx].isComplete.toggle()
+            } else if let idx = selectedPlan?.subDayObjectives?[date]?.firstIndex(where: { $0.id == objectiveId }) {
+                selectedPlan?.subDayObjectives?[date]?[idx].isComplete.toggle()
             }
         } else {
             if let idx = selectedPlan?.overallObjectives.firstIndex(where: { $0.id == objectiveId }) {
@@ -267,7 +283,11 @@ class PlannerViewModel: ObservableObject {
     func removeObjective(objectiveId: String, date: String?) {
         guard selectedPlan != nil else { return }
         if let date {
-            selectedPlan?.dailyObjectives[date]?.removeAll { $0.id == objectiveId }
+            if selectedPlan?.dailyObjectives[date]?.contains(where: { $0.id == objectiveId }) == true {
+                selectedPlan?.dailyObjectives[date]?.removeAll { $0.id == objectiveId }
+            } else {
+                selectedPlan?.subDayObjectives?[date]?.removeAll { $0.id == objectiveId }
+            }
         } else {
             selectedPlan?.overallObjectives.removeAll { $0.id == objectiveId }
         }
@@ -280,6 +300,8 @@ class PlannerViewModel: ObservableObject {
         if let date {
             if let idx = selectedPlan?.dailyObjectives[date]?.firstIndex(where: { $0.id == objectiveId }) {
                 selectedPlan?.dailyObjectives[date]?[idx].text = newText.trimmingCharacters(in: .whitespaces)
+            } else if let idx = selectedPlan?.subDayObjectives?[date]?.firstIndex(where: { $0.id == objectiveId }) {
+                selectedPlan?.subDayObjectives?[date]?[idx].text = newText.trimmingCharacters(in: .whitespaces)
             }
         } else {
             if let idx = selectedPlan?.overallObjectives.firstIndex(where: { $0.id == objectiveId }) {

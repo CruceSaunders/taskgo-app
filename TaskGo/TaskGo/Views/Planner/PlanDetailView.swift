@@ -18,6 +18,9 @@ struct PlanDetailView: View {
     @State private var draggingFromDate: String?
     @State private var dragObjectiveOffset: CGFloat = 0
 
+    // Week expansion state for weekly plans
+    @State private var expandedWeeks: Set<String> = []
+
     var body: some View {
         if let plan = plannerVM.selectedPlan {
             ZStack {
@@ -450,115 +453,279 @@ struct PlanDetailView: View {
 
     // MARK: - Period Sections (Daily or Weekly)
 
-    private func periodSectionIcon(for key: String, plan: Plan) -> String {
-        if plan.mode == .weekly {
-            return "calendar.badge.clock"
-        }
-        return key == Plan.todayString ? "sun.max.fill" : "calendar"
-    }
-
     private func dailySections(_ plan: Plan) -> some View {
         ForEach(plan.periodKeys, id: \.self) { dateStr in
-            VStack(alignment: .leading, spacing: 0) {
-                sectionHeader(
-                    title: plan.displayPeriodLabel(for: dateStr),
-                    systemImage: periodSectionIcon(for: dateStr, plan: plan)
-                )
-                .padding(.horizontal, 12)
-                .padding(.top, 10)
-                .padding(.bottom, 4)
-
-                let objectives = plan.dailyObjectives[dateStr] ?? []
-                ForEach(Array(objectives.enumerated()), id: \.element.id) { index, obj in
-                    let isDragging = draggingObjectiveId == obj.id
-
-                    ObjectiveRow(
-                        objective: obj,
-                        isComplete: plan.isComplete,
-                        onToggle: { plannerVM.toggleObjective(objectiveId: obj.id, date: dateStr) },
-                        onUpdate: { plannerVM.updateObjectiveText(objectiveId: obj.id, date: dateStr, newText: $0) },
-                        onDelete: { plannerVM.removeObjective(objectiveId: obj.id, date: dateStr) },
-                        onDurationChange: plan.mode == .daily
-                            ? { plannerVM.updateObjectiveDuration(objectiveId: obj.id, date: dateStr, minutes: $0) }
-                            : nil
-                    )
-                    .opacity(isDragging ? 0.5 : 1.0)
-                    .offset(y: isDragging ? dragObjectiveOffset : 0)
-                    .zIndex(isDragging ? 100 : 0)
-                    .simultaneousGesture(
-                        plan.isComplete ? nil : DragGesture(minimumDistance: 8)
-                            .onChanged { value in
-                                if draggingObjectiveId == nil {
-                                    draggingObjectiveId = obj.id
-                                    draggingFromDate = dateStr
-                                }
-                                guard draggingObjectiveId == obj.id else { return }
-                                dragObjectiveOffset = value.translation.height
-                            }
-                            .onEnded { value in
-                                guard draggingObjectiveId == obj.id,
-                                      let fromDate = draggingFromDate else {
-                                    resetDragState()
-                                    return
-                                }
-
-                                let verticalDistance = value.translation.height
-                                let rowH: CGFloat = 36
-
-                                if abs(verticalDistance) > 60, let plan = plannerVM.selectedPlan {
-                                    let dayDelta = verticalDistance > 0 ? 1 : -1
-                                    let keys = plan.periodKeys
-                                    if let currentIdx = keys.firstIndex(of: fromDate) {
-                                        let newIdx = currentIdx + dayDelta
-                                        if newIdx >= 0 && newIdx < keys.count {
-                                            let toDate = keys[newIdx]
-                                            plannerVM.moveObjectiveBetweenDays(
-                                                objectiveId: obj.id,
-                                                fromDate: fromDate,
-                                                toDate: toDate
-                                            )
-                                        }
-                                    }
-                                } else {
-                                    let rowsMoved = Int(round(verticalDistance / rowH))
-                                    if rowsMoved != 0 {
-                                        let newIndex = min(max(index + rowsMoved, 0), objectives.count - 1)
-                                        if newIndex != index {
-                                            plannerVM.reorderObjective(
-                                                date: dateStr,
-                                                fromIndex: index,
-                                                toIndex: newIndex
-                                            )
-                                        }
-                                    }
-                                }
-
-                                withAnimation(.easeOut(duration: 0.15)) {
-                                    resetDragState()
-                                }
-                            }
-                    )
-                }
-
-                if objectives.isEmpty && plan.isComplete {
-                    Text("No objectives")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.primary.opacity(0.25))
-                        .padding(.horizontal, 32)
-                        .padding(.vertical, 4)
-                }
-
-                if !plan.isComplete {
-                    AddObjectiveField { text in
-                        plannerVM.addDailyObjective(date: dateStr, text: text)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 4)
-                }
-
-                Divider()
-                    .padding(.top, 4)
+            if plan.mode == .weekly {
+                weekSection(plan: plan, weekKey: dateStr)
+            } else {
+                daySectionBlock(plan: plan, dateStr: dateStr, indent: false)
             }
+        }
+    }
+
+    // MARK: - Weekly section with expand/collapse
+
+    private func weekSection(plan: Plan, weekKey: String) -> some View {
+        let isExpanded = expandedWeeks.contains(weekKey)
+        let objectives = plan.dailyObjectives[weekKey] ?? []
+        let subDayCount = plan.daysInWeek(startingFrom: weekKey).reduce(0) { total, dayKey in
+            total + (plan.subDayObjectives?[dayKey]?.count ?? 0)
+        }
+
+        return VStack(alignment: .leading, spacing: 0) {
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    if isExpanded {
+                        expandedWeeks.remove(weekKey)
+                    } else {
+                        expandedWeeks.insert(weekKey)
+                    }
+                }
+            }) {
+                HStack(spacing: 5) {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundStyle(Color.calmTeal)
+                        .frame(width: 10)
+                    Image(systemName: "calendar.badge.clock")
+                        .font(.system(size: 9))
+                        .foregroundStyle(Color.calmTeal)
+                    Text(plan.displayPeriodLabel(for: weekKey))
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.primary.opacity(0.8))
+                    if subDayCount > 0 {
+                        Text("(\(subDayCount) task\(subDayCount == 1 ? "" : "s"))")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.primary.opacity(0.35))
+                    }
+                    Spacer()
+                }
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, 4)
+
+            ForEach(Array(objectives.enumerated()), id: \.element.id) { index, obj in
+                let isDragging = draggingObjectiveId == obj.id
+
+                ObjectiveRow(
+                    objective: obj,
+                    isComplete: plan.isComplete,
+                    onToggle: { plannerVM.toggleObjective(objectiveId: obj.id, date: weekKey) },
+                    onUpdate: { plannerVM.updateObjectiveText(objectiveId: obj.id, date: weekKey, newText: $0) },
+                    onDelete: { plannerVM.removeObjective(objectiveId: obj.id, date: weekKey) }
+                )
+                .opacity(isDragging ? 0.5 : 1.0)
+                .offset(y: isDragging ? dragObjectiveOffset : 0)
+                .zIndex(isDragging ? 100 : 0)
+                .simultaneousGesture(
+                    plan.isComplete ? nil : DragGesture(minimumDistance: 8)
+                        .onChanged { value in
+                            if draggingObjectiveId == nil {
+                                draggingObjectiveId = obj.id
+                                draggingFromDate = weekKey
+                            }
+                            guard draggingObjectiveId == obj.id else { return }
+                            dragObjectiveOffset = value.translation.height
+                        }
+                        .onEnded { value in
+                            guard draggingObjectiveId == obj.id,
+                                  let fromDate = draggingFromDate else {
+                                resetDragState()
+                                return
+                            }
+                            let verticalDistance = value.translation.height
+                            let rowH: CGFloat = 36
+                            if abs(verticalDistance) > 60, let plan = plannerVM.selectedPlan {
+                                let dayDelta = verticalDistance > 0 ? 1 : -1
+                                let keys = plan.periodKeys
+                                if let currentIdx = keys.firstIndex(of: fromDate) {
+                                    let newIdx = currentIdx + dayDelta
+                                    if newIdx >= 0 && newIdx < keys.count {
+                                        plannerVM.moveObjectiveBetweenDays(
+                                            objectiveId: obj.id,
+                                            fromDate: fromDate,
+                                            toDate: keys[newIdx]
+                                        )
+                                    }
+                                }
+                            } else {
+                                let rowsMoved = Int(round(verticalDistance / rowH))
+                                if rowsMoved != 0 {
+                                    let newIndex = min(max(index + rowsMoved, 0), objectives.count - 1)
+                                    if newIndex != index {
+                                        plannerVM.reorderObjective(date: weekKey, fromIndex: index, toIndex: newIndex)
+                                    }
+                                }
+                            }
+                            withAnimation(.easeOut(duration: 0.15)) { resetDragState() }
+                        }
+                )
+            }
+
+            if objectives.isEmpty && !isExpanded && plan.isComplete {
+                Text("No objectives")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.primary.opacity(0.25))
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 4)
+            }
+
+            if !plan.isComplete {
+                AddObjectiveField { text in
+                    plannerVM.addDailyObjective(date: weekKey, text: text)
+                }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 4)
+            }
+
+            if isExpanded {
+                let days = plan.daysInWeek(startingFrom: weekKey)
+                ForEach(days, id: \.self) { dayKey in
+                    subDaySectionBlock(plan: plan, dayKey: dayKey)
+                }
+            }
+
+            Divider()
+                .padding(.top, 4)
+        }
+    }
+
+    // MARK: - Sub-day section (nested inside expanded week)
+
+    private func subDaySectionBlock(plan: Plan, dayKey: String) -> some View {
+        let objectives = plan.subDayObjectives?[dayKey] ?? []
+
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 5) {
+                Image(systemName: dayKey == Plan.todayString ? "sun.max.fill" : "calendar")
+                    .font(.system(size: 8))
+                    .foregroundStyle(Color.calmTeal.opacity(0.7))
+                Text(Plan.displayDayLabel(for: dayKey))
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.primary.opacity(0.6))
+                Spacer()
+            }
+            .padding(.leading, 28)
+            .padding(.trailing, 12)
+            .padding(.top, 6)
+            .padding(.bottom, 2)
+
+            ForEach(objectives) { obj in
+                ObjectiveRow(
+                    objective: obj,
+                    isComplete: plan.isComplete,
+                    onToggle: { plannerVM.toggleObjective(objectiveId: obj.id, date: dayKey) },
+                    onUpdate: { plannerVM.updateObjectiveText(objectiveId: obj.id, date: dayKey, newText: $0) },
+                    onDelete: { plannerVM.removeObjective(objectiveId: obj.id, date: dayKey) }
+                )
+                .padding(.leading, 16)
+            }
+
+            if !plan.isComplete {
+                AddObjectiveField { text in
+                    plannerVM.addSubDayObjective(date: dayKey, text: text)
+                }
+                .padding(.leading, 28)
+                .padding(.trailing, 12)
+                .padding(.bottom, 2)
+            }
+        }
+        .background(Color.secondary.opacity(0.03))
+    }
+
+    // MARK: - Day section block (for daily plans)
+
+    private func daySectionBlock(plan: Plan, dateStr: String, indent: Bool) -> some View {
+        let objectives = plan.dailyObjectives[dateStr] ?? []
+
+        return VStack(alignment: .leading, spacing: 0) {
+            sectionHeader(
+                title: Plan.displayDayLabel(for: dateStr),
+                systemImage: dateStr == Plan.todayString ? "sun.max.fill" : "calendar"
+            )
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, 4)
+
+            ForEach(Array(objectives.enumerated()), id: \.element.id) { index, obj in
+                let isDragging = draggingObjectiveId == obj.id
+
+                ObjectiveRow(
+                    objective: obj,
+                    isComplete: plan.isComplete,
+                    onToggle: { plannerVM.toggleObjective(objectiveId: obj.id, date: dateStr) },
+                    onUpdate: { plannerVM.updateObjectiveText(objectiveId: obj.id, date: dateStr, newText: $0) },
+                    onDelete: { plannerVM.removeObjective(objectiveId: obj.id, date: dateStr) },
+                    onDurationChange: { plannerVM.updateObjectiveDuration(objectiveId: obj.id, date: dateStr, minutes: $0) }
+                )
+                .opacity(isDragging ? 0.5 : 1.0)
+                .offset(y: isDragging ? dragObjectiveOffset : 0)
+                .zIndex(isDragging ? 100 : 0)
+                .simultaneousGesture(
+                    plan.isComplete ? nil : DragGesture(minimumDistance: 8)
+                        .onChanged { value in
+                            if draggingObjectiveId == nil {
+                                draggingObjectiveId = obj.id
+                                draggingFromDate = dateStr
+                            }
+                            guard draggingObjectiveId == obj.id else { return }
+                            dragObjectiveOffset = value.translation.height
+                        }
+                        .onEnded { value in
+                            guard draggingObjectiveId == obj.id,
+                                  let fromDate = draggingFromDate else {
+                                resetDragState()
+                                return
+                            }
+                            let verticalDistance = value.translation.height
+                            let rowH: CGFloat = 36
+                            if abs(verticalDistance) > 60, let plan = plannerVM.selectedPlan {
+                                let dayDelta = verticalDistance > 0 ? 1 : -1
+                                let keys = plan.periodKeys
+                                if let currentIdx = keys.firstIndex(of: fromDate) {
+                                    let newIdx = currentIdx + dayDelta
+                                    if newIdx >= 0 && newIdx < keys.count {
+                                        plannerVM.moveObjectiveBetweenDays(
+                                            objectiveId: obj.id,
+                                            fromDate: fromDate,
+                                            toDate: keys[newIdx]
+                                        )
+                                    }
+                                }
+                            } else {
+                                let rowsMoved = Int(round(verticalDistance / rowH))
+                                if rowsMoved != 0 {
+                                    let newIndex = min(max(index + rowsMoved, 0), objectives.count - 1)
+                                    if newIndex != index {
+                                        plannerVM.reorderObjective(date: dateStr, fromIndex: index, toIndex: newIndex)
+                                    }
+                                }
+                            }
+                            withAnimation(.easeOut(duration: 0.15)) { resetDragState() }
+                        }
+                )
+            }
+
+            if objectives.isEmpty && plan.isComplete {
+                Text("No objectives")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.primary.opacity(0.25))
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 4)
+            }
+
+            if !plan.isComplete {
+                AddObjectiveField { text in
+                    plannerVM.addDailyObjective(date: dateStr, text: text)
+                }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 4)
+            }
+
+            Divider()
+                .padding(.top, 4)
         }
     }
 

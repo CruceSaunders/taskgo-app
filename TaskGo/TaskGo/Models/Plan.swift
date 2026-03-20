@@ -28,6 +28,7 @@ struct Plan: Identifiable, Codable, Equatable {
     var endDate: String     // yyyy-MM-dd
     var overallObjectives: [PlanObjective]
     var dailyObjectives: [String: [PlanObjective]]  // keyed by yyyy-MM-dd (day start or week start)
+    var subDayObjectives: [String: [PlanObjective]]?  // day-level drill-down for weekly plans, keyed by yyyy-MM-dd
     var isComplete: Bool
     var createdAt: Date
     var updatedAt: Date
@@ -48,6 +49,7 @@ struct Plan: Identifiable, Codable, Equatable {
         endDate: String,
         overallObjectives: [PlanObjective] = [],
         dailyObjectives: [String: [PlanObjective]] = [:],
+        subDayObjectives: [String: [PlanObjective]]? = nil,
         isComplete: Bool = false,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
@@ -67,6 +69,7 @@ struct Plan: Identifiable, Codable, Equatable {
         self.endDate = endDate
         self.overallObjectives = overallObjectives
         self.dailyObjectives = dailyObjectives
+        self.subDayObjectives = subDayObjectives
         self.isComplete = isComplete
         self.createdAt = createdAt
         self.updatedAt = updatedAt
@@ -81,7 +84,7 @@ struct Plan: Identifiable, Codable, Equatable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, title, mode, startDate, endDate, overallObjectives, dailyObjectives
+        case id, title, mode, startDate, endDate, overallObjectives, dailyObjectives, subDayObjectives
         case isComplete, createdAt, updatedAt, lastConvertedAt
         case scheduleStartTime, scheduleEndTime, calendarId, createdEventIds
         case breakEnabled, breakMinutes, breakCount
@@ -96,6 +99,7 @@ struct Plan: Identifiable, Codable, Equatable {
         endDate = try c.decode(String.self, forKey: .endDate)
         overallObjectives = try c.decode([PlanObjective].self, forKey: .overallObjectives)
         dailyObjectives = try c.decode([String: [PlanObjective]].self, forKey: .dailyObjectives)
+        subDayObjectives = try c.decodeIfPresent([String: [PlanObjective]].self, forKey: .subDayObjectives)
         isComplete = try c.decode(Bool.self, forKey: .isComplete)
         createdAt = try c.decode(Date.self, forKey: .createdAt)
         updatedAt = try c.decode(Date.self, forKey: .updatedAt)
@@ -200,14 +204,28 @@ struct Plan: Identifiable, Codable, Equatable {
         return "\(Plan.displayFmt.string(from: start)) – \(Plan.displayFmt.string(from: end))"
     }
 
+    func daysInWeek(startingFrom weekKey: String) -> [String] {
+        guard let start = Plan.dateFmt.date(from: weekKey),
+              let planEnd = Plan.dateFmt.date(from: endDate) else { return [] }
+        var days: [String] = []
+        for offset in 0..<7 {
+            guard let day = Calendar.current.date(byAdding: .day, value: offset, to: start) else { break }
+            if day > planEnd { break }
+            days.append(Plan.dateFmt.string(from: day))
+        }
+        return days
+    }
+
     var totalObjectives: Int {
-        overallObjectives.count + dailyObjectives.values.reduce(0) { $0 + $1.count }
+        let sub = subDayObjectives?.values.reduce(0) { $0 + $1.count } ?? 0
+        return overallObjectives.count + dailyObjectives.values.reduce(0) { $0 + $1.count } + sub
     }
 
     var completedObjectives: Int {
         let overallDone = overallObjectives.filter(\.isComplete).count
         let dailyDone = dailyObjectives.values.reduce(0) { $0 + $1.filter(\.isComplete).count }
-        return overallDone + dailyDone
+        let subDone = subDayObjectives?.values.reduce(0) { $0 + $1.filter(\.isComplete).count } ?? 0
+        return overallDone + dailyDone + subDone
     }
 
     var progress: Double {
