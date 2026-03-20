@@ -1,6 +1,11 @@
 import Foundation
 import FirebaseFirestore
 
+enum PlanMode: String, Codable, Equatable, CaseIterable {
+    case daily
+    case weekly
+}
+
 struct PlanObjective: Identifiable, Codable, Equatable, Hashable {
     var id: String
     var text: String
@@ -18,10 +23,11 @@ struct PlanObjective: Identifiable, Codable, Equatable, Hashable {
 struct Plan: Identifiable, Codable, Equatable {
     @DocumentID var id: String?
     var title: String
+    var mode: PlanMode
     var startDate: String   // yyyy-MM-dd
     var endDate: String     // yyyy-MM-dd
     var overallObjectives: [PlanObjective]
-    var dailyObjectives: [String: [PlanObjective]]  // keyed by yyyy-MM-dd
+    var dailyObjectives: [String: [PlanObjective]]  // keyed by yyyy-MM-dd (day start or week start)
     var isComplete: Bool
     var createdAt: Date
     var updatedAt: Date
@@ -37,6 +43,7 @@ struct Plan: Identifiable, Codable, Equatable {
     init(
         id: String? = nil,
         title: String,
+        mode: PlanMode = .daily,
         startDate: String,
         endDate: String,
         overallObjectives: [PlanObjective] = [],
@@ -55,6 +62,7 @@ struct Plan: Identifiable, Codable, Equatable {
     ) {
         self.id = id
         self.title = title
+        self.mode = mode
         self.startDate = startDate
         self.endDate = endDate
         self.overallObjectives = overallObjectives
@@ -70,6 +78,35 @@ struct Plan: Identifiable, Codable, Equatable {
         self.breakEnabled = breakEnabled
         self.breakMinutes = breakMinutes
         self.breakCount = breakCount
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, mode, startDate, endDate, overallObjectives, dailyObjectives
+        case isComplete, createdAt, updatedAt, lastConvertedAt
+        case scheduleStartTime, scheduleEndTime, calendarId, createdEventIds
+        case breakEnabled, breakMinutes, breakCount
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        _id = try c.decode(DocumentID<String>.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        mode = try c.decodeIfPresent(PlanMode.self, forKey: .mode) ?? .daily
+        startDate = try c.decode(String.self, forKey: .startDate)
+        endDate = try c.decode(String.self, forKey: .endDate)
+        overallObjectives = try c.decode([PlanObjective].self, forKey: .overallObjectives)
+        dailyObjectives = try c.decode([String: [PlanObjective]].self, forKey: .dailyObjectives)
+        isComplete = try c.decode(Bool.self, forKey: .isComplete)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        updatedAt = try c.decode(Date.self, forKey: .updatedAt)
+        lastConvertedAt = try c.decodeIfPresent(Date.self, forKey: .lastConvertedAt)
+        scheduleStartTime = try c.decodeIfPresent(String.self, forKey: .scheduleStartTime)
+        scheduleEndTime = try c.decodeIfPresent(String.self, forKey: .scheduleEndTime)
+        calendarId = try c.decodeIfPresent(String.self, forKey: .calendarId)
+        createdEventIds = try c.decodeIfPresent([String].self, forKey: .createdEventIds)
+        breakEnabled = try c.decodeIfPresent(Bool.self, forKey: .breakEnabled)
+        breakMinutes = try c.decodeIfPresent(Int.self, forKey: .breakMinutes)
+        breakCount = try c.decodeIfPresent(Int.self, forKey: .breakCount)
     }
 
     var hasScheduleConfig: Bool {
@@ -132,6 +169,31 @@ struct Plan: Identifiable, Codable, Equatable {
         dateRange.count
     }
 
+    var weekRange: [String] {
+        guard let start = Plan.dateFmt.date(from: startDate),
+              let end = Plan.dateFmt.date(from: endDate) else { return [] }
+        var weeks: [String] = []
+        var current = start
+        while current <= end {
+            weeks.append(Plan.dateFmt.string(from: current))
+            guard let next = Calendar.current.date(byAdding: .day, value: 7, to: current) else { break }
+            current = next
+        }
+        return weeks
+    }
+
+    var weekCount: Int {
+        weekRange.count
+    }
+
+    var periodKeys: [String] {
+        mode == .weekly ? weekRange : dateRange
+    }
+
+    var periodCount: Int {
+        periodKeys.count
+    }
+
     var displayDateRange: String {
         guard let start = Plan.dateFmt.date(from: startDate),
               let end = Plan.dateFmt.date(from: endDate) else { return "\(startDate) – \(endDate)" }
@@ -160,6 +222,25 @@ struct Plan: Identifiable, Codable, Equatable {
         if cal.isDateInTomorrow(date) { return "Tomorrow – \(dayOfWeekFmt.string(from: date))" }
         if cal.isDateInYesterday(date) { return "Yesterday – \(dayOfWeekFmt.string(from: date))" }
         return dayOfWeekFmt.string(from: date)
+    }
+
+    static func displayWeekLabel(for weekStartString: String) -> String {
+        guard let start = dateFmt.date(from: weekStartString) else { return weekStartString }
+        let cal = Calendar.current
+        guard let end = cal.date(byAdding: .day, value: 6, to: start) else { return weekStartString }
+        let range = "\(displayFmt.string(from: start)) – \(displayFmt.string(from: end))"
+        if cal.isDate(Date(), equalTo: start, toGranularity: .weekOfYear) {
+            return "This Week – \(range)"
+        }
+        if let nextWeekStart = cal.date(byAdding: .weekOfYear, value: 1, to: cal.startOfDay(for: Date())),
+           cal.isDate(start, equalTo: nextWeekStart, toGranularity: .weekOfYear) {
+            return "Next Week – \(range)"
+        }
+        return "Week of \(displayFmt.string(from: start))"
+    }
+
+    func displayPeriodLabel(for key: String) -> String {
+        mode == .weekly ? Plan.displayWeekLabel(for: key) : Plan.displayDayLabel(for: key)
     }
 
     static func suggestedTitle(start: Date, end: Date) -> String {

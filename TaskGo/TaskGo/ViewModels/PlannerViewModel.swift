@@ -158,20 +158,22 @@ class PlannerViewModel: ObservableObject {
 
     // MARK: - Plan CRUD
 
-    func createPlan(title: String, startDate: Date, endDate: Date) {
+    func createPlan(title: String, startDate: Date, endDate: Date, mode: PlanMode = .daily) {
         let fmt = DateFormatter()
         fmt.dateFormat = "yyyy-MM-dd"
 
+        let step = mode == .weekly ? 7 : 1
         var dailyObjectives: [String: [PlanObjective]] = [:]
         var current = startDate
         while current <= endDate {
             dailyObjectives[fmt.string(from: current)] = []
-            guard let next = Calendar.current.date(byAdding: .day, value: 1, to: current) else { break }
+            guard let next = Calendar.current.date(byAdding: .day, value: step, to: current) else { break }
             current = next
         }
 
         let plan = Plan(
             title: title,
+            mode: mode,
             startDate: fmt.string(from: startDate),
             endDate: fmt.string(from: endDate),
             overallObjectives: [],

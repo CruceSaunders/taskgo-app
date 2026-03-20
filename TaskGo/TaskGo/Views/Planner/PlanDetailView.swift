@@ -23,7 +23,7 @@ struct PlanDetailView: View {
             ZStack {
                 VStack(spacing: 0) {
                     planHeader(plan)
-                    if !plan.isComplete {
+                    if !plan.isComplete && plan.mode == .daily {
                         scheduleConfigSection(plan)
                     }
                     Divider()
@@ -85,9 +85,15 @@ struct PlanDetailView: View {
                             .foregroundStyle(.primary.opacity(0.5))
                         Text("·")
                             .foregroundStyle(.primary.opacity(0.3))
-                        Text("\(plan.dayCount) day\(plan.dayCount == 1 ? "" : "s")")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.primary.opacity(0.5))
+                        if plan.mode == .weekly {
+                            Text("\(plan.weekCount) week\(plan.weekCount == 1 ? "" : "s")")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.primary.opacity(0.5))
+                        } else {
+                            Text("\(plan.dayCount) day\(plan.dayCount == 1 ? "" : "s")")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.primary.opacity(0.5))
+                        }
                     }
                     .lineLimit(1)
                 }
@@ -142,48 +148,50 @@ struct PlanDetailView: View {
                         }
                         .buttonStyle(.plain)
                     } else {
-                        if plan.lastConvertedAt != nil {
-                            Button(action: {
-                                confirmRemoveEvents = true
-                            }) {
-                                Image(systemName: "calendar.badge.minus")
-                                    .font(.system(size: 9))
-                                    .foregroundStyle(.red.opacity(0.6))
+                        if plan.mode == .daily {
+                            if plan.lastConvertedAt != nil {
+                                Button(action: {
+                                    confirmRemoveEvents = true
+                                }) {
+                                    Image(systemName: "calendar.badge.minus")
+                                        .font(.system(size: 9))
+                                        .foregroundStyle(.red.opacity(0.6))
+                                }
+                                .buttonStyle(.plain)
+                                .help("Remove converted events from calendar")
+                                .alert("Remove from Calendar?", isPresented: $confirmRemoveEvents) {
+                                    Button("Remove", role: .destructive) {
+                                        plannerVM.removeConvertedEvents()
+                                    }
+                                    Button("Cancel", role: .cancel) {}
+                                } message: {
+                                    Text("This will delete the events that were created from this plan. Your other calendar events will not be affected.")
+                                }
+                            }
+
+                            Button(action: { plannerVM.convertToCalendar() }) {
+                                ViewThatFits {
+                                    HStack(spacing: 3) {
+                                        Image(systemName: "calendar.badge.plus").font(.system(size: 9))
+                                        Text(plan.lastConvertedAt != nil ? "Reconvert" : "Convert to Calendar")
+                                            .font(.system(size: 10, weight: .medium)).lineLimit(1)
+                                    }
+                                    .fixedSize()
+                                    HStack(spacing: 3) {
+                                        Image(systemName: "calendar.badge.plus").font(.system(size: 9))
+                                        Text(plan.lastConvertedAt != nil ? "Reconvert" : "To Cal")
+                                            .font(.system(size: 9, weight: .medium)).lineLimit(1)
+                                    }
+                                    .fixedSize()
+                                }
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.blue)
+                                .cornerRadius(5)
                             }
                             .buttonStyle(.plain)
-                            .help("Remove converted events from calendar")
-                            .alert("Remove from Calendar?", isPresented: $confirmRemoveEvents) {
-                                Button("Remove", role: .destructive) {
-                                    plannerVM.removeConvertedEvents()
-                                }
-                                Button("Cancel", role: .cancel) {}
-                            } message: {
-                                Text("This will delete the events that were created from this plan. Your other calendar events will not be affected.")
-                            }
                         }
-
-                        Button(action: { plannerVM.convertToCalendar() }) {
-                            ViewThatFits {
-                                HStack(spacing: 3) {
-                                    Image(systemName: "calendar.badge.plus").font(.system(size: 9))
-                                    Text(plan.lastConvertedAt != nil ? "Reconvert" : "Convert to Calendar")
-                                        .font(.system(size: 10, weight: .medium)).lineLimit(1)
-                                }
-                                .fixedSize()
-                                HStack(spacing: 3) {
-                                    Image(systemName: "calendar.badge.plus").font(.system(size: 9))
-                                    Text(plan.lastConvertedAt != nil ? "Reconvert" : "To Cal")
-                                        .font(.system(size: 9, weight: .medium)).lineLimit(1)
-                                }
-                                .fixedSize()
-                            }
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.blue)
-                            .cornerRadius(5)
-                        }
-                        .buttonStyle(.plain)
 
                         Button(action: { plannerVM.completePlan() }) {
                             ViewThatFits {
@@ -440,14 +448,21 @@ struct PlanDetailView: View {
         }
     }
 
-    // MARK: - Daily Sections
+    // MARK: - Period Sections (Daily or Weekly)
+
+    private func periodSectionIcon(for key: String, plan: Plan) -> String {
+        if plan.mode == .weekly {
+            return "calendar.badge.clock"
+        }
+        return key == Plan.todayString ? "sun.max.fill" : "calendar"
+    }
 
     private func dailySections(_ plan: Plan) -> some View {
-        ForEach(plan.dateRange, id: \.self) { dateStr in
+        ForEach(plan.periodKeys, id: \.self) { dateStr in
             VStack(alignment: .leading, spacing: 0) {
                 sectionHeader(
-                    title: Plan.displayDayLabel(for: dateStr),
-                    systemImage: dateStr == Plan.todayString ? "sun.max.fill" : "calendar"
+                    title: plan.displayPeriodLabel(for: dateStr),
+                    systemImage: periodSectionIcon(for: dateStr, plan: plan)
                 )
                 .padding(.horizontal, 12)
                 .padding(.top, 10)
@@ -463,7 +478,9 @@ struct PlanDetailView: View {
                         onToggle: { plannerVM.toggleObjective(objectiveId: obj.id, date: dateStr) },
                         onUpdate: { plannerVM.updateObjectiveText(objectiveId: obj.id, date: dateStr, newText: $0) },
                         onDelete: { plannerVM.removeObjective(objectiveId: obj.id, date: dateStr) },
-                        onDurationChange: { plannerVM.updateObjectiveDuration(objectiveId: obj.id, date: dateStr, minutes: $0) }
+                        onDurationChange: plan.mode == .daily
+                            ? { plannerVM.updateObjectiveDuration(objectiveId: obj.id, date: dateStr, minutes: $0) }
+                            : nil
                     )
                     .opacity(isDragging ? 0.5 : 1.0)
                     .offset(y: isDragging ? dragObjectiveOffset : 0)
@@ -490,11 +507,11 @@ struct PlanDetailView: View {
 
                                 if abs(verticalDistance) > 60, let plan = plannerVM.selectedPlan {
                                     let dayDelta = verticalDistance > 0 ? 1 : -1
-                                    let dateRange = plan.dateRange
-                                    if let currentIdx = dateRange.firstIndex(of: fromDate) {
+                                    let keys = plan.periodKeys
+                                    if let currentIdx = keys.firstIndex(of: fromDate) {
                                         let newIdx = currentIdx + dayDelta
-                                        if newIdx >= 0 && newIdx < dateRange.count {
-                                            let toDate = dateRange[newIdx]
+                                        if newIdx >= 0 && newIdx < keys.count {
+                                            let toDate = keys[newIdx]
                                             plannerVM.moveObjectiveBetweenDays(
                                                 objectiveId: obj.id,
                                                 fromDate: fromDate,

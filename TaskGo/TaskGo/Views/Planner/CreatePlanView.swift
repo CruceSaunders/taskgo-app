@@ -4,6 +4,7 @@ struct CreatePlanView: View {
     @EnvironmentObject var plannerVM: PlannerViewModel
 
     @State private var title = ""
+    @State private var mode: PlanMode = .daily
     @State private var startDate = Date()
     @State private var endDate = Calendar.current.date(byAdding: .day, value: 6, to: Date()) ?? Date()
 
@@ -11,8 +12,14 @@ struct CreatePlanView: View {
         max(0, (Calendar.current.dateComponents([.day], from: startDate, to: endDate).day ?? 0) + 1)
     }
 
+    private var weekCount: Int {
+        max(1, Int(ceil(Double(dayCount) / 7.0)))
+    }
+
     private var isValid: Bool {
-        !title.trimmingCharacters(in: .whitespaces).isEmpty && endDate >= startDate && dayCount <= 90
+        let hasTitle = !title.trimmingCharacters(in: .whitespaces).isEmpty
+        guard hasTitle, endDate >= startDate else { return false }
+        return mode == .weekly ? weekCount <= 52 : dayCount <= 90
     }
 
     var body: some View {
@@ -57,6 +64,18 @@ struct CreatePlanView: View {
                     .font(.system(size: 12))
             }
 
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Cadence")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.primary.opacity(0.5))
+                Picker("", selection: $mode) {
+                    Text("Day by Day").tag(PlanMode.daily)
+                    Text("Week by Week").tag(PlanMode.weekly)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
+
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Start")
@@ -80,18 +99,32 @@ struct CreatePlanView: View {
             }
 
             HStack {
-                Image(systemName: "calendar.badge.clock")
+                Image(systemName: mode == .weekly ? "calendar.badge.clock" : "calendar.badge.clock")
                     .font(.system(size: 11))
                     .foregroundStyle(Color.calmTeal)
-                Text("\(dayCount) day\(dayCount == 1 ? "" : "s")")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.primary.opacity(0.7))
 
-                if dayCount > 90 {
-                    Spacer()
-                    Text("Max 90 days")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.red.opacity(0.8))
+                if mode == .weekly {
+                    Text("\(weekCount) week\(weekCount == 1 ? "" : "s")")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.primary.opacity(0.7))
+
+                    if weekCount > 52 {
+                        Spacer()
+                        Text("Max 52 weeks")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.red.opacity(0.8))
+                    }
+                } else {
+                    Text("\(dayCount) day\(dayCount == 1 ? "" : "s")")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.primary.opacity(0.7))
+
+                    if dayCount > 90 {
+                        Spacer()
+                        Text("Max 90 days")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.red.opacity(0.8))
+                    }
                 }
             }
             .padding(.vertical, 2)
@@ -130,7 +163,8 @@ struct CreatePlanView: View {
         plannerVM.createPlan(
             title: title.trimmingCharacters(in: .whitespaces),
             startDate: startDate,
-            endDate: endDate
+            endDate: endDate,
+            mode: mode
         )
         plannerVM.showCreatePlan = false
     }

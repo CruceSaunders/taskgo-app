@@ -1,0 +1,50 @@
+# TaskGo! Build & Deploy Rules
+
+## MANDATORY: Build and Relaunch After Every Code Change
+
+TaskGo! is a native macOS SwiftUI app. Pushing to git does NOT deploy changes. The app must be rebuilt from source and relaunched for changes to take effect.
+
+After making ANY code changes, you MUST run this full sequence before telling the user the change is done:
+
+### 1. Build
+
+```bash
+cd "/Users/crucegauntlet/Desktop/TaskGo!/TaskGo" && xcodebuild -scheme TaskGo -configuration Debug -destination 'platform=macOS' build 2>&1 | tail -5
+```
+
+If the build fails, fix the errors and rebuild. Do NOT tell the user the change is done if the build failed.
+
+### 2. Kill and Relaunch
+
+```bash
+pkill -f "TaskGo!" 2>/dev/null; sleep 1; open "/Users/crucegauntlet/Library/Developer/Xcode/DerivedData/TaskGo-gbsqnqzrmpfrzpaghxowvfsqppoi/Build/Products/Debug/TaskGo!.app"
+```
+
+### 3. Push to Git
+
+```bash
+cd "/Users/crucegauntlet/Desktop/TaskGo!" && git add -A && git commit -m "description" && git push
+```
+
+Always push so the code is saved on the remote repository.
+
+### Summary
+
+Every change = edit code → build → kill old app → launch new app → git push. No exceptions. The user should always be running the latest version.
+
+## Project Structure
+
+- **Xcode project**: `TaskGo/TaskGo.xcodeproj`
+- **Scheme**: `TaskGo`
+- **Platform**: macOS (NOT iOS)
+- **Language**: Swift / SwiftUI
+- **Backend**: Firebase Firestore
+- **Bundle ID**: `com.cruce.taskgo`
+- **Repo**: `https://github.com/CruceSaunders/taskgo-app.git`
+
+## Key Directories
+
+- `TaskGo/TaskGo/Views/` — SwiftUI views (Tasks, Calendar, Notes, Profile tabs)
+- `TaskGo/TaskGo/ViewModels/` — ObservableObject ViewModels
+- `TaskGo/TaskGo/Models/` — Data models (TaskItem, CalendarEvent, etc.)
+- `TaskGo/TaskGo/Services/` — Firebase, Calendar, and other services

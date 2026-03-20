@@ -1,0 +1,47 @@
+# Shell Commands with TaskGo! (CRITICAL)
+
+## The Root Cause
+
+The app is named "TaskGo!" -- the `!` character triggers **zsh history expansion** inside double quotes, causing the shell to hang indefinitely.
+
+`killall "TaskGo!"` -- HANGS (! triggers history expansion)
+`killall 'TaskGo!'` -- WORKS (single quotes prevent interpretation)
+
+This applies to EVERY shell command that references the app name or path containing `!`.
+
+## Rules (MUST FOLLOW)
+
+1. **ALWAYS use single quotes** around any string containing `TaskGo!` or any path with `!`
+2. **NEVER use double quotes** around strings containing `!`
+3. **NEVER chain kill commands with &&** to the build. Use `;` so build runs regardless.
+
+## Correct Commands
+
+Kill the app:
+```bash
+killall 'TaskGo!' 2>/dev/null || true
+```
+
+Build:
+```bash
+xcodebuild -project TaskGo/TaskGo.xcodeproj -scheme TaskGo -configuration Debug build 2>&1 | tail -5
+```
+
+Launch:
+```bash
+open '/Users/crucegauntlet/Library/Developer/Xcode/DerivedData/TaskGo-gbsqnqzrmpfrzpaghxowvfsqppoi/Build/Products/Debug/TaskGo!.app'
+```
+
+Full deploy sequence (each step separate, using ; not &&):
+```bash
+killall 'TaskGo!' 2>/dev/null || true; sleep 1
+```
+Then build separately. Then open separately.
+
+## NEVER DO THIS
+
+```bash
+killall "TaskGo!"          # HANGS - ! in double quotes
+open "...TaskGo!.app"      # HANGS - ! in double quotes  
+pkill -f "TaskGo!"         # HANGS - matches itself AND ! issue
+```

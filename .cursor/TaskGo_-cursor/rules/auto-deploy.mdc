@@ -1,0 +1,42 @@
+---
+description: After every code change, automatically commit, push, rebuild, relaunch, and delegate to Beru anything requiring browser/GUI. NEVER ask Cruce to run commands or test things himself.
+alwaysApply: true
+---
+
+# Auto-Deploy After Every Change
+
+After making ANY code changes to the TaskGo project, you MUST perform all of the following steps before reporting completion to the user. Do not skip any step. Do not ask for permission -- just do it.
+
+## Steps (execute in this exact order)
+
+1. **Commit** all changed files with a descriptive commit message.
+2. **Push** to the remote (`git push`).
+3. **Kill** any running instance of the app: `pkill -f 'TaskGo!.app/Contents/MacOS/TaskGo!' 2>/dev/null`
+   - CRITICAL: Never use `pkill -f "TaskGo!"` -- this matches Cursor's own extension-host processes (they contain the workspace name "TaskGo!" in their args) and kills the IDE. Always use the full binary path pattern to target only the actual app.
+4. **Build** the project: `xcodebuild -project TaskGo/TaskGo.xcodeproj -scheme TaskGo -configuration Debug build 2>&1 | tail -5`
+5. **Launch** the fresh build: `open "/Users/crucegauntlet/Library/Developer/Xcode/DerivedData/TaskGo-gbsqnqzrmpfrzpaghxowvfsqppoi/Build/Products/Debug/TaskGo!.app"`
+6. **Confirm** to the user that the app has been rebuilt and relaunched on the latest commit.
+
+## Firestore Rules
+
+If `firestore.rules` is modified, deploy it to Firebase. Try `firebase deploy --only firestore:rules --project taskgo-prod` locally first. If it fails due to auth, delegate to Beru:
+- Commit and push the rules file
+- Ask Beru to pull the repo and run `firebase deploy --only firestore:rules --project taskgo-prod`
+
+## NEVER Ask Cruce To Do Things Beru Can Do
+
+This is critical. NEVER ask Cruce to:
+- Run terminal commands himself
+- Test the app manually
+- Log into services
+- Open a browser
+- Do anything that Beru can handle
+
+If you need something done that requires a browser, GUI, testing, or a separate computer, delegate to Beru via curl or MCP. If Beru is unreachable, retry multiple times with increasing timeouts before giving up. If Beru is truly down, inform Cruce that Beru is unreachable and the specific task is blocked until Beru is back -- but NEVER ask Cruce to do Beru's job.
+
+## Important
+
+- The working directory for all git and xcodebuild commands is `/Users/crucegauntlet/Desktop/TaskGo!`
+- If the build fails, report the error -- do NOT launch the old binary.
+- If git push fails, still build and launch locally, but tell the user the push failed.
+- Always report the commit hash so the user knows exactly which version is running.
