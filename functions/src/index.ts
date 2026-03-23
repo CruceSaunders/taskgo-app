@@ -248,6 +248,8 @@ function getApiDocs() {
       "GET /docs": {
         description: "Returns this documentation.",
       },
+
+      // ── Profile ──
       "GET /profile": {
         description: "Get the user's profile.",
         response: "{ id, email, username, displayName, totalXP, level, weeklyXP }",
@@ -257,6 +259,8 @@ function getApiDocs() {
         body: "{ displayName?, username? }",
         note: "Only displayName and username can be changed via API.",
       },
+
+      // ── Groups ──
       "GET /groups": {
         description: "List all task groups. Every task belongs to a group.",
         response: "{ groups: [{ id, name, order, isDefault }] }",
@@ -273,10 +277,12 @@ function getApiDocs() {
       "DELETE /groups/:id": {
         description: "Delete a task group.",
       },
+
+      // ── Tasks ──
       "GET /tasks": {
         description: "List tasks. Optionally filter by group.",
         query: "?groupId=xxx (optional)",
-        response: "{ tasks: [{ id, name, description, timeEstimate, position, isComplete, groupId, createdAt, ... }] }",
+        response: "{ tasks: [{ id, name, description, timeEstimate, position, isComplete, groupId, createdAt, colorTag, recurrence, nextOccurrence, ... }] }",
       },
       "GET /tasks/:id": {
         description: "Get a single task by ID.",
@@ -291,17 +297,21 @@ function getApiDocs() {
           position: "number (optional, auto-assigned) - sort order within the group",
           isComplete: "boolean (optional, default false)",
           colorTag: "string (optional) - one of: red, blue, green, yellow, purple, orange, pink, teal",
+          recurrence: "object (optional) - recurring task rule. Schema: { frequency: 'daily'|'weekly'|'monthly'|'custom', interval: number, daysOfWeek?: [1-7] (1=Sun..7=Sat), timesOfDay: ['HH:mm'], endDate?: ISO8601 }",
+          nextOccurrence: "ISO8601 string (optional) - next scheduled occurrence for recurring tasks",
         },
         example: '{ "name": "Write report", "groupId": "abc123", "timeEstimate": 1800, "description": "Q1 summary" }',
       },
       "PATCH /tasks/:id": {
         description: "Update a task. Send only the fields you want to change.",
-        body: "Any task fields: { name?, description?, timeEstimate?, isComplete?, position?, colorTag? }",
+        body: "Any task fields: { name?, description?, timeEstimate?, isComplete?, position?, colorTag?, recurrence?, nextOccurrence? }",
         example: '{ "isComplete": true }',
       },
       "DELETE /tasks/:id": {
         description: "Delete a task permanently.",
       },
+
+      // ── Notes ──
       "GET /notes": {
         description: "List recent notes or get a specific day's note.",
         query: "?date=YYYY-MM-DD (optional, returns that day's note)",
@@ -317,34 +327,77 @@ function getApiDocs() {
       "DELETE /notes/:id": {
         description: "Delete a note. The id is the date string (YYYY-MM-DD).",
       },
+
+      // ── Plans ──
       "GET /plans": {
-        description: "List all plans.",
-        response: "{ plans: [{ id, title, startDate, endDate, objectives, ... }] }",
+        description: "List all plans. Plans support three modes: 'daily' (day-by-day), 'weekly' (week-by-week with expandable days), and 'timeline' (custom-titled milestones, no dates).",
+        response: "{ plans: [{ id, title, mode, startDate, endDate, overallObjectives, dailyObjectives, subDayObjectives, sectionOrder, sectionTitles, isComplete, ... }] }",
       },
       "GET /plans/:id": {
         description: "Get a single plan by ID.",
       },
       "POST /plans": {
-        description: "Create a new plan.",
-        body: "{ title: string, startDate: string, endDate: string, ... }",
+        description: "Create a new plan. The structure depends on the mode.",
+        body: {
+          title: "string (REQUIRED) - plan title",
+          mode: "string (REQUIRED) - 'daily', 'weekly', or 'timeline'",
+          startDate: "string (REQUIRED for daily/weekly, ignored for timeline) - format YYYY-MM-DD",
+          endDate: "string (REQUIRED for daily/weekly, ignored for timeline) - format YYYY-MM-DD",
+          overallObjectives: "array (optional) - plan-level objectives. Each: { id: UUID, text: string, isComplete: boolean, estimatedMinutes?: number }",
+          dailyObjectives: "object (REQUIRED) - keyed by YYYY-MM-DD (daily/weekly) or UUID (timeline). Values are arrays of objective objects like overallObjectives. For daily: one key per day. For weekly: one key per week-start date. For timeline: one key per milestone (matching sectionOrder keys).",
+          subDayObjectives: "object (optional) - nested sub-tasks. For weekly plans: keyed by day YYYY-MM-DD within a week. For timeline plans: keyed by milestone UUID (same as sectionOrder). Values are arrays of objective objects.",
+          sectionOrder: "array of strings (REQUIRED for timeline, omit for daily/weekly) - ordered list of milestone UUIDs",
+          sectionTitles: "object (REQUIRED for timeline, omit for daily/weekly) - maps milestone UUIDs to display titles. E.g. { 'uuid-1': 'Phase 1: Research', 'uuid-2': 'Phase 2: Build' }",
+          isComplete: "boolean (optional, default false)",
+        },
+        examples: {
+          daily_plan: '{ "title": "Sprint Week", "mode": "daily", "startDate": "2026-03-20", "endDate": "2026-03-26", "overallObjectives": [], "dailyObjectives": { "2026-03-20": [], "2026-03-21": [], "2026-03-22": [], "2026-03-23": [], "2026-03-24": [], "2026-03-25": [], "2026-03-26": [] } }',
+          weekly_plan: '{ "title": "Q2 Roadmap", "mode": "weekly", "startDate": "2026-04-01", "endDate": "2026-04-28", "overallObjectives": [], "dailyObjectives": { "2026-04-01": [], "2026-04-08": [], "2026-04-15": [], "2026-04-22": [] } }',
+          timeline_plan: '{ "title": "Product Launch", "mode": "timeline", "startDate": "2026-03-20", "endDate": "2026-03-20", "overallObjectives": [], "dailyObjectives": { "milestone-uuid-1": [{ "id": "obj-1", "text": "Define requirements", "isComplete": false }], "milestone-uuid-2": [] }, "sectionOrder": ["milestone-uuid-1", "milestone-uuid-2"], "sectionTitles": { "milestone-uuid-1": "Phase 1: Research", "milestone-uuid-2": "Phase 2: Design" } }',
+        },
+        note: "For timeline plans, set startDate/endDate to today (they are not displayed). Generate UUIDs for milestone keys and reference them in sectionOrder, sectionTitles, and dailyObjectives.",
       },
       "PATCH /plans/:id": {
-        description: "Update a plan.",
+        description: "Update a plan. Send only the fields you want to change. All plan fields are accepted.",
+        body: "Any plan fields. Common operations: add objectives to dailyObjectives, update sectionTitles, toggle isComplete, add/remove milestones via sectionOrder.",
+        examples: {
+          add_objective: '{ "dailyObjectives": { "2026-03-20": [{ "id": "new-uuid", "text": "New task", "isComplete": false }] } }',
+          complete_plan: '{ "isComplete": true }',
+          rename_milestone: '{ "sectionTitles": { "milestone-uuid-1": "Phase 1: Discovery" } }',
+        },
+        note: "PATCH merges at the top level but replaces nested objects. To add an objective to an existing day, GET the plan first, modify the array, then PATCH with the full updated dailyObjectives for that key.",
       },
       "DELETE /plans/:id": {
-        description: "Delete a plan.",
+        description: "Delete a plan permanently.",
       },
+
+      // ── Reminders ──
       "GET /reminders": {
-        description: "List all reminders.",
-        response: "{ reminders: [{ id, title, scheduledDate, ... }] }",
+        description: "List all reminders ordered by scheduled date.",
+        response: "{ reminders: [{ id, title, note, scheduledDate, repeatRule, soundEnabled, isComplete, createdAt }] }",
       },
       "POST /reminders": {
         description: "Create a reminder.",
-        body: "{ title: string, scheduledDate: ISO8601 string, ... }",
+        body: {
+          title: "string (REQUIRED) - reminder title",
+          scheduledDate: "ISO8601 string (REQUIRED) - when the reminder fires",
+          note: "string (optional) - additional details",
+          repeatRule: "string (optional, default 'none') - 'none', 'daily', 'weekly', or 'monthly'",
+          soundEnabled: "boolean (optional, default true) - play sound when reminder fires",
+          isComplete: "boolean (optional, default false)",
+        },
+        example: '{ "title": "Stand up meeting", "scheduledDate": "2026-03-20T09:00:00Z", "repeatRule": "daily" }',
+      },
+      "PATCH /reminders/:id": {
+        description: "Update a reminder. Send only the fields you want to change.",
+        body: "Any reminder fields: { title?, note?, scheduledDate?, repeatRule?, soundEnabled?, isComplete? }",
+        example: '{ "isComplete": true }',
       },
       "DELETE /reminders/:id": {
-        description: "Delete a reminder.",
+        description: "Delete a reminder permanently.",
       },
+
+      // ── Activity ──
       "GET /activity?date=YYYY-MM-DD": {
         description: "Get activity data for a specific day.",
         response: "Full minute-by-minute breakdown: keyboard, clicks, scrolls, movement, speaking, watching per minute.",
@@ -354,12 +407,32 @@ function getApiDocs() {
         response: "{ days: [{ date, totalActiveMinutes, totalKeyboard, totalClicks, totalScrolls, totalMovement, totalInputs }] }",
       },
     },
+    schemas: {
+      PlanObjective: {
+        id: "string - UUID, generate one when creating",
+        text: "string - the objective text",
+        isComplete: "boolean - completion status",
+        estimatedMinutes: "number (optional) - time estimate in minutes (used for calendar conversion in daily plans)",
+      },
+      RecurrenceRule: {
+        frequency: "string - 'daily', 'weekly', 'monthly', or 'custom'",
+        interval: "number - e.g. 1 = every occurrence, 2 = every other",
+        daysOfWeek: "array of numbers (optional) - 1=Sun, 2=Mon, ..., 7=Sat (for weekly/custom)",
+        timesOfDay: "array of strings - HH:mm format, e.g. ['09:00', '14:30']",
+        endDate: "ISO8601 string (optional) - when the recurrence stops",
+      },
+    },
     workflow_tips: [
       "To create a task: first GET /groups to find the right groupId, then POST /tasks with name + groupId + timeEstimate.",
       "timeEstimate is in SECONDS. Common values: 5min=300, 15min=900, 30min=1800, 1hr=3600.",
       "To mark a task complete: PATCH /tasks/:id with { isComplete: true }.",
       "Notes are keyed by date (YYYY-MM-DD). POST /notes with { date: '2026-03-16', content: '...' }.",
       "Activity data is read-only. Use GET /activity?date=YYYY-MM-DD to check productivity.",
+      "To create a daily plan: POST /plans with mode='daily', startDate, endDate, and dailyObjectives with one empty array per date.",
+      "To create a weekly plan: POST /plans with mode='weekly', startDate, endDate, and dailyObjectives with one empty array per week-start date (every 7 days).",
+      "To create a timeline plan: POST /plans with mode='timeline', generate UUID keys for milestones, and provide sectionOrder + sectionTitles + dailyObjectives.",
+      "To add a milestone to a timeline plan: GET the plan, add a new UUID to sectionOrder, set its title in sectionTitles, add an empty array in dailyObjectives, then PATCH.",
+      "To set a recurring task: include recurrence object with frequency, interval, timesOfDay. E.g. { frequency: 'weekly', interval: 1, daysOfWeek: [2,4,6], timesOfDay: ['09:00'] }",
     ],
   };
 }
@@ -451,6 +524,8 @@ async function handleTasks(
       chainOrder: body.chainOrder || null,
       colorTag: body.colorTag || null,
       groupTitle: body.groupTitle || null,
+      recurrence: body.recurrence || null,
+      nextOccurrence: body.nextOccurrence || null,
     };
 
     const ref = await col.add(task);
@@ -600,6 +675,9 @@ async function handleReminders(
   } else if (req.method === "POST") {
     const ref = await col.add(req.body);
     res.status(201).json({id: ref.id});
+  } else if (req.method === "PATCH" && reminderId) {
+    await col.doc(reminderId).update(req.body);
+    res.json({success: true});
   } else if (req.method === "DELETE" && reminderId) {
     await col.doc(reminderId).delete();
     res.json({success: true});
