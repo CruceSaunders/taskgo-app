@@ -32,8 +32,13 @@ struct PlanDetailView: View {
                     Divider()
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
-                            overallSection(plan)
+                            if plan.mode != .timeline {
+                                overallSection(plan)
+                            }
                             dailySections(plan)
+                            if plan.mode == .timeline && !plan.isComplete {
+                                addMilestoneButton
+                            }
                         }
                         .padding(.bottom, 16)
                     }
@@ -82,23 +87,32 @@ struct PlanDetailView: View {
                         onCommit: { plannerVM.updatePlanTitle($0) }
                     )
                     .lineLimit(1)
-                    HStack(spacing: 6) {
-                        Text(plan.displayDateRange)
-                            .font(.system(size: 10))
-                            .foregroundStyle(.primary.opacity(0.5))
-                        Text("·")
-                            .foregroundStyle(.primary.opacity(0.3))
-                        if plan.mode == .weekly {
-                            Text("\(plan.weekCount) week\(plan.weekCount == 1 ? "" : "s")")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.primary.opacity(0.5))
-                        } else {
-                            Text("\(plan.dayCount) day\(plan.dayCount == 1 ? "" : "s")")
+                    if plan.mode == .timeline {
+                        HStack(spacing: 6) {
+                            Text("\(plan.periodKeys.count) milestone\(plan.periodKeys.count == 1 ? "" : "s")")
                                 .font(.system(size: 10))
                                 .foregroundStyle(.primary.opacity(0.5))
                         }
+                        .lineLimit(1)
+                    } else {
+                        HStack(spacing: 6) {
+                            Text(plan.displayDateRange)
+                                .font(.system(size: 10))
+                                .foregroundStyle(.primary.opacity(0.5))
+                            Text("·")
+                                .foregroundStyle(.primary.opacity(0.3))
+                            if plan.mode == .weekly {
+                                Text("\(plan.weekCount) week\(plan.weekCount == 1 ? "" : "s")")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.primary.opacity(0.5))
+                            } else {
+                                Text("\(plan.dayCount) day\(plan.dayCount == 1 ? "" : "s")")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.primary.opacity(0.5))
+                            }
+                        }
+                        .lineLimit(1)
                     }
-                    .lineLimit(1)
                 }
                 .layoutPriority(1)
                 Spacer(minLength: 4)
@@ -455,9 +469,12 @@ struct PlanDetailView: View {
 
     private func dailySections(_ plan: Plan) -> some View {
         ForEach(plan.periodKeys, id: \.self) { dateStr in
-            if plan.mode == .weekly {
+            switch plan.mode {
+            case .timeline:
+                timelineSection(plan: plan, sectionKey: dateStr)
+            case .weekly:
                 weekSection(plan: plan, weekKey: dateStr)
-            } else {
+            case .daily:
                 daySectionBlock(plan: plan, dateStr: dateStr, indent: false)
             }
         }
@@ -633,6 +650,171 @@ struct PlanDetailView: View {
             }
         }
         .background(Color.secondary.opacity(0.03))
+    }
+
+    // MARK: - Timeline section (milestone with expand/collapse for sub-tasks)
+
+    @State private var confirmDeleteSection: String?
+
+    private func timelineSection(plan: Plan, sectionKey: String) -> some View {
+        let isExpanded = expandedWeeks.contains(sectionKey)
+        let objectives = plan.dailyObjectives[sectionKey] ?? []
+        let subTasks = plan.subDayObjectives?[sectionKey] ?? []
+
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 5) {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        if isExpanded {
+                            expandedWeeks.remove(sectionKey)
+                        } else {
+                            expandedWeeks.insert(sectionKey)
+                        }
+                    }
+                }) {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundStyle(Color.calmTeal)
+                        .frame(width: 10)
+                }
+                .buttonStyle(.plain)
+
+                Image(systemName: "flag.fill")
+                    .font(.system(size: 9))
+                    .foregroundStyle(Color.calmTeal)
+
+                EditableTitle(
+                    text: plan.displayPeriodLabel(for: sectionKey),
+                    onCommit: { plannerVM.renameTimelineSection(key: sectionKey, newTitle: $0) }
+                )
+                .font(.system(size: 11, weight: .semibold))
+
+                if subTasks.count > 0 {
+                    Text("(\(subTasks.count))")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.primary.opacity(0.35))
+                }
+
+                Spacer()
+
+                if !plan.isComplete {
+                    if confirmDeleteSection == sectionKey {
+                        Button(action: {
+                            plannerVM.removeTimelineSection(key: sectionKey)
+                            confirmDeleteSection = nil
+                        }) {
+                            Text("Delete")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.red)
+                                .cornerRadius(4)
+                        }
+                        .buttonStyle(.plain)
+                        Button(action: { confirmDeleteSection = nil }) {
+                            Text("Cancel")
+                                .font(.system(size: 9))
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Button(action: { confirmDeleteSection = sectionKey }) {
+                            Image(systemName: "trash")
+                                .font(.system(size: 8))
+                                .foregroundStyle(.red.opacity(0.4))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, 4)
+
+            ForEach(objectives) { obj in
+                ObjectiveRow(
+                    objective: obj,
+                    isComplete: plan.isComplete,
+                    onToggle: { plannerVM.toggleObjective(objectiveId: obj.id, date: sectionKey) },
+                    onUpdate: { plannerVM.updateObjectiveText(objectiveId: obj.id, date: sectionKey, newText: $0) },
+                    onDelete: { plannerVM.removeObjective(objectiveId: obj.id, date: sectionKey) }
+                )
+            }
+
+            if !plan.isComplete {
+                AddObjectiveField { text in
+                    plannerVM.addDailyObjective(date: sectionKey, text: text)
+                }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 4)
+            }
+
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "list.bullet")
+                            .font(.system(size: 8))
+                            .foregroundStyle(Color.calmTeal.opacity(0.7))
+                        Text("Sub-tasks")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.primary.opacity(0.6))
+                        Spacer()
+                    }
+                    .padding(.leading, 28)
+                    .padding(.trailing, 12)
+                    .padding(.top, 6)
+                    .padding(.bottom, 2)
+
+                    ForEach(subTasks) { obj in
+                        ObjectiveRow(
+                            objective: obj,
+                            isComplete: plan.isComplete,
+                            onToggle: { plannerVM.toggleObjective(objectiveId: obj.id, date: sectionKey) },
+                            onUpdate: { plannerVM.updateObjectiveText(objectiveId: obj.id, date: sectionKey, newText: $0) },
+                            onDelete: { plannerVM.removeObjective(objectiveId: obj.id, date: sectionKey) }
+                        )
+                        .padding(.leading, 16)
+                    }
+
+                    if !plan.isComplete {
+                        AddObjectiveField { text in
+                            plannerVM.addSubDayObjective(date: sectionKey, text: text)
+                        }
+                        .padding(.leading, 28)
+                        .padding(.trailing, 12)
+                        .padding(.bottom, 2)
+                    }
+                }
+                .background(Color.secondary.opacity(0.03))
+            }
+
+            Divider()
+                .padding(.top, 4)
+        }
+    }
+
+    // MARK: - Add Milestone Button
+
+    @State private var newMilestoneTitle = ""
+
+    private var addMilestoneButton: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "plus.circle.fill")
+                .font(.system(size: 11))
+                .foregroundStyle(Color.calmTeal)
+            TextField("New milestone...", text: $newMilestoneTitle)
+                .textFieldStyle(.plain)
+                .font(.system(size: 11))
+                .foregroundStyle(.primary.opacity(0.7))
+                .onSubmit {
+                    guard !newMilestoneTitle.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+                    plannerVM.addTimelineSection(title: newMilestoneTitle)
+                    newMilestoneTitle = ""
+                }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
     }
 
     // MARK: - Day section block (for daily plans)

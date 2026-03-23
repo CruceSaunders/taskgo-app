@@ -18,7 +18,9 @@ struct CreatePlanView: View {
 
     private var isValid: Bool {
         let hasTitle = !title.trimmingCharacters(in: .whitespaces).isEmpty
-        guard hasTitle, endDate >= startDate else { return false }
+        guard hasTitle else { return false }
+        if mode == .timeline { return true }
+        guard endDate >= startDate else { return false }
         return mode == .weekly ? weekCount <= 52 : dayCount <= 90
     }
 
@@ -65,69 +67,82 @@ struct CreatePlanView: View {
             }
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Cadence")
+                Text("Mode")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.primary.opacity(0.5))
                 Picker("", selection: $mode) {
                     Text("Day by Day").tag(PlanMode.daily)
                     Text("Week by Week").tag(PlanMode.weekly)
+                    Text("Timeline").tag(PlanMode.timeline)
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
             }
 
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Start")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.primary.opacity(0.5))
-                    DatePicker("", selection: $startDate, displayedComponents: .date)
-                        .labelsHidden()
-                        .datePickerStyle(.field)
-                        .font(.system(size: 11))
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("End")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.primary.opacity(0.5))
-                    DatePicker("", selection: $endDate, in: startDate..., displayedComponents: .date)
-                        .labelsHidden()
-                        .datePickerStyle(.field)
-                        .font(.system(size: 11))
-                }
-            }
-
-            HStack {
-                Image(systemName: mode == .weekly ? "calendar.badge.clock" : "calendar.badge.clock")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Color.calmTeal)
-
-                if mode == .weekly {
-                    Text("\(weekCount) week\(weekCount == 1 ? "" : "s")")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.primary.opacity(0.7))
-
-                    if weekCount > 52 {
-                        Spacer()
-                        Text("Max 52 weeks")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.red.opacity(0.8))
+            if mode != .timeline {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Start")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.primary.opacity(0.5))
+                        DatePicker("", selection: $startDate, displayedComponents: .date)
+                            .labelsHidden()
+                            .datePickerStyle(.field)
+                            .font(.system(size: 11))
                     }
-                } else {
-                    Text("\(dayCount) day\(dayCount == 1 ? "" : "s")")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.primary.opacity(0.7))
 
-                    if dayCount > 90 {
-                        Spacer()
-                        Text("Max 90 days")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.red.opacity(0.8))
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("End")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.primary.opacity(0.5))
+                        DatePicker("", selection: $endDate, in: startDate..., displayedComponents: .date)
+                            .labelsHidden()
+                            .datePickerStyle(.field)
+                            .font(.system(size: 11))
                     }
                 }
+
+                HStack {
+                    Image(systemName: "calendar.badge.clock")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.calmTeal)
+
+                    if mode == .weekly {
+                        Text("\(weekCount) week\(weekCount == 1 ? "" : "s")")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.primary.opacity(0.7))
+
+                        if weekCount > 52 {
+                            Spacer()
+                            Text("Max 52 weeks")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.red.opacity(0.8))
+                        }
+                    } else {
+                        Text("\(dayCount) day\(dayCount == 1 ? "" : "s")")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.primary.opacity(0.7))
+
+                        if dayCount > 90 {
+                            Spacer()
+                            Text("Max 90 days")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.red.opacity(0.8))
+                        }
+                    }
+                }
+                .padding(.vertical, 2)
+            } else {
+                HStack(spacing: 5) {
+                    Image(systemName: "list.bullet.indent")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.calmTeal)
+                    Text("Add milestones after creating")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.primary.opacity(0.5))
+                }
+                .padding(.vertical, 2)
             }
-            .padding(.vertical, 2)
         }
         .padding(16)
     }
@@ -160,12 +175,16 @@ struct CreatePlanView: View {
 
     private func create() {
         guard isValid else { return }
-        plannerVM.createPlan(
-            title: title.trimmingCharacters(in: .whitespaces),
-            startDate: startDate,
-            endDate: endDate,
-            mode: mode
-        )
+        if mode == .timeline {
+            plannerVM.createTimelinePlan(title: title.trimmingCharacters(in: .whitespaces))
+        } else {
+            plannerVM.createPlan(
+                title: title.trimmingCharacters(in: .whitespaces),
+                startDate: startDate,
+                endDate: endDate,
+                mode: mode
+            )
+        }
         plannerVM.showCreatePlan = false
     }
 }

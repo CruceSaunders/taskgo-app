@@ -198,6 +198,72 @@ class PlannerViewModel: ObservableObject {
         }
     }
 
+    func createTimelinePlan(title: String) {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd"
+        let today = fmt.string(from: Date())
+
+        let plan = Plan(
+            title: title,
+            mode: .timeline,
+            startDate: today,
+            endDate: today,
+            overallObjectives: [],
+            dailyObjectives: [:],
+            sectionOrder: [],
+            sectionTitles: [:]
+        )
+
+        Task {
+            guard let userId = Auth.auth().currentUser?.uid else { return }
+            do {
+                let docId = try await firestoreService.savePlan(plan, userId: userId)
+                var savedPlan = plan
+                savedPlan.id = docId
+                self.recentlyCreatedIds.insert(docId)
+                self.plans.insert(savedPlan, at: 0)
+                self.selectedPlan = savedPlan
+
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                self.recentlyCreatedIds.remove(docId)
+            } catch {
+                print("[Planner] create error: \(error)")
+            }
+        }
+    }
+
+    // MARK: - Timeline Section Management
+
+    func addTimelineSection(title: String) {
+        guard selectedPlan != nil else { return }
+        let key = UUID().uuidString
+        if selectedPlan?.sectionOrder == nil { selectedPlan?.sectionOrder = [] }
+        if selectedPlan?.sectionTitles == nil { selectedPlan?.sectionTitles = [:] }
+        selectedPlan?.sectionOrder?.append(key)
+        selectedPlan?.sectionTitles?[key] = title.trimmingCharacters(in: .whitespaces)
+        selectedPlan?.dailyObjectives[key] = []
+        selectedPlan?.updatedAt = Date()
+        markDirtyAndSave()
+    }
+
+    func renameTimelineSection(key: String, newTitle: String) {
+        guard selectedPlan != nil, !newTitle.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        if selectedPlan?.sectionTitles == nil { selectedPlan?.sectionTitles = [:] }
+        selectedPlan?.sectionTitles?[key] = newTitle.trimmingCharacters(in: .whitespaces)
+        selectedPlan?.updatedAt = Date()
+        markDirtyAndSave()
+    }
+
+    func removeTimelineSection(key: String) {
+        guard selectedPlan != nil else { return }
+        selectedPlan?.sectionOrder?.removeAll { $0 == key }
+        selectedPlan?.sectionTitles?.removeValue(forKey: key)
+        selectedPlan?.dailyObjectives.removeValue(forKey: key)
+        selectedPlan?.subDayObjectives?.removeValue(forKey: key)
+        selectedPlan?.updatedAt = Date()
+        markDirtyAndSave()
+    }
+
     func selectPlan(_ plan: Plan) {
         flushSave()
         selectedPlan = plan

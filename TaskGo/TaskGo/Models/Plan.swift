@@ -4,6 +4,7 @@ import FirebaseFirestore
 enum PlanMode: String, Codable, Equatable, CaseIterable {
     case daily
     case weekly
+    case timeline
 }
 
 struct PlanObjective: Identifiable, Codable, Equatable, Hashable {
@@ -28,7 +29,9 @@ struct Plan: Identifiable, Codable, Equatable {
     var endDate: String     // yyyy-MM-dd
     var overallObjectives: [PlanObjective]
     var dailyObjectives: [String: [PlanObjective]]  // keyed by yyyy-MM-dd (day start or week start)
-    var subDayObjectives: [String: [PlanObjective]]?  // day-level drill-down for weekly plans, keyed by yyyy-MM-dd
+    var subDayObjectives: [String: [PlanObjective]]?  // day-level drill-down for weekly/timeline plans
+    var sectionOrder: [String]?      // explicit ordering for timeline milestones
+    var sectionTitles: [String: String]?  // custom titles for timeline milestones
     var isComplete: Bool
     var createdAt: Date
     var updatedAt: Date
@@ -50,6 +53,8 @@ struct Plan: Identifiable, Codable, Equatable {
         overallObjectives: [PlanObjective] = [],
         dailyObjectives: [String: [PlanObjective]] = [:],
         subDayObjectives: [String: [PlanObjective]]? = nil,
+        sectionOrder: [String]? = nil,
+        sectionTitles: [String: String]? = nil,
         isComplete: Bool = false,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
@@ -70,6 +75,8 @@ struct Plan: Identifiable, Codable, Equatable {
         self.overallObjectives = overallObjectives
         self.dailyObjectives = dailyObjectives
         self.subDayObjectives = subDayObjectives
+        self.sectionOrder = sectionOrder
+        self.sectionTitles = sectionTitles
         self.isComplete = isComplete
         self.createdAt = createdAt
         self.updatedAt = updatedAt
@@ -85,6 +92,7 @@ struct Plan: Identifiable, Codable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case id, title, mode, startDate, endDate, overallObjectives, dailyObjectives, subDayObjectives
+        case sectionOrder, sectionTitles
         case isComplete, createdAt, updatedAt, lastConvertedAt
         case scheduleStartTime, scheduleEndTime, calendarId, createdEventIds
         case breakEnabled, breakMinutes, breakCount
@@ -100,6 +108,8 @@ struct Plan: Identifiable, Codable, Equatable {
         overallObjectives = try c.decode([PlanObjective].self, forKey: .overallObjectives)
         dailyObjectives = try c.decode([String: [PlanObjective]].self, forKey: .dailyObjectives)
         subDayObjectives = try c.decodeIfPresent([String: [PlanObjective]].self, forKey: .subDayObjectives)
+        sectionOrder = try c.decodeIfPresent([String].self, forKey: .sectionOrder)
+        sectionTitles = try c.decodeIfPresent([String: String].self, forKey: .sectionTitles)
         isComplete = try c.decode(Bool.self, forKey: .isComplete)
         createdAt = try c.decode(Date.self, forKey: .createdAt)
         updatedAt = try c.decode(Date.self, forKey: .updatedAt)
@@ -191,7 +201,11 @@ struct Plan: Identifiable, Codable, Equatable {
     }
 
     var periodKeys: [String] {
-        mode == .weekly ? weekRange : dateRange
+        switch mode {
+        case .timeline: return sectionOrder ?? []
+        case .weekly:   return weekRange
+        case .daily:    return dateRange
+        }
     }
 
     var periodCount: Int {
@@ -258,7 +272,11 @@ struct Plan: Identifiable, Codable, Equatable {
     }
 
     func displayPeriodLabel(for key: String) -> String {
-        mode == .weekly ? Plan.displayWeekLabel(for: key) : Plan.displayDayLabel(for: key)
+        switch mode {
+        case .timeline: return sectionTitles?[key] ?? "Untitled"
+        case .weekly:   return Plan.displayWeekLabel(for: key)
+        case .daily:    return Plan.displayDayLabel(for: key)
+        }
     }
 
     static func suggestedTitle(start: Date, end: Date) -> String {
