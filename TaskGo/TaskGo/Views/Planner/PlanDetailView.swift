@@ -652,33 +652,16 @@ struct PlanDetailView: View {
         .background(Color.secondary.opacity(0.03))
     }
 
-    // MARK: - Timeline section (milestone with expand/collapse for sub-tasks)
+    // MARK: - Timeline section (flat milestone with objectives)
 
     @State private var confirmDeleteSection: String?
+    @State private var hoveringSectionKey: String?
 
     private func timelineSection(plan: Plan, sectionKey: String) -> some View {
-        let isExpanded = expandedWeeks.contains(sectionKey)
         let objectives = plan.dailyObjectives[sectionKey] ?? []
-        let subTasks = plan.subDayObjectives?[sectionKey] ?? []
 
         return VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 5) {
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        if isExpanded {
-                            expandedWeeks.remove(sectionKey)
-                        } else {
-                            expandedWeeks.insert(sectionKey)
-                        }
-                    }
-                }) {
-                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 8, weight: .semibold))
-                        .foregroundStyle(Color.calmTeal)
-                        .frame(width: 10)
-                }
-                .buttonStyle(.plain)
-
                 Image(systemName: "flag.fill")
                     .font(.system(size: 9))
                     .foregroundStyle(Color.calmTeal)
@@ -689,15 +672,9 @@ struct PlanDetailView: View {
                 )
                 .font(.system(size: 11, weight: .semibold))
 
-                if subTasks.count > 0 {
-                    Text("(\(subTasks.count))")
-                        .font(.system(size: 9))
-                        .foregroundStyle(.primary.opacity(0.35))
-                }
-
                 Spacer()
 
-                if !plan.isComplete {
+                if !plan.isComplete && hoveringSectionKey == sectionKey {
                     if confirmDeleteSection == sectionKey {
                         Button(action: {
                             plannerVM.removeTimelineSection(key: sectionKey)
@@ -731,6 +708,11 @@ struct PlanDetailView: View {
             .padding(.horizontal, 12)
             .padding(.top, 10)
             .padding(.bottom, 4)
+            .contentShape(Rectangle())
+            .onHover { hovering in
+                hoveringSectionKey = hovering ? sectionKey : nil
+                if !hovering { confirmDeleteSection = nil }
+            }
 
             ForEach(objectives) { obj in
                 ObjectiveRow(
@@ -742,51 +724,20 @@ struct PlanDetailView: View {
                 )
             }
 
+            if objectives.isEmpty && plan.isComplete {
+                Text("No objectives")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.primary.opacity(0.25))
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 4)
+            }
+
             if !plan.isComplete {
                 AddObjectiveField { text in
                     plannerVM.addDailyObjective(date: sectionKey, text: text)
                 }
                 .padding(.horizontal, 12)
                 .padding(.bottom, 4)
-            }
-
-            if isExpanded {
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack(spacing: 5) {
-                        Image(systemName: "list.bullet")
-                            .font(.system(size: 8))
-                            .foregroundStyle(Color.calmTeal.opacity(0.7))
-                        Text("Sub-tasks")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(.primary.opacity(0.6))
-                        Spacer()
-                    }
-                    .padding(.leading, 28)
-                    .padding(.trailing, 12)
-                    .padding(.top, 6)
-                    .padding(.bottom, 2)
-
-                    ForEach(subTasks) { obj in
-                        ObjectiveRow(
-                            objective: obj,
-                            isComplete: plan.isComplete,
-                            onToggle: { plannerVM.toggleObjective(objectiveId: obj.id, date: sectionKey) },
-                            onUpdate: { plannerVM.updateObjectiveText(objectiveId: obj.id, date: sectionKey, newText: $0) },
-                            onDelete: { plannerVM.removeObjective(objectiveId: obj.id, date: sectionKey) }
-                        )
-                        .padding(.leading, 16)
-                    }
-
-                    if !plan.isComplete {
-                        AddObjectiveField { text in
-                            plannerVM.addSubDayObjective(date: sectionKey, text: text)
-                        }
-                        .padding(.leading, 28)
-                        .padding(.trailing, 12)
-                        .padding(.bottom, 2)
-                    }
-                }
-                .background(Color.secondary.opacity(0.03))
             }
 
             Divider()
