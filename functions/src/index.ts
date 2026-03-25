@@ -262,17 +262,17 @@ function getApiDocs() {
 
       // ── Groups ──
       "GET /groups": {
-        description: "List all task groups. Every task belongs to a group.",
-        response: "{ groups: [{ id, name, order, isDefault }] }",
-        note: "You MUST know the groupId before creating a task. Call this first.",
+        description: "List all task groups. Groups support unlimited nesting via parentId. Top-level groups have parentId: null.",
+        response: "{ groups: [{ id, name, order, isDefault, parentId }] }",
+        note: "You MUST know the groupId before creating a task. Call this first. To find sub-groups, filter by parentId.",
       },
       "POST /groups": {
         description: "Create a new task group. Server automatically adds createdAt timestamp.",
-        body: "{ name: string (REQUIRED), order?: number, isDefault?: boolean }",
+        body: "{ name: string (REQUIRED), order?: number, isDefault?: boolean, parentId?: string (null for top-level, or a group ID to nest inside) }",
       },
       "PATCH /groups/:id": {
         description: "Update a task group. Send only the fields you want to change.",
-        body: "{ name?, order?, isDefault? }",
+        body: "{ name?, order?, isDefault?, parentId? }",
       },
       "DELETE /groups/:id": {
         description: "Delete a task group.",
@@ -562,12 +562,13 @@ async function handleGroups(
       name: body.name,
       order: body.order ?? 0,
       isDefault: body.isDefault ?? false,
+      parentId: body.parentId || null,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
     const ref = await col.add(group);
     res.status(201).json({id: ref.id});
   } else if (req.method === "PATCH" && groupId) {
-    const allowed = ["name", "order", "isDefault"];
+    const allowed = ["name", "order", "isDefault", "parentId"];
     const updates: Record<string, unknown> = {};
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];

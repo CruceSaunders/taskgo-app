@@ -7,21 +7,100 @@ class GroupViewModel: ObservableObject {
     static let allGroupId = "__all__"
 
     @Published var groups: [TaskGroup] = []
-    @Published var selectedGroupId: String? = GroupViewModel.allGroupId
+    @Published var navigationPath: [String] = []
+    @Published var showingAllTasks = false
     @Published var isLoading = false
     @Published var errorMessage: String?
 
     private let firestoreService = FirestoreService.shared
     private var listener: ListenerRegistration?
 
+    // MARK: - Computed Navigation State
+
+    var currentGroupId: String? {
+        navigationPath.last
+    }
+
+    var isAtRoot: Bool {
+        navigationPath.isEmpty && !showingAllTasks
+    }
+
+    var isInsideGroup: Bool {
+        !navigationPath.isEmpty
+    }
+
+    var selectedGroupId: String? {
+        if showingAllTasks { return GroupViewModel.allGroupId }
+        return currentGroupId
+    }
+
     var isAllGroupSelected: Bool {
-        selectedGroupId == GroupViewModel.allGroupId
+        showingAllTasks
     }
 
     var selectedGroup: TaskGroup? {
-        if isAllGroupSelected { return nil }
-        return groups.first { $0.id == selectedGroupId }
+        guard let id = currentGroupId else { return nil }
+        return groups.first { $0.id == id }
     }
+
+    var currentGroup: TaskGroup? {
+        selectedGroup
+    }
+
+    var childGroups: [TaskGroup] {
+        let parentId = currentGroupId
+        return groups
+            .filter { $0.parentId == parentId }
+            .sorted { $0.order < $1.order }
+    }
+
+    var topLevelGroups: [TaskGroup] {
+        groups
+            .filter { $0.parentId == nil }
+            .sorted { $0.order < $1.order }
+    }
+
+    func breadcrumb() -> [TaskGroup] {
+        navigationPath.compactMap { id in
+            groups.first { $0.id == id }
+        }
+    }
+
+    // MARK: - Navigation
+
+    func pushGroup(_ group: TaskGroup) {
+        guard let id = group.id else { return }
+        showingAllTasks = false
+        navigationPath.append(id)
+    }
+
+    func pushGroupById(_ id: String) {
+        showingAllTasks = false
+        navigationPath.append(id)
+    }
+
+    func popGroup() {
+        guard !navigationPath.isEmpty else { return }
+        navigationPath.removeLast()
+    }
+
+    func popToRoot() {
+        navigationPath.removeAll()
+        showingAllTasks = false
+    }
+
+    func selectAllGroup() {
+        navigationPath.removeAll()
+        showingAllTasks = true
+    }
+
+    func selectGroup(_ group: TaskGroup) {
+        guard let id = group.id else { return }
+        showingAllTasks = false
+        navigationPath = [id]
+    }
+
+    // MARK: - Listening
 
     func startListening() {
         stopListening()
@@ -29,15 +108,10 @@ class GroupViewModel: ObservableObject {
 
         listener = firestoreService.listenToGroups(userId: userId) { [weak self] groups in
             Task { @MainActor in
-                self?.groups = groups
-                if self?.selectedGroupId == nil {
-                    self?.selectedGroupId = GroupViewModel.allGroupId
-                }
-                if let selectedId = self?.selectedGroupId,
-                   selectedId != GroupViewModel.allGroupId,
-                   !groups.contains(where: { $0.id == selectedId }) {
-                    self?.selectedGroupId = GroupViewModel.allGroupId
-                }
+                guard let self else { return }
+                self.groups = groups
+                let validIds = Set(groups.compactMap(\.id))
+                self.navigationPath = self.navigationPath.filter { validIds.contains($0) }
             }
         }
     }
@@ -47,15 +121,23 @@ class GroupViewModel: ObservableObject {
         listener = nil
     }
 
-    func addGroup(name: String) async {
+    // MARK: - CRUD
+
+    func addGroup(name: String, parentId: String? = nil) async {
         guard let userId = Auth.auth().currentUser?.uid else { return }
 
-        let order = groups.count
-        let group = TaskGroup(name: name, order: order)
+        let siblingCount = groups.filter { $0.parentId == parentId }.count
+        let group = TaskGroup(name: name, order: siblingCount, parentId: parentId)
 
         do {
             let groupId = try await firestoreService.createGroup(group, userId: userId)
-            selectedGroupId = groupId
+            showingAllTasks = false
+            if parentId == currentGroupId {
+                // Stay in current group -- the new sub-group will appear in childGroups
+            } else {
+                navigationPath = parentId == nil ? [] : navigationPath
+            }
+            _ = groupId
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -79,29 +161,30 @@ class GroupViewModel: ObservableObject {
     func deleteGroup(_ group: TaskGroup) async {
         guard let userId = Auth.auth().currentUser?.uid,
               let groupId = group.id,
-              !group.isDefault else {
-            print("[GroupVM] deleteGroup guard failed: userId=\(Auth.auth().currentUser?.uid ?? "nil"), groupId=\(group.id ?? "nil"), isDefault=\(group.isDefault)")
-            return
-        }
+              !group.isDefault else { return }
 
         do {
-            try await firestoreService.deleteGroup(groupId, userId: userId)
-            // Select the default group after deletion
-            if selectedGroupId == groupId {
-                selectedGroupId = groups.first { $0.isDefault }?.id ?? groups.first?.id
+            let descendantIds = collectDescendantIds(of: groupId)
+            let allIds = [groupId] + descendantIds
+            for id in allIds {
+                try await firestoreService.deleteGroup(id, userId: userId)
             }
+            navigationPath = navigationPath.filter { !allIds.contains($0) }
         } catch {
             print("[GroupVM] deleteGroup error: \(error)")
             errorMessage = error.localizedDescription
-            ErrorHandler.shared.handle(error)
         }
     }
 
-    func selectGroup(_ group: TaskGroup) {
-        selectedGroupId = group.id
-    }
-
-    func selectAllGroup() {
-        selectedGroupId = GroupViewModel.allGroupId
+    private func collectDescendantIds(of parentId: String) -> [String] {
+        let children = groups.filter { $0.parentId == parentId }
+        var result: [String] = []
+        for child in children {
+            if let childId = child.id {
+                result.append(childId)
+                result.append(contentsOf: collectDescendantIds(of: childId))
+            }
+        }
+        return result
     }
 }

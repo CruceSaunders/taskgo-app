@@ -6,6 +6,7 @@ struct TaskGroup: Identifiable, Codable, Equatable {
     var name: String
     var order: Int
     var isDefault: Bool
+    var parentId: String?
     var createdAt: Date
 
     init(
@@ -13,12 +14,14 @@ struct TaskGroup: Identifiable, Codable, Equatable {
         name: String,
         order: Int = 0,
         isDefault: Bool = false,
+        parentId: String? = nil,
         createdAt: Date = Date()
     ) {
         self.id = id
         self.name = name
         self.order = order
         self.isDefault = isDefault
+        self.parentId = parentId
         self.createdAt = createdAt
     }
 }

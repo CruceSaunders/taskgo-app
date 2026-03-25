@@ -17,7 +17,6 @@ struct TasksTabView: View {
     @State private var isColorMode = false
     @State private var selectedColor: String = "blue"
 
-    // Custom drag reorder state (no NSDraggingSession = panel stays open)
     @State private var draggingTaskId: String?
     @State private var dragOffset: CGFloat = 0
     @State private var targetDropIndex: Int?
@@ -28,32 +27,24 @@ struct TasksTabView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            groupTabBar
-
-            Divider()
-
-            if showAddGroup {
-                addGroupInline
-                Divider()
-            }
-
-            if showAddTask {
-                AddTaskView(groupId: groupVM.selectedGroupId ?? "", onDismiss: {
-                    showAddTask = false
-                })
-            } else if taskVM.tasks.isEmpty {
-                emptyState
+            if groupVM.isAtRoot {
+                rootBrowser
             } else {
-                taskList
+                groupContentView
             }
         }
         .onChange(of: groupVM.selectedGroupId) { _, newGroupId in
+            showAddTask = false
+            isSelectMode = false
+            selectedTaskIds.removeAll()
             if let groupId = newGroupId {
                 if groupId == GroupViewModel.allGroupId {
                     taskVM.startListeningAll()
                 } else {
                     taskVM.startListening(groupId: groupId)
                 }
+            } else {
+                taskVM.stopListening()
             }
         }
         .onAppear {
@@ -71,127 +62,277 @@ struct TasksTabView: View {
         }
     }
 
-    private var groupTabBar: some View {
+    // MARK: - Root Browser
+
+    private var rootBrowser: some View {
         VStack(spacing: 0) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 4) {
-                    Button(action: { groupVM.selectAllGroup() }) {
-                        Text("All")
-                            .font(.system(size: 11, weight: groupVM.isAllGroupSelected ? .semibold : .regular))
-                            .foregroundStyle(groupVM.isAllGroupSelected ? Color.calmTeal : .primary.opacity(0.6))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(groupVM.isAllGroupSelected ? Color.calmTeal.opacity(0.12) : Color.clear)
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-
-                    ForEach(groupVM.groups) { group in
-                        Button(action: { groupVM.selectGroup(group) }) {
-                            Text(group.name)
-                                .font(.system(size: 11, weight: group.id == groupVM.selectedGroupId ? .semibold : .regular))
-                                .foregroundStyle(group.id == groupVM.selectedGroupId ? Color.calmTeal : .primary.opacity(0.6))
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 4)
-                                .background(group.id == groupVM.selectedGroupId ? Color.calmTeal.opacity(0.12) : Color.clear)
-                                .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    }
-
-                    Button(action: {
-                        showAddGroup.toggle()
-                    }) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(.primary.opacity(0.5))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.secondary.opacity(0.1))
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
+            HStack {
+                Text("Task Groups")
+                    .font(.system(size: 13, weight: .semibold))
+                Spacer()
+                Button(action: { showAddGroup.toggle() }) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.primary.opacity(0.5))
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+
+            Divider()
+
+            if showAddGroup {
+                addGroupInline
+                Divider()
             }
 
-            // Inline actions for selected non-default group
-            if let selectedGroup = groupVM.selectedGroup, !selectedGroup.isDefault {
-                if renamingGroupId == selectedGroup.id {
-                    renameGroupInline(group: selectedGroup)
-                } else {
-                    HStack(spacing: 12) {
-                        Button(action: {
-                            renameText = selectedGroup.name
-                            renamingGroupId = selectedGroup.id
-                        }) {
-                            Text("Rename")
-                                .font(.system(size: 10))
-                                .foregroundStyle(Color.calmTeal)
-                        }
-                        .buttonStyle(.plain)
-
-                        if confirmDeleteGroup {
-                            Text("Delete all tasks?")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.red)
-                            Button(action: {
-                                let groupToDelete = selectedGroup
-                                Task { await groupVM.deleteGroup(groupToDelete) }
-                                confirmDeleteGroup = false
-                            }) {
-                                Text("Yes")
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 2)
-                                    .background(Color.red)
-                                    .cornerRadius(4)
-                            }
-                            .buttonStyle(.plain)
-                            Button(action: { confirmDeleteGroup = false }) {
-                                Text("No")
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.secondary)
-                            }
-                            .buttonStyle(.plain)
-                        } else {
-                            Button(action: { confirmDeleteGroup = true }) {
-                                Text("Delete group")
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.red.opacity(0.7))
-                            }
-                            .buttonStyle(.plain)
-                        }
-
-                        Spacer()
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(groupVM.topLevelGroups) { group in
+                        groupRow(group)
+                        Divider().padding(.leading, 36)
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 4)
-                    .background(Color.secondary.opacity(0.05))
+
+                    if groupVM.topLevelGroups.isEmpty {
+                        VStack(spacing: 8) {
+                            Image(systemName: "folder")
+                                .font(.system(size: 24))
+                                .foregroundStyle(.primary.opacity(0.15))
+                            Text("No groups yet")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.primary.opacity(0.35))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 24)
+                    }
                 }
+            }
+
+            Divider()
+
+            Button(action: { groupVM.selectAllGroup() }) {
+                HStack(spacing: 8) {
+                    Image(systemName: "tray.full")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.calmTeal)
+                    Text("All Tasks")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.primary.opacity(0.7))
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.primary.opacity(0.25))
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func groupRow(_ group: TaskGroup) -> some View {
+        let subCount = groupVM.groups.filter { $0.parentId == group.id }.count
+
+        return Button(action: { groupVM.pushGroup(group) }) {
+            HStack(spacing: 8) {
+                Image(systemName: subCount > 0 ? "folder.fill" : "folder")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.calmTeal)
+                    .frame(width: 16)
+
+                Text(group.name)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.primary.opacity(0.8))
+                    .lineLimit(1)
+
+                if subCount > 0 {
+                    Text("\(subCount)")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.primary.opacity(0.3))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(Color.secondary.opacity(0.1))
+                        .cornerRadius(4)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.primary.opacity(0.25))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Group Content View (inside a group or All Tasks)
+
+    private var groupContentView: some View {
+        VStack(spacing: 0) {
+            groupHeader
+
+            Divider()
+
+            if showAddGroup {
+                addGroupInline
+                Divider()
+            }
+
+            if groupVM.isInsideGroup {
+                let children = groupVM.childGroups
+                if !children.isEmpty || showAddGroup {
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            ForEach(children) { group in
+                                groupRow(group)
+                                Divider().padding(.leading, 36)
+                            }
+                        }
+                    }
+                    .frame(maxHeight: min(CGFloat(children.count) * 40, 160))
+
+                    Divider()
+                }
+            }
+
+            if showAddTask {
+                AddTaskView(groupId: groupVM.selectedGroupId ?? "", onDismiss: {
+                    showAddTask = false
+                })
+            } else if groupVM.isInsideGroup && taskVM.tasks.isEmpty && groupVM.childGroups.isEmpty {
+                emptyGroupState
+            } else if groupVM.isAllGroupSelected && taskVM.tasks.isEmpty {
+                emptyState
+            } else {
+                taskList
             }
         }
     }
 
+    private var groupHeader: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 6) {
+                Button(action: {
+                    if groupVM.isAllGroupSelected {
+                        groupVM.popToRoot()
+                    } else {
+                        groupVM.popGroup()
+                    }
+                }) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 9, weight: .semibold))
+                        Text("Back")
+                            .font(.system(size: 11))
+                    }
+                    .foregroundStyle(Color.calmTeal)
+                }
+                .buttonStyle(.plain)
+
+                Spacer()
+
+                if groupVM.isAllGroupSelected {
+                    Text("All Tasks")
+                        .font(.system(size: 13, weight: .semibold))
+                } else if let group = groupVM.currentGroup {
+                    if renamingGroupId == group.id {
+                        renameGroupInline(group: group)
+                    } else {
+                        Text(group.name)
+                            .font(.system(size: 13, weight: .semibold))
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer()
+
+                if groupVM.isInsideGroup {
+                    Button(action: { showAddGroup.toggle() }) {
+                        Image(systemName: "folder.badge.plus")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.primary.opacity(0.5))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Add sub-group")
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+
+            if let group = groupVM.currentGroup, !group.isDefault, renamingGroupId != group.id {
+                HStack(spacing: 12) {
+                    Button(action: {
+                        renameText = group.name
+                        renamingGroupId = group.id
+                    }) {
+                        Text("Rename")
+                            .font(.system(size: 10))
+                            .foregroundStyle(Color.calmTeal)
+                    }
+                    .buttonStyle(.plain)
+
+                    if confirmDeleteGroup {
+                        Text("Delete group & contents?")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.red)
+                        Button(action: {
+                            let g = group
+                            Task { await groupVM.deleteGroup(g) }
+                            confirmDeleteGroup = false
+                        }) {
+                            Text("Yes")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(Color.red)
+                                .cornerRadius(4)
+                        }
+                        .buttonStyle(.plain)
+                        Button(action: { confirmDeleteGroup = false }) {
+                            Text("No")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Button(action: { confirmDeleteGroup = true }) {
+                            Text("Delete")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.red.opacity(0.7))
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    Spacer()
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+                .background(Color.secondary.opacity(0.05))
+            }
+        }
+    }
+
+    // MARK: - Inline Add/Rename Group
+
     private var addGroupInline: some View {
         HStack(spacing: 8) {
-            TextField("Group name", text: $newGroupName)
+            TextField(groupVM.isInsideGroup ? "Sub-group name" : "Group name", text: $newGroupName)
                 .textFieldStyle(.roundedBorder)
                 .font(.system(size: 12))
                 .frame(maxWidth: .infinity)
-                .onSubmit {
-                    createGroup()
-                }
+                .onSubmit { createGroup() }
 
-            Button("Add") {
-                createGroup()
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(Color.calmTeal)
-            .controlSize(.small)
-            .disabled(newGroupName.isEmpty)
+            Button("Add") { createGroup() }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.calmTeal)
+                .controlSize(.small)
+                .disabled(newGroupName.isEmpty)
 
             Button(action: {
                 showAddGroup = false
@@ -241,12 +382,15 @@ struct TasksTabView: View {
 
     private func createGroup() {
         guard !newGroupName.isEmpty else { return }
+        let parentId = groupVM.currentGroupId
         Task {
-            await groupVM.addGroup(name: newGroupName)
+            await groupVM.addGroup(name: newGroupName, parentId: parentId)
             newGroupName = ""
             showAddGroup = false
         }
     }
+
+    // MARK: - Empty States
 
     private var emptyState: some View {
         VStack(spacing: 12) {
@@ -257,19 +401,42 @@ struct TasksTabView: View {
             Text("No tasks yet")
                 .font(.subheadline)
                 .foregroundStyle(.primary.opacity(0.5))
-            Button("Add Task") {
-                showAddTask = true
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(Color.calmTeal)
-            .controlSize(.small)
+            Button("Add Task") { showAddTask = true }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.calmTeal)
+                .controlSize(.small)
             Spacer()
         }
     }
 
+    private var emptyGroupState: some View {
+        VStack(spacing: 12) {
+            Spacer()
+            Image(systemName: "folder")
+                .font(.system(size: 36))
+                .foregroundStyle(.secondary)
+            Text("This group is empty")
+                .font(.subheadline)
+                .foregroundStyle(.primary.opacity(0.5))
+            HStack(spacing: 12) {
+                Button("Add Task") { showAddTask = true }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color.calmTeal)
+                    .controlSize(.small)
+                Button("Add Sub-group") {
+                    showAddGroup = true
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+            Spacer()
+        }
+    }
+
+    // MARK: - Task List (preserved from original)
+
     private var taskList: some View {
         VStack(spacing: 0) {
-            // Action bar (when selecting 1+)
             if isSelectMode && !selectedTaskIds.isEmpty {
                 let resolvedTaskIds = resolveSelectedToTaskIds()
                 let hasGrouped = selectedTaskIds.contains(where: { id in
@@ -289,10 +456,8 @@ struct TasksTabView: View {
                             selectedTaskIds.removeAll()
                         } label: {
                             HStack(spacing: 2) {
-                                Image(systemName: "plus.square.on.square")
-                                    .font(.system(size: 8))
-                                Text("Add Lane")
-                                    .font(.system(size: 10, weight: .bold))
+                                Image(systemName: "plus.square.on.square").font(.system(size: 8))
+                                Text("Add Lane").font(.system(size: 10, weight: .bold))
                             }
                         }
                         .buttonStyle(.borderedProminent)
@@ -305,10 +470,8 @@ struct TasksTabView: View {
                             selectedTaskIds.removeAll()
                         } label: {
                             HStack(spacing: 2) {
-                                Image(systemName: "bolt.fill")
-                                    .font(.system(size: 8))
-                                Text("Task Go!")
-                                    .font(.system(size: 10, weight: .bold))
+                                Image(systemName: "bolt.fill").font(.system(size: 8))
+                                Text("Task Go!").font(.system(size: 10, weight: .bold))
                             }
                         }
                         .buttonStyle(.borderedProminent)
@@ -318,7 +481,6 @@ struct TasksTabView: View {
 
                     Spacer()
 
-                    // Unbatch/Unchain when grouped items are selected
                     if hasGrouped {
                         Button("Ungroup") {
                             Task {
@@ -377,7 +539,6 @@ struct TasksTabView: View {
                 Divider()
             }
 
-            // Color mode bar
             if isColorMode {
                 HStack(spacing: 6) {
                     Text("Tap tasks to color:")
@@ -398,15 +559,12 @@ struct TasksTabView: View {
                         .buttonStyle(.plain)
                     }
 
-                    // Remove color
                     Button(action: { selectedColor = "none" }) {
                         ZStack {
                             Circle()
                                 .fill(Color(.windowBackgroundColor))
                                 .frame(width: 14, height: 14)
-                                .overlay(
-                                    Circle().stroke(Color.primary.opacity(0.3), lineWidth: 1)
-                                )
+                                .overlay(Circle().stroke(Color.primary.opacity(0.3), lineWidth: 1))
                             Rectangle()
                                 .fill(Color.red)
                                 .frame(width: 12, height: 1.5)
@@ -422,9 +580,7 @@ struct TasksTabView: View {
 
                     Spacer()
 
-                    Button(action: {
-                        isColorMode = false
-                    }) {
+                    Button(action: { isColorMode = false }) {
                         Image(systemName: "xmark")
                             .font(.system(size: 9))
                             .foregroundStyle(.red)
@@ -444,7 +600,6 @@ struct TasksTabView: View {
                         let isDragging = draggingTaskId == task.id
 
                         HStack(spacing: 6) {
-                            // Color mode
                             if isColorMode {
                                 Button(action: {
                                     if let id = task.id {
@@ -468,7 +623,6 @@ struct TasksTabView: View {
                                 .buttonStyle(.plain)
                             }
 
-                            // Select mode
                             if isSelectMode {
                                 let selectId = task.batchId ?? task.chainId ?? task.id ?? ""
                                 let isSelected = selectedTaskIds.contains(selectId)
@@ -524,14 +678,12 @@ struct TasksTabView: View {
                                 .onChanged { value in
                                     guard !groupVM.isAllGroupSelected else { return }
                                     justDragged = true
-
                                     if draggingTaskId == nil {
                                         draggingTaskId = task.id
                                         dragStartIndex = index
                                     }
                                     guard draggingTaskId == task.id else { return }
                                     dragOffset = value.translation.height
-
                                     let rowsMoved = Int(round(dragOffset / max(rowHeight, 40)))
                                     let items = taskVM.incompleteTasksForDisplay
                                     let newIdx = min(max(index + rowsMoved, 0), items.count - 1)
@@ -545,10 +697,7 @@ struct TasksTabView: View {
                                         let s = startIdx
                                         let t = targetIdx
                                         Task {
-                                            await taskVM.moveTask(
-                                                from: IndexSet(integer: s),
-                                                to: t > s ? t + 1 : t
-                                            )
+                                            await taskVM.moveTask(from: IndexSet(integer: s), to: t > s ? t + 1 : t)
                                         }
                                     }
                                     withAnimation(.easeOut(duration: 0.15)) {
@@ -566,7 +715,6 @@ struct TasksTabView: View {
                         Divider().padding(.leading, 10)
                     }
 
-                    // Completed section
                     if !taskVM.completedTasksForDisplay.isEmpty {
                         HStack {
                             Text("Completed")
@@ -588,23 +736,24 @@ struct TasksTabView: View {
 
             Divider()
 
-            // Bottom bar: Add task + Select mode toggle
             HStack {
-                Button(action: {
-                    if groupVM.isAllGroupSelected, let firstGroup = groupVM.groups.first {
-                        groupVM.selectGroup(firstGroup)
+                if groupVM.isInsideGroup || groupVM.isAllGroupSelected {
+                    Button(action: {
+                        if groupVM.isAllGroupSelected, let firstGroup = groupVM.groups.first {
+                            groupVM.selectGroup(firstGroup)
+                        }
+                        showAddTask = true
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "plus.circle.fill")
+                                .foregroundStyle(Color.calmTeal)
+                            Text("Add task")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.primary.opacity(0.6))
+                        }
                     }
-                    showAddTask = true
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus.circle.fill")
-                            .foregroundStyle(Color.calmTeal)
-                        Text("Add task")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.primary.opacity(0.6))
-                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
 
                 Spacer()
 
@@ -620,27 +769,19 @@ struct TasksTabView: View {
                         }
                         .buttonStyle(.plain)
                     } else {
-                        Button(action: {
-                            isSelectMode = true
-                        }) {
+                        Button(action: { isSelectMode = true }) {
                             HStack(spacing: 3) {
-                                Image(systemName: "checkmark.circle")
-                                    .font(.system(size: 9))
-                                Text("Select")
-                                    .font(.system(size: 10))
+                                Image(systemName: "checkmark.circle").font(.system(size: 9))
+                                Text("Select").font(.system(size: 10))
                             }
                             .foregroundStyle(.primary.opacity(0.5))
                         }
                         .buttonStyle(.plain)
 
-                        Button(action: {
-                            isColorMode.toggle()
-                        }) {
+                        Button(action: { isColorMode.toggle() }) {
                             HStack(spacing: 3) {
-                                Image(systemName: "paintpalette")
-                                    .font(.system(size: 9))
-                                Text("Color")
-                                    .font(.system(size: 10))
+                                Image(systemName: "paintpalette").font(.system(size: 9))
+                                Text("Color").font(.system(size: 10))
                             }
                             .foregroundStyle(isColorMode ? .purple : .purple.opacity(0.6))
                         }
@@ -653,7 +794,6 @@ struct TasksTabView: View {
         }
     }
 
-    /// Resolve selected IDs (which may be batchId/chainId) to individual task IDs
     private func resolveSelectedToTaskIds() -> [String] {
         var taskIds: [String] = []
         for id in selectedTaskIds {
