@@ -510,6 +510,24 @@ class TaskViewModel: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             self?.pendingToggleIds.remove(taskId)
         }
+
+        if newComplete {
+            Task { await self.pruneCompletedTasks(groupId: task.groupId) }
+        }
+    }
+
+    func pruneCompletedTasks(groupId: String) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        let completed = tasks
+            .filter { $0.isComplete && $0.groupId == groupId && !$0.isRecurring }
+            .sorted { ($0.completedAt ?? .distantPast) > ($1.completedAt ?? .distantPast) }
+        guard completed.count > 10 else { return }
+        let toPrune = completed.dropFirst(10)
+        for task in toPrune {
+            if let taskId = task.id {
+                try? await firestoreService.deleteTask(taskId, userId: userId)
+            }
+        }
     }
 
     func moveToGroup(_ task: TaskItem, newGroupId: String) async {

@@ -7,7 +7,7 @@ class GroupViewModel: ObservableObject {
     static let allGroupId = "__all__"
 
     @Published var groups: [TaskGroup] = []
-    @Published var navigationPath: [String] = []
+    @Published var expandedGroupIds: Set<String> = []
     @Published var showingAllTasks = false
     @Published var isLoading = false
     @Published var errorMessage: String?
@@ -15,43 +15,15 @@ class GroupViewModel: ObservableObject {
     private let firestoreService = FirestoreService.shared
     private var listener: ListenerRegistration?
 
-    // MARK: - Computed Navigation State
-
-    var currentGroupId: String? {
-        navigationPath.last
-    }
-
-    var isAtRoot: Bool {
-        navigationPath.isEmpty && !showingAllTasks
-    }
-
-    var isInsideGroup: Bool {
-        !navigationPath.isEmpty
-    }
-
-    var selectedGroupId: String? {
-        if showingAllTasks { return GroupViewModel.allGroupId }
-        return currentGroupId
-    }
+    // MARK: - Computed State
 
     var isAllGroupSelected: Bool {
         showingAllTasks
     }
 
-    var selectedGroup: TaskGroup? {
-        guard let id = currentGroupId else { return nil }
-        return groups.first { $0.id == id }
-    }
-
-    var currentGroup: TaskGroup? {
-        selectedGroup
-    }
-
-    var childGroups: [TaskGroup] {
-        let parentId = currentGroupId
-        return groups
-            .filter { $0.parentId == parentId }
-            .sorted { $0.order < $1.order }
+    var selectedGroupId: String? {
+        if showingAllTasks { return GroupViewModel.allGroupId }
+        return nil
     }
 
     var topLevelGroups: [TaskGroup] {
@@ -60,44 +32,45 @@ class GroupViewModel: ObservableObject {
             .sorted { $0.order < $1.order }
     }
 
-    func breadcrumb() -> [TaskGroup] {
-        navigationPath.compactMap { id in
-            groups.first { $0.id == id }
+    func childGroups(of parentId: String) -> [TaskGroup] {
+        groups
+            .filter { $0.parentId == parentId }
+            .sorted { $0.order < $1.order }
+    }
+
+    func group(byId id: String) -> TaskGroup? {
+        groups.first { $0.id == id }
+    }
+
+    var hasExpandedGroups: Bool {
+        !expandedGroupIds.isEmpty
+    }
+
+    // MARK: - Inline Expand/Collapse
+
+    func toggleGroup(_ groupId: String) {
+        if expandedGroupIds.contains(groupId) {
+            expandedGroupIds.remove(groupId)
+        } else {
+            expandedGroupIds.insert(groupId)
         }
-    }
-
-    // MARK: - Navigation
-
-    func pushGroup(_ group: TaskGroup) {
-        guard let id = group.id else { return }
         showingAllTasks = false
-        navigationPath.append(id)
     }
 
-    func pushGroupById(_ id: String) {
-        showingAllTasks = false
-        navigationPath.append(id)
+    func isExpanded(_ groupId: String) -> Bool {
+        expandedGroupIds.contains(groupId)
     }
 
-    func popGroup() {
-        guard !navigationPath.isEmpty else { return }
-        navigationPath.removeLast()
-    }
-
-    func popToRoot() {
-        navigationPath.removeAll()
-        showingAllTasks = false
+    func collapseAll() {
+        expandedGroupIds.removeAll()
     }
 
     func selectAllGroup() {
-        navigationPath.removeAll()
         showingAllTasks = true
     }
 
-    func selectGroup(_ group: TaskGroup) {
-        guard let id = group.id else { return }
+    func deselectAllGroup() {
         showingAllTasks = false
-        navigationPath = [id]
     }
 
     // MARK: - Listening
@@ -111,7 +84,7 @@ class GroupViewModel: ObservableObject {
                 guard let self else { return }
                 self.groups = groups
                 let validIds = Set(groups.compactMap(\.id))
-                self.navigationPath = self.navigationPath.filter { validIds.contains($0) }
+                self.expandedGroupIds = self.expandedGroupIds.filter { validIds.contains($0) }
             }
         }
     }
@@ -131,11 +104,8 @@ class GroupViewModel: ObservableObject {
 
         do {
             let groupId = try await firestoreService.createGroup(group, userId: userId)
-            showingAllTasks = false
-            if parentId == currentGroupId {
-                // Stay in current group -- the new sub-group will appear in childGroups
-            } else {
-                navigationPath = parentId == nil ? [] : navigationPath
+            if let parentId {
+                expandedGroupIds.insert(parentId)
             }
             _ = groupId
         } catch {
@@ -169,12 +139,42 @@ class GroupViewModel: ObservableObject {
             for id in allIds {
                 try await firestoreService.deleteGroup(id, userId: userId)
             }
-            navigationPath = navigationPath.filter { !allIds.contains($0) }
+            for id in allIds {
+                expandedGroupIds.remove(id)
+            }
         } catch {
             print("[GroupVM] deleteGroup error: \(error)")
             errorMessage = error.localizedDescription
         }
     }
+
+    // MARK: - Move Group (drag-and-drop nesting)
+
+    func moveGroupInto(groupId: String, newParentId: String?) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        guard groupId != newParentId else { return }
+
+        if let newParentId {
+            let descendants = collectDescendantIds(of: groupId)
+            if descendants.contains(newParentId) { return }
+        }
+
+        guard var group = groups.first(where: { $0.id == groupId }) else { return }
+        let siblingCount = groups.filter { $0.parentId == newParentId }.count
+        group.parentId = newParentId
+        group.order = siblingCount
+
+        do {
+            try await firestoreService.updateGroup(group, userId: userId)
+            if let newParentId {
+                expandedGroupIds.insert(newParentId)
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    // MARK: - Helpers
 
     private func collectDescendantIds(of parentId: String) -> [String] {
         let children = groups.filter { $0.parentId == parentId }
