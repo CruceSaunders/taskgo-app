@@ -17,6 +17,7 @@ struct TaskGoApp: App {
     @StateObject private var plannerViewModel: PlannerViewModel
     @StateObject private var pomodoroViewModel: PomodoroViewModel
     @StateObject private var activityViewModel: ActivityViewModel
+    @StateObject private var focusGuardViewModel: FocusGuardViewModel
 
     init() {
         FirebaseApp.configure()
@@ -36,6 +37,7 @@ struct TaskGoApp: App {
         _plannerViewModel = StateObject(wrappedValue: PlannerViewModel())
         _pomodoroViewModel = StateObject(wrappedValue: PomodoroViewModel())
         _activityViewModel = StateObject(wrappedValue: ActivityViewModel())
+        _focusGuardViewModel = StateObject(wrappedValue: FocusGuardViewModel())
     }
 
     var body: some Scene {
@@ -54,6 +56,7 @@ struct TaskGoApp: App {
                 .environmentObject(plannerViewModel)
                 .environmentObject(pomodoroViewModel)
                 .environmentObject(activityViewModel)
+                .environmentObject(focusGuardViewModel)
                 .onAppear {
                     appDelegate.timerPanelController?.setViewModel(taskGoViewModel)
                     appDelegate.pomodoroPanelController?.setViewModel(pomodoroViewModel)
@@ -102,6 +105,7 @@ struct TaskGoApp: App {
                 .environmentObject(self.plannerViewModel)
                 .environmentObject(self.pomodoroViewModel)
                 .environmentObject(self.activityViewModel)
+                .environmentObject(self.focusGuardViewModel)
             window.contentView = NSHostingView(rootView: contentView)
         }
     }

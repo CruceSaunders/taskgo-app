@@ -22,10 +22,6 @@
 	<true/>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>TaskGo! shows your calendar events alongside your tasks so you can plan your day.</string>
-	<key>NSInputMonitoringUsageDescription</key>
-	<string>TaskGo! counts keyboard and mouse events to track your activity. It never records what you type.</string>
-	<key>NSAppleEventsUsageDescription</key>
-	<string>TaskGo! reads your browser tab info to track which websites you visit for productivity insights. It never reads page content.</string>
 	<key>SUFeedURL</key>
 	<string>https://crucesaunders.github.io/taskgo-app/appcast.xml</string>
 </dict>
