@@ -4,6 +4,11 @@ struct ProfileTabView: View {
     @EnvironmentObject var authVM: AuthViewModel
     @EnvironmentObject var xpVM: XPViewModel
 
+    @State private var selectedProvider: LLMProvider = .selectedProvider
+    @State private var apiKeyInput = ""
+    @State private var hasKey = LLMProvider.isConfigured
+    @State private var focusModel = UserDefaults.standard.string(forKey: "focusGuard_model") ?? ""
+
     var body: some View {
         ScrollView {
         VStack(spacing: 16) {
@@ -87,6 +92,81 @@ struct ProfileTabView: View {
                 .background(Color.orange.opacity(0.1))
                 .clipShape(Capsule())
             }
+
+            // AI Provider
+            VStack(alignment: .leading, spacing: 8) {
+                Text("AI Provider")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.primary.opacity(0.6))
+
+                Picker("", selection: $selectedProvider) {
+                    ForEach(LLMProvider.allCases) { provider in
+                        Text(provider.displayName).tag(provider)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .onChange(of: selectedProvider) { _, newValue in
+                    LLMProvider.selectedProvider = newValue
+                    hasKey = KeychainService.hasAPIKey(for: newValue.rawValue)
+                    apiKeyInput = ""
+                }
+
+                if hasKey {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.green)
+                        Text("\(selectedProvider.displayName) key saved")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.primary.opacity(0.6))
+                        Spacer()
+                        Button("Remove") {
+                            KeychainService.deleteAPIKey(for: selectedProvider.rawValue)
+                            hasKey = false
+                        }
+                        .font(.system(size: 10))
+                        .foregroundStyle(.red)
+                        .buttonStyle(.plain)
+                    }
+                } else {
+                    HStack(spacing: 6) {
+                        SecureField(selectedProvider.keyPlaceholder, text: $apiKeyInput)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 11))
+                        Button("Save") {
+                            let key = apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard !key.isEmpty else { return }
+                            KeychainService.saveAPIKey(key, for: selectedProvider.rawValue)
+                            hasKey = true
+                            apiKeyInput = ""
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Color.calmTeal)
+                        .controlSize(.small)
+                        .disabled(apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                }
+
+                HStack(spacing: 6) {
+                    Text("Focus Guard model")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.primary.opacity(0.5))
+                    TextField("e.g. claude-haiku-4-5-20250620", text: $focusModel)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 10))
+                        .onChange(of: focusModel) { _, newValue in
+                            UserDefaults.standard.set(newValue.isEmpty ? nil : newValue, forKey: "focusGuard_model")
+                        }
+                }
+
+                if !hasKey {
+                    Text("An AI key is required for Focus Guard and calendar conversion.")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.primary.opacity(0.35))
+                }
+            }
+            .padding(.horizontal, 16)
 
             // API Keys
             APIKeyView()

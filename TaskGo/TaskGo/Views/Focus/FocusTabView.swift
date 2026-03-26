@@ -33,7 +33,7 @@ struct FocusTabView: View {
                     .font(.system(size: 13, weight: .semibold))
                 Spacer()
                 if !LLMProvider.isConfigured {
-                    Text("No AI key set")
+                    Text("Set AI key in Profile")
                         .font(.system(size: 9))
                         .foregroundStyle(.red.opacity(0.7))
                 }
