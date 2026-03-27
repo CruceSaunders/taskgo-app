@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 @MainActor
 class FocusGuardViewModel: ObservableObject {
@@ -8,6 +9,13 @@ class FocusGuardViewModel: ObservableObject {
     @Published var lastSummary: FocusSessionSummary?
 
     let service = FocusGuardService.shared
+    private var cancellable: AnyCancellable?
+
+    init() {
+        cancellable = service.objectWillChange.sink { [weak self] _ in
+            DispatchQueue.main.async { self?.objectWillChange.send() }
+        }
+    }
 
     var isActive: Bool { service.isActive }
 

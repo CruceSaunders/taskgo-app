@@ -66,8 +66,11 @@ class FocusGuardService: ObservableObject {
         isPaused = false
         isChecking = false
 
+        let interval = checkIntervalSeconds
+        print("[FocusGuard] starting session for '\(task.name)', check every \(interval)s")
+
         let timer = DispatchSource.makeTimerSource(queue: .main)
-        timer.schedule(deadline: .now() + .seconds(checkIntervalSeconds), repeating: .seconds(checkIntervalSeconds))
+        timer.schedule(deadline: .now() + .seconds(interval), repeating: .seconds(interval))
         timer.setEventHandler { [weak self] in
             Task { @MainActor in self?.performCheck() }
         }
@@ -108,11 +111,22 @@ class FocusGuardService: ObservableObject {
     // MARK: - Check Logic
 
     private func performCheck() {
-        guard isActive, !isPaused, !isChecking else { return }
+        guard isActive, !isPaused, !isChecking else {
+            print("[FocusGuard] check skipped: active=\(isActive) paused=\(isPaused) checking=\(isChecking)")
+            return
+        }
 
-        if WindowWatcher.shared.isIdle { return }
+        if WindowWatcher.shared.isIdle {
+            print("[FocusGuard] check skipped: user idle")
+            return
+        }
 
-        guard let screenshotData = FocusScreenCapture.capture() else { return }
+        guard let screenshotData = FocusScreenCapture.capture() else {
+            print("[FocusGuard] check skipped: screenshot capture failed (Screen Recording permission?)")
+            return
+        }
+
+        print("[FocusGuard] captured screenshot (\(screenshotData.count) bytes), analyzing...")
 
         let currentApp = WindowWatcher.shared.currentAppName
         let taskName = currentTask?.name ?? ""
@@ -132,8 +146,10 @@ class FocusGuardService: ObservableObject {
                 case .onTask:
                     onTaskChecks += 1
                     offTaskStreak = 0
+                    print("[FocusGuard] check #\(totalChecks): ON_TASK (app: \(currentApp))")
                 case .offTask:
                     offTaskStreak += 1
+                    print("[FocusGuard] check #\(totalChecks): OFF_TASK (streak: \(offTaskStreak), app: \(currentApp))")
                     if offTaskStreak >= offTaskThreshold {
                         sendNotificationIfAllowed()
                     }
@@ -159,8 +175,10 @@ class FocusGuardService: ObservableObject {
         do {
             let response = try await FocusGuardAI.analyze(prompt: prompt, imageData: imageData)
             let cleaned = response.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            print("[FocusGuard] AI response: \(response)")
             return cleaned.contains("OFF_TASK") ? .offTask : .onTask
         } catch {
+            print("[FocusGuard] AI error: \(error)")
             return .onTask
         }
     }
