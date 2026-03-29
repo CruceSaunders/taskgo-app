@@ -227,9 +227,47 @@ struct TasksTabView: View {
                 let completed = tasksForGroup.filter { $0.isComplete && !($0.recurrence != nil) }
                     .sorted { ($0.completedAt ?? .distantPast) > ($1.completedAt ?? .distantPast) }
 
-                ForEach(incomplete) { task in
-                    TaskRowView(task: task, editingTaskId: $editingTaskId)
+                ForEach(Array(incomplete.enumerated()), id: \.element.id) { index, task in
+                    let isTaskDragging = draggingTaskId == task.id
+
+                    TaskRowView(task: task, editingTaskId: $editingTaskId, displayIndex: index + 1, dragLocked: justDragged)
                         .padding(.leading, CGFloat(depth * 16 + 16))
+                        .offset(y: isTaskDragging ? dragOffset : 0)
+                        .zIndex(isTaskDragging ? 100 : 0)
+                        .opacity(isTaskDragging ? 0.85 : 1.0)
+                        .background(isTaskDragging ? Color(.windowBackgroundColor) : Color.clear)
+                        .simultaneousGesture(
+                            DragGesture(minimumDistance: 8)
+                                .onChanged { value in
+                                    justDragged = true
+                                    if draggingTaskId == nil {
+                                        draggingTaskId = task.id
+                                        dragStartIndex = index
+                                    }
+                                    guard draggingTaskId == task.id else { return }
+                                    dragOffset = value.translation.height
+                                    let rowsMoved = Int(round(dragOffset / max(rowHeight, 40)))
+                                    let newIdx = min(max(index + rowsMoved, 0), incomplete.count - 1)
+                                    targetDropIndex = newIdx
+                                }
+                                .onEnded { _ in
+                                    if let startIdx = dragStartIndex,
+                                       let targetIdx = targetDropIndex,
+                                       startIdx != targetIdx {
+                                        Task {
+                                            await taskVM.moveTask(from: IndexSet(integer: startIdx), to: targetIdx > startIdx ? targetIdx + 1 : targetIdx)
+                                        }
+                                    }
+                                    withAnimation(.easeOut(duration: 0.15)) {
+                                        draggingTaskId = nil
+                                        dragOffset = 0
+                                        targetDropIndex = nil
+                                        dragStartIndex = nil
+                                    }
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { justDragged = false }
+                                }
+                        )
+
                     Divider().padding(.leading, CGFloat(12 + depth * 16 + 34))
                 }
 
