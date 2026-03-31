@@ -728,10 +728,30 @@ class TaskViewModel: ObservableObject {
         }
     }
 
+    func moveTaskInGroup(from source: IndexSet, to destination: Int, groupId: String) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+
+        var reordered = tasks
+            .filter { $0.groupId == groupId && !$0.isComplete }
+            .sorted { $0.position < $1.position }
+        reordered.move(fromOffsets: source, toOffset: destination)
+
+        do {
+            for (index, var task) in reordered.enumerated() {
+                let newPosition = index + 1
+                if task.position != newPosition {
+                    task.position = newPosition
+                    try await firestoreService.updateTask(task, userId: userId)
+                }
+            }
+        } catch {
+            print("[TaskVM] moveTaskInGroup error: \(error)")
+        }
+    }
+
     func moveTask(from source: IndexSet, to destination: Int) async {
         guard let userId = Auth.auth().currentUser?.uid else { return }
 
-        // Use the display list (deduplicated) for reordering
         var reordered = incompleteTasksForDisplay
         reordered.move(fromOffsets: source, toOffset: destination)
 

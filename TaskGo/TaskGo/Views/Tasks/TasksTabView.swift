@@ -254,8 +254,9 @@ struct TasksTabView: View {
                                     if let startIdx = dragStartIndex,
                                        let targetIdx = targetDropIndex,
                                        startIdx != targetIdx {
+                                        let gid = groupId
                                         Task {
-                                            await taskVM.moveTask(from: IndexSet(integer: startIdx), to: targetIdx > startIdx ? targetIdx + 1 : targetIdx)
+                                            await taskVM.moveTaskInGroup(from: IndexSet(integer: startIdx), to: targetIdx > startIdx ? targetIdx + 1 : targetIdx, groupId: gid)
                                         }
                                     }
                                     withAnimation(.easeOut(duration: 0.15)) {
