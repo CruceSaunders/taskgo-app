@@ -31,6 +31,8 @@ struct TasksTabView: View {
     @State private var draggingGroupId: String?
     @State private var groupDragOffset: CGFloat = 0
     @State private var dropTargetGroupId: String?
+    @State private var groupDragStartIndex: Int?
+    @State private var groupTargetIndex: Int?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -97,8 +99,9 @@ struct TasksTabView: View {
 
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    ForEach(groupVM.topLevelGroups) { group in
-                        recursiveGroupRow(group: group, depth: 0)
+                    let topGroups = groupVM.topLevelGroups
+                    ForEach(Array(topGroups.enumerated()), id: \.element.id) { index, group in
+                        recursiveGroupRow(group: group, depth: 0, siblingIndex: index, siblingCount: topGroups.count)
                     }
 
                     if groupVM.topLevelGroups.isEmpty && !showAddGroup {
@@ -145,11 +148,10 @@ struct TasksTabView: View {
     // MARK: - Recursive Group Row
 
     @ViewBuilder
-    private func recursiveGroupRow(group: TaskGroup, depth: Int) -> some View {
+    private func recursiveGroupRow(group: TaskGroup, depth: Int, siblingIndex: Int, siblingCount: Int) -> some View {
         let groupId = group.id ?? ""
         let isExpanded = groupVM.isExpanded(groupId)
         let children = groupVM.childGroups(of: groupId)
-        let isDropTarget = dropTargetGroupId == groupId && draggingGroupId != groupId
         let isDragging = draggingGroupId == groupId
 
         VStack(alignment: .leading, spacing: 0) {
@@ -186,7 +188,6 @@ struct TasksTabView: View {
             .padding(.trailing, 12)
             .padding(.vertical, 7)
             .contentShape(Rectangle())
-            .background(isDropTarget ? Color.calmTeal.opacity(0.12) : Color.clear)
             .opacity(isDragging ? 0.5 : 1.0)
             .offset(y: isDragging ? groupDragOffset : 0)
             .zIndex(isDragging ? 100 : 0)
@@ -195,29 +196,37 @@ struct TasksTabView: View {
                     .onChanged { value in
                         if draggingGroupId == nil {
                             draggingGroupId = groupId
+                            groupDragStartIndex = siblingIndex
                         }
                         guard draggingGroupId == groupId else { return }
                         groupDragOffset = value.translation.height
+                        let rowH: CGFloat = 40
+                        let rowsMoved = Int(round(groupDragOffset / rowH))
+                        let newIdx = min(max(siblingIndex + rowsMoved, 0), siblingCount - 1)
+                        groupTargetIndex = newIdx
                     }
-                    .onEnded { value in
+                    .onEnded { _ in
                         guard draggingGroupId == groupId else { return }
-                        if let targetId = dropTargetGroupId, targetId != groupId {
-                            Task { await groupVM.moveGroupInto(groupId: groupId, newParentId: targetId) }
+                        if let startIdx = groupDragStartIndex,
+                           let targetIdx = groupTargetIndex,
+                           startIdx != targetIdx {
+                            let parentId = group.parentId
+                            Task {
+                                await groupVM.reorderGroup(
+                                    from: IndexSet(integer: startIdx),
+                                    to: targetIdx > startIdx ? targetIdx + 1 : targetIdx,
+                                    parentId: parentId
+                                )
+                            }
                         }
                         withAnimation(.easeOut(duration: 0.15)) {
                             draggingGroupId = nil
                             groupDragOffset = 0
-                            dropTargetGroupId = nil
+                            groupDragStartIndex = nil
+                            groupTargetIndex = nil
                         }
                     }
             )
-            .onHover { hovering in
-                if hovering && draggingGroupId != nil && draggingGroupId != groupId {
-                    dropTargetGroupId = groupId
-                } else if !hovering && dropTargetGroupId == groupId {
-                    dropTargetGroupId = nil
-                }
-            }
 
             Divider().padding(.leading, CGFloat(12 + depth * 16 + 34))
 
@@ -326,8 +335,8 @@ struct TasksTabView: View {
                     }
                 }
 
-                ForEach(children) { child in
-                    AnyView(recursiveGroupRow(group: child, depth: depth + 1))
+                ForEach(Array(children.enumerated()), id: \.element.id) { childIndex, child in
+                    AnyView(recursiveGroupRow(group: child, depth: depth + 1, siblingIndex: childIndex, siblingCount: children.count))
                 }
 
                 if addingSubGroupToId == groupId {

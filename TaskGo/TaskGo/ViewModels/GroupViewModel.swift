@@ -174,6 +174,28 @@ class GroupViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Reorder Groups
+
+    func reorderGroup(from source: IndexSet, to destination: Int, parentId: String?) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+
+        var siblings = groups
+            .filter { $0.parentId == parentId }
+            .sorted { $0.order < $1.order }
+        siblings.move(fromOffsets: source, toOffset: destination)
+
+        do {
+            for (index, var group) in siblings.enumerated() {
+                if group.order != index {
+                    group.order = index
+                    try await firestoreService.updateGroup(group, userId: userId)
+                }
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     // MARK: - Helpers
 
     private func collectDescendantIds(of parentId: String) -> [String] {
