@@ -176,16 +176,12 @@ struct TasksTabView: View {
                         .font(.system(size: 12, weight: isExpanded ? .semibold : .regular))
                         .foregroundStyle(.primary.opacity(0.8))
                         .lineLimit(1)
-                        .truncationMode(.tail)
-                        .layoutPriority(0)
                 }
 
-                Spacer(minLength: 4)
+                Spacer()
 
                 if !group.isDefault && renamingGroupId != groupId {
                     groupActions(group: group)
-                        .fixedSize()
-                        .layoutPriority(1)
                 }
             }
             .padding(.leading, CGFloat(12 + depth * 16))

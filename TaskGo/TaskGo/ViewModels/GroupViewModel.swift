@@ -85,7 +85,16 @@ class GroupViewModel: ObservableObject {
                 self.groups = groups
                 let validIds = Set(groups.compactMap(\.id))
                 self.expandedGroupIds = self.expandedGroupIds.filter { validIds.contains($0) }
+                await self.repairBogusDefaults(groups: groups, userId: userId)
             }
+        }
+    }
+
+    private func repairBogusDefaults(groups: [TaskGroup], userId: String) async {
+        let realDefault = groups.first { $0.isDefault && $0.parentId == nil && $0.order == 0 }
+        for var g in groups where g.isDefault && g.id != realDefault?.id {
+            g.isDefault = false
+            try? await firestoreService.updateGroup(g, userId: userId)
         }
     }
 
