@@ -138,22 +138,41 @@ class GroupViewModel: ObservableObject {
     }
 
     func deleteGroup(_ group: TaskGroup) async {
-        guard let userId = Auth.auth().currentUser?.uid,
-              let groupId = group.id,
-              !group.isDefault else { return }
+        guard let userId = Auth.auth().currentUser?.uid else {
+            print("[GroupVM] deleteGroup: no authenticated user")
+            errorMessage = "Not signed in."
+            return
+        }
+        guard let groupId = group.id else {
+            print("[GroupVM] deleteGroup: group has no id")
+            errorMessage = "Group is missing an id."
+            return
+        }
+        guard !group.isDefault else {
+            print("[GroupVM] deleteGroup: refusing to delete default group \(groupId)")
+            errorMessage = "The default group can't be deleted."
+            return
+        }
 
-        do {
-            let descendantIds = collectDescendantIds(of: groupId)
-            let allIds = [groupId] + descendantIds
-            for id in allIds {
+        let descendantIds = collectDescendantIds(of: groupId)
+        // Delete deepest descendants first so we never leave orphan groups
+        // referencing a deleted parent.
+        let allIds = (descendantIds + [groupId])
+
+        print("[GroupVM] deleteGroup: deleting \(allIds.count) group(s) starting at \(groupId)")
+
+        for id in allIds {
+            do {
                 try await firestoreService.deleteGroup(id, userId: userId)
+            } catch {
+                print("[GroupVM] deleteGroup error on \(id): \(error)")
+                errorMessage = "Couldn't delete group: \(error.localizedDescription)"
+                return
             }
-            for id in allIds {
-                expandedGroupIds.remove(id)
-            }
-        } catch {
-            print("[GroupVM] deleteGroup error: \(error)")
-            errorMessage = error.localizedDescription
+        }
+
+        for id in allIds {
+            expandedGroupIds.remove(id)
         }
     }
 

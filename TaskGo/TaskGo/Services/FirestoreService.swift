@@ -91,13 +91,16 @@ class FirestoreService {
     }
 
     func deleteGroup(_ groupId: String, userId: String) async throws {
-        // Delete all tasks in this group first
-        let tasks = try await getTasksForGroup(groupId: groupId, userId: userId)
+        // Delete all tasks in this group first.
+        // Use an unordered query here so we don't depend on the
+        // (groupId + position) composite index — deletion order doesn't matter.
+        let snapshot = try await tasksRef(userId)
+            .whereField("groupId", isEqualTo: groupId)
+            .getDocuments()
+
         let batch = db.batch()
-        for task in tasks {
-            if let taskId = task.id {
-                batch.deleteDocument(tasksRef(userId).document(taskId))
-            }
+        for doc in snapshot.documents {
+            batch.deleteDocument(doc.reference)
         }
         batch.deleteDocument(groupsRef(userId).document(groupId))
         try await batch.commit()

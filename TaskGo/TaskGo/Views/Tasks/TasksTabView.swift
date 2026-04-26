@@ -41,6 +41,28 @@ struct TasksTabView: View {
             } else {
                 groupBrowser
             }
+
+            if let errorMessage = groupVM.errorMessage {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.red)
+                    Text(errorMessage)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.red)
+                        .lineLimit(2)
+                    Spacer()
+                    Button(action: { groupVM.errorMessage = nil }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.red.opacity(0.7))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.red.opacity(0.08))
+            }
         }
         .onChange(of: groupVM.showingAllTasks) { _, showing in
             if showing {
