@@ -31,12 +31,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             let diagPath = FileManager.default.homeDirectoryForCurrentUser
                 .appendingPathComponent(".taskgo").appendingPathComponent("diag.txt")
             try? "AppDelegate launched at \(Date())\n".write(to: diagPath, atomically: true, encoding: .utf8)
-            ActivityTracker.shared.start()
         }
+
+        // One-time cleanup of legacy activity tracking data (Firestore + local cache)
+        LegacyActivityCleanup.runIfNeeded()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        ActivityTracker.shared.stop()
         timerPanelController?.close()
         pomodoroPanelController?.close()
     }

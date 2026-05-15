@@ -390,44 +390,57 @@ class FirestoreService {
             }
     }
 
-    // MARK: - Activity Days
+    // MARK: - Goals
 
-    private func activityDaysRef(_ userId: String) -> CollectionReference {
-        userRef(userId).collection("activityDays")
+    private func goalsRef(_ userId: String) -> CollectionReference {
+        userRef(userId).collection("goals")
     }
 
-    func saveActivityDay(_ day: ActivityDay, userId: String, dateString: String) async throws {
-        let encoded = try Firestore.Encoder().encode(day)
-        try await activityDaysRef(userId).document(dateString).setData(encoded)
-    }
-
-    func getActivityDay(userId: String, dateString: String) async throws -> ActivityDay? {
-        let doc = try await activityDaysRef(userId).document(dateString).getDocument()
-        return try? doc.data(as: ActivityDay.self)
-    }
-
-    func getActivityDays(userId: String, from startDate: Date, to endDate: Date) async throws -> [ActivityDay] {
-        let snapshot = try await activityDaysRef(userId)
-            .whereField("date", isGreaterThanOrEqualTo: startDate)
-            .whereField("date", isLessThanOrEqualTo: endDate)
-            .order(by: "date", descending: false)
-            .getDocuments()
-        return snapshot.documents.compactMap { try? $0.data(as: ActivityDay.self) }
-    }
-
-    func deleteOldActivityDays(userId: String, before cutoffDate: Date) async throws {
-        let snapshot = try await activityDaysRef(userId)
-            .whereField("date", isLessThan: cutoffDate)
-            .limit(to: 500)
-            .getDocuments()
-
-        guard !snapshot.documents.isEmpty else { return }
-
-        let batch = db.batch()
-        for doc in snapshot.documents {
-            batch.deleteDocument(doc.reference)
+    @discardableResult
+    func saveGoal(_ goal: Goal, userId: String) async throws -> String {
+        if let goalId = goal.id {
+            try goalsRef(userId).document(goalId).setData(from: goal, merge: true)
+            return goalId
+        } else {
+            let ref = try goalsRef(userId).addDocument(from: goal)
+            return ref.documentID
         }
-        try await batch.commit()
+    }
+
+    func deleteGoal(_ goalId: String, userId: String) async throws {
+        try await goalsRef(userId).document(goalId).delete()
+    }
+
+    func listenToGoals(userId: String, completion: @escaping ([Goal]) -> Void) -> ListenerRegistration {
+        return goalsRef(userId)
+            .order(by: "createdAt", descending: true)
+            .addSnapshotListener { snapshot, error in
+                if let error = error {
+                    print("[Firestore] listenToGoals error: \(error)")
+                    return
+                }
+                guard let documents = snapshot?.documents else { return }
+                let goals = documents.compactMap { try? $0.data(as: Goal.self) }
+                completion(goals)
+            }
+    }
+
+    // MARK: - Legacy Activity Days cleanup
+
+    /// One-time deletion of historical activityDays data for users coming
+    /// from versions that still tracked activity. Safe to call repeatedly.
+    func deleteAllActivityDays(userId: String) async throws {
+        let ref = userRef(userId).collection("activityDays")
+        while true {
+            let snapshot = try await ref.limit(to: 500).getDocuments()
+            if snapshot.documents.isEmpty { return }
+            let batch = db.batch()
+            for doc in snapshot.documents {
+                batch.deleteDocument(doc.reference)
+            }
+            try await batch.commit()
+            if snapshot.documents.count < 500 { return }
+        }
     }
 
     // MARK: - API Keys

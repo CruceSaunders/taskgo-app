@@ -10,6 +10,7 @@ struct MainWindowView: View {
     @EnvironmentObject var notesVM: NotesViewModel
     @EnvironmentObject var plannerVM: PlannerViewModel
     @EnvironmentObject var pomodoroVM: PomodoroViewModel
+    @EnvironmentObject var goalVM: GoalViewModel
 
     @State private var selectedTab: AppTab = .tasks
 
@@ -35,10 +36,8 @@ struct MainWindowView: View {
                         PlannerTabView()
                     case .calendar:
                         CalendarTabView()
-                    case .focus:
-                        FocusTabView()
-                    case .activity:
-                        ActivityTabView()
+                    case .goals:
+                        GoalsTabView()
                     case .profile:
                         ProfileTabView()
                     }
@@ -83,8 +82,7 @@ struct MainWindowView: View {
                 sidebarButton("Notes", icon: "doc.text", tab: .notes)
                 sidebarButton("Planner", icon: "calendar.day.timeline.leading", tab: .planner)
                 sidebarButton("Calendar", icon: "calendar", tab: .calendar)
-                sidebarButton("Focus", icon: "eye", tab: .focus)
-                sidebarButton("Activity", icon: "chart.bar.xaxis", tab: .activity)
+                sidebarButton("Goals", icon: "target", tab: .goals)
                 sidebarButton("Profile", icon: "person.circle", tab: .profile)
             }
             .padding(.horizontal, 8)

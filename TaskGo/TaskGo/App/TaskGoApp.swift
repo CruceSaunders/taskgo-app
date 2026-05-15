@@ -16,8 +16,7 @@ struct TaskGoApp: App {
     @StateObject private var reminderViewModel: ReminderViewModel
     @StateObject private var plannerViewModel: PlannerViewModel
     @StateObject private var pomodoroViewModel: PomodoroViewModel
-    @StateObject private var activityViewModel: ActivityViewModel
-    @StateObject private var focusGuardViewModel: FocusGuardViewModel
+    @StateObject private var goalViewModel: GoalViewModel
 
     init() {
         FirebaseApp.configure()
@@ -36,8 +35,7 @@ struct TaskGoApp: App {
         _reminderViewModel = StateObject(wrappedValue: ReminderViewModel())
         _plannerViewModel = StateObject(wrappedValue: PlannerViewModel())
         _pomodoroViewModel = StateObject(wrappedValue: PomodoroViewModel())
-        _activityViewModel = StateObject(wrappedValue: ActivityViewModel())
-        _focusGuardViewModel = StateObject(wrappedValue: FocusGuardViewModel())
+        _goalViewModel = StateObject(wrappedValue: GoalViewModel())
     }
 
     var body: some Scene {
@@ -55,8 +53,7 @@ struct TaskGoApp: App {
                 .environmentObject(reminderViewModel)
                 .environmentObject(plannerViewModel)
                 .environmentObject(pomodoroViewModel)
-                .environmentObject(activityViewModel)
-                .environmentObject(focusGuardViewModel)
+                .environmentObject(goalViewModel)
                 .onAppear {
                     appDelegate.timerPanelController?.setViewModel(taskGoViewModel)
                     appDelegate.pomodoroPanelController?.setViewModel(pomodoroViewModel)
@@ -64,6 +61,7 @@ struct TaskGoApp: App {
                     taskGoViewModel.xpVM = xpViewModel
                     RecurrenceService.shared.start()
                     plannerViewModel.startListening()
+                    goalViewModel.startListening()
                 }
         } label: {
             Image(systemName: "bolt.circle.fill")
@@ -104,8 +102,7 @@ struct TaskGoApp: App {
                 .environmentObject(self.reminderViewModel)
                 .environmentObject(self.plannerViewModel)
                 .environmentObject(self.pomodoroViewModel)
-                .environmentObject(self.activityViewModel)
-                .environmentObject(self.focusGuardViewModel)
+                .environmentObject(self.goalViewModel)
             window.contentView = NSHostingView(rootView: contentView)
         }
     }

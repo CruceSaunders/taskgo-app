@@ -5,8 +5,7 @@ enum AppTab: String, CaseIterable {
     case notes = "Notes"
     case planner = "Planner"
     case calendar = "Calendar"
-    case focus = "Focus"
-    case activity = "Activity"
+    case goals = "Goals"
     case profile = "Profile"
 }
 
@@ -20,24 +19,18 @@ struct MainView: View {
 
     @State private var selectedTab: AppTab = .tasks
 
-    @State private var showActivityPermission = false
-
     var body: some View {
         VStack(spacing: 0) {
-            // Error banner
             ErrorBannerView()
 
-            // Header with Task Go button and level
             headerView
 
             Divider()
 
-            // Tab selector
             tabBar
 
             Divider()
 
-            // Tab content
             switch selectedTab {
             case .tasks:
                 TasksTabView()
@@ -47,24 +40,20 @@ struct MainView: View {
                 PlannerTabView()
             case .calendar:
                 CalendarTabView()
-            case .focus:
-                FocusTabView()
-            case .activity:
-                ActivityTabView(isCompact: true)
+            case .goals:
+                GoalsTabView()
             case .profile:
                 ProfileTabView()
             }
         }
         .onAppear {
             groupVM.startListening()
-            // socialVM.startListening()  // v2: Social features deferred
             Task { await xpVM.loadXP() }
             KeyboardShortcutModifiers.registerGlobalHotkey {}
         }
         .onDisappear {
             groupVM.stopListening()
             taskVM.stopListening()
-            // socialVM.stopListening()  // v2: Social features deferred
         }
         .onReceive(NotificationCenter.default.publisher(for: .shortcutToggleTaskGo)) { _ in
             toggleTaskGo()
@@ -75,30 +64,12 @@ struct MainView: View {
         .onReceive(NotificationCenter.default.publisher(for: .taskGoCompleteTask)) { _ in
             completeCurrentTask()
         }
-        .overlay {
-            if showActivityPermission {
-                ZStack {
-                    Color.black.opacity(0.3)
-                        .onTapGesture { showActivityPermission = false }
-                    ActivityPermissionView(isPresented: $showActivityPermission)
-                        .environmentObject(taskGoVM)
-                        .frame(width: 320)
-                        .background(Color(.windowBackgroundColor))
-                        .cornerRadius(12)
-                        .shadow(color: .black.opacity(0.2), radius: 10)
-                }
-            }
-        }
     }
 
     private func toggleTaskGo() {
         if taskGoVM.isActive {
             taskGoVM.stopTaskGo()
         } else {
-            if !taskGoVM.hasActivityPermission && !UserDefaults.standard.bool(forKey: "hasSeenActivityPermission") {
-                UserDefaults.standard.set(true, forKey: "hasSeenActivityPermission")
-                showActivityPermission = true
-            }
             let allIds = Set(taskVM.incompleteTasksForDisplay.compactMap { $0.id })
             if !allIds.isEmpty {
                 taskGoVM.startTaskGoWithSelected(allIds)
@@ -109,12 +80,10 @@ struct MainView: View {
     private func completeCurrentTask() {
         guard let result = taskGoVM.completeCurrentTask() else { return }
 
-        // Award XP
         Task {
             await xpVM.awardXP(activeMinutes: result.activeMinutes)
             await taskVM.toggleComplete(result.task)
 
-            // Advance to next task if Task Go is active
             if taskGoVM.isActive, let nextTask = taskVM.firstIncompleteTask {
                 taskGoVM.advanceToNextTask(nextTask)
             } else {
@@ -125,7 +94,6 @@ struct MainView: View {
 
     private var headerView: some View {
         HStack {
-            // Level badge
             HStack(spacing: 4) {
                 Image(systemName: "star.fill")
                     .font(.system(size: 10))
@@ -140,7 +108,6 @@ struct MainView: View {
 
             Spacer()
 
-            // Open full window
             Button(action: {
                 NotificationCenter.default.post(name: .openMainWindow, object: nil)
             }) {
@@ -158,7 +125,6 @@ struct MainView: View {
             }
             .buttonStyle(.plain)
 
-            // Pomodoro button
             Button(action: {
                 if pomodoroVM.isActive {
                     pomodoroVM.stop()
@@ -180,7 +146,6 @@ struct MainView: View {
             }
             .buttonStyle(.plain)
 
-            // Task Go button
             Button(action: {
                 if taskGoVM.isActive {
                     taskGoVM.stopTaskGo()
@@ -216,7 +181,7 @@ struct MainView: View {
                     selectedTab = tab
                 }) {
                     Text(tab.rawValue)
-                        .font(.system(size: 12, weight: selectedTab == tab ? .semibold : .regular))
+                        .font(.system(size: 11, weight: selectedTab == tab ? .semibold : .regular))
                         .foregroundStyle(selectedTab == tab ? Color.calmTeal : .primary.opacity(0.6))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 6)

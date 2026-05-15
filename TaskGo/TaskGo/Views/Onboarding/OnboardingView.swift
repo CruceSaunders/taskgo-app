@@ -5,7 +5,6 @@ struct OnboardingView: View {
     @Binding var isComplete: Bool
     @State private var currentPage = 0
     @State private var launchAtLogin = true
-    @State private var hasInputMonitoring = false
 
     private let totalPages = 5
 
@@ -32,11 +31,11 @@ struct OnboardingView: View {
             description: "Earn 1 XP for every minute you work during Task Go. Level up to 100 and track your progress over time."
         ),
         OnboardingPage(
-            icon: "chart.bar.xaxis",
-            iconColor: .blue,
-            title: "Activity Tracking",
-            subtitle: "Understand your productivity patterns",
-            description: "TaskGo! tracks your keyboard and mouse activity to show you when you're most productive. We never log what you type — only that activity occurred."
+            icon: "target",
+            iconColor: .calmBlue,
+            title: "Set Goals",
+            subtitle: "Long-term ambition meets daily focus",
+            description: "Create goals, break them into milestones, log notes day-by-day, and time how long you actually spend pursuing each one. Mark milestones complete and watch your progress grow."
         )
     ]
 
@@ -94,9 +93,6 @@ struct OnboardingView: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 20)
         }
-        .onAppear {
-            hasInputMonitoring = ActivityTracker.shared.hasPermission
-        }
     }
 
     // MARK: - Standard Page
@@ -150,12 +146,11 @@ struct OnboardingView: View {
                 .multilineTextAlignment(.center)
 
             VStack(spacing: 12) {
-                // Launch at login
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Launch at Login")
                             .font(.system(size: 12, weight: .semibold))
-                        Text("Always running so activity is tracked")
+                        Text("Keep TaskGo! in your menu bar")
                             .font(.system(size: 10))
                             .foregroundStyle(.secondary)
                     }
@@ -163,43 +158,6 @@ struct OnboardingView: View {
                     Toggle("", isOn: $launchAtLogin)
                         .toggleStyle(.switch)
                         .labelsHidden()
-                }
-                .padding(.horizontal, 20)
-
-                Divider()
-                    .padding(.horizontal, 20)
-
-                // Input Monitoring permission
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Activity Tracking")
-                            .font(.system(size: 12, weight: .semibold))
-                        Text("Requires Input Monitoring permission")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    if hasInputMonitoring {
-                        HStack(spacing: 4) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.green)
-                            Text("Enabled")
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundStyle(.green)
-                        }
-                    } else {
-                        Button("Enable") {
-                            ActivityTracker.shared.requestPermission()
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                hasInputMonitoring = ActivityTracker.shared.hasPermission
-                            }
-                        }
-                        .font(.system(size: 11))
-                        .buttonStyle(.borderedProminent)
-                        .tint(Color.calmTeal)
-                        .controlSize(.small)
-                    }
                 }
                 .padding(.horizontal, 20)
             }

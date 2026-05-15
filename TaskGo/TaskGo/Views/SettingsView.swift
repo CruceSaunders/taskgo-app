@@ -12,12 +12,6 @@ struct SettingsView: View {
     @State private var hasKey = false
     @State private var testResult: String?
     @State private var isTesting = false
-    @State private var showingCategoryRules = false
-    @State private var showingDiagnostics = false
-
-    @State private var trackWindowTitles: Bool = true
-    @State private var trackBrowserURLs: Bool = true
-    @State private var storeFullURLs: Bool = false
 
     var body: some View {
         Form {
@@ -34,41 +28,6 @@ struct SettingsView: View {
                             print("Failed to update launch at login: \(error)")
                         }
                     }
-            }
-
-            Section("Activity Tracking") {
-                Toggle("Track window titles", isOn: $trackWindowTitles)
-                    .onChange(of: trackWindowTitles) { _, newValue in
-                        var prefs = TrackingPreferences.load()
-                        prefs.trackWindowTitles = newValue
-                        prefs.save()
-                    }
-
-                Toggle("Track browser URLs", isOn: $trackBrowserURLs)
-                    .onChange(of: trackBrowserURLs) { _, newValue in
-                        var prefs = TrackingPreferences.load()
-                        prefs.trackBrowserURLs = newValue
-                        prefs.save()
-                    }
-
-                if trackBrowserURLs {
-                    Toggle("Store full URLs (not just domains)", isOn: $storeFullURLs)
-                        .onChange(of: storeFullURLs) { _, newValue in
-                            var prefs = TrackingPreferences.load()
-                            prefs.storeFullURLs = newValue
-                            prefs.save()
-                        }
-                }
-
-                Button("Manage Category Rules...") {
-                    showingCategoryRules = true
-                }
-                .font(.system(size: 11))
-
-                Button("Diagnostics...") {
-                    showingDiagnostics = true
-                }
-                .font(.system(size: 11))
             }
 
             Section("AI Provider") {
@@ -172,16 +131,6 @@ struct SettingsView: View {
             selectedProvider = LLMProvider.selectedProvider
             hasKey = KeychainService.hasAPIKey(for: selectedProvider.rawValue)
             modelOverride = LLMProvider.selectedModel ?? ""
-            let prefs = TrackingPreferences.load()
-            trackWindowTitles = prefs.trackWindowTitles
-            trackBrowserURLs = prefs.trackBrowserURLs
-            storeFullURLs = prefs.storeFullURLs
-        }
-        .sheet(isPresented: $showingCategoryRules) {
-            CategoryRulesView()
-        }
-        .sheet(isPresented: $showingDiagnostics) {
-            TrackingDiagnosticView()
         }
     }
 

@@ -7,7 +7,6 @@ struct ProfileTabView: View {
     @State private var selectedProvider: LLMProvider = .selectedProvider
     @State private var apiKeyInput = ""
     @State private var hasKey = LLMProvider.isConfigured
-    @State private var focusModel = UserDefaults.standard.string(forKey: "focusGuard_model") ?? ""
 
     var body: some View {
         ScrollView {
@@ -148,20 +147,8 @@ struct ProfileTabView: View {
                     }
                 }
 
-                HStack(spacing: 6) {
-                    Text("Focus Guard model")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.primary.opacity(0.5))
-                    TextField("e.g. claude-haiku-4-5-20250620", text: $focusModel)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(size: 10))
-                        .onChange(of: focusModel) { _, newValue in
-                            UserDefaults.standard.set(newValue.isEmpty ? nil : newValue, forKey: "focusGuard_model")
-                        }
-                }
-
                 if !hasKey {
-                    Text("An AI key is required for Focus Guard and calendar conversion.")
+                    Text("An AI key is required for calendar conversion and AI scheduling.")
                         .font(.system(size: 9))
                         .foregroundStyle(.primary.opacity(0.35))
                 }

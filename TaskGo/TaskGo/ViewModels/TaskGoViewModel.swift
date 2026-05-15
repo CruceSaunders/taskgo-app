@@ -108,7 +108,6 @@ class TaskGoViewModel: ObservableObject {
     @Published var hasActivityPermission = false
 
     private var alarmPlayer: NSSound?
-    private let activityMonitor = ActivityMonitor.shared
     private var laneCancellables: [UUID: AnyCancellable] = [:]
 
     weak var taskVM: TaskViewModel?
@@ -161,30 +160,26 @@ class TaskGoViewModel: ObservableObject {
         lane.beginTask(task)
         lanes.append(lane)
         isActive = true
-        hasActivityPermission = activityMonitor.hasPermission
+        hasActivityPermission = false
 
         observeLane(lane)
         lane.startTimer { [weak self] l in self?.tickLane(l) }
 
         if lanes.count == 1 {
-            if activityMonitor.hasPermission { activityMonitor.startMonitoring() }
             showTimerPanel()
         }
         notifyPanelResize()
-        WindowWatcher.shared.activeTaskName = task.name
     }
 
     // MARK: - Stop
 
     func stopTaskGo() {
-        if activityMonitor.isMonitoring { _ = activityMonitor.stopMonitoring() }
         for lane in lanes { lane.reset() }
         lanes.removeAll()
         laneCancellables.removeAll()
         isActive = false
         stopAlarm()
         hideTimerPanel()
-        WindowWatcher.shared.activeTaskName = nil
     }
 
     func removeLane(_ lane: TaskGoLane) {
@@ -261,22 +256,13 @@ class TaskGoViewModel: ObservableObject {
         guard let lane = lanes.first, let task = lane.currentTask else { return nil }
         let minutes = lane.elapsedSeconds / 60
         stopAlarm()
-        var earnedXP = 0
-        if activityMonitor.isMonitoring {
-            let result = activityMonitor.stopMonitoring()
-            earnedXP = activityMonitor.calculateEarnedXP(totalMinutes: minutes)
-            _ = result
-        }
+        let earnedXP = XPSystem.calculateXP(activeMinutes: minutes)
         return (task: task, earnedXP: earnedXP, activeMinutes: minutes, activityPct: 0)
     }
 
     func advanceToNextTask(_ task: TaskItem) {
         guard let lane = lanes.first else { return }
         advanceToNextTask(task, in: lane)
-    }
-
-    func requestActivityPermission() {
-        activityMonitor.requestPermission()
     }
 
     // MARK: - Internal
