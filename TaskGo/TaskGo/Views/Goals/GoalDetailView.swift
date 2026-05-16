@@ -125,19 +125,30 @@ struct GoalDetailView: View {
     private var stopwatchSection: some View {
         let _ = goalVM.stopwatchTick
         let live = goalVM.liveElapsedSeconds(goal)
+        // A completed goal's stopwatch is always treated as stopped — even
+        // if some bad data left `stopwatchStartedAt` set, we won't show
+        // "Running" or let the value tick up.
+        let running = goal.isStopwatchRunning && !goal.isCompleted
         return SectionCard(title: "Time Spent", icon: "stopwatch") {
             HStack(alignment: .center, spacing: 14) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(Goal.formatElapsed(live))
                         .font(.system(size: 28, weight: .bold, design: .rounded))
                         .monospacedDigit()
-                        .foregroundStyle(goal.isStopwatchRunning ? Color.calmTeal : .primary)
+                        .foregroundStyle(running ? Color.calmTeal : .primary)
                     HStack(spacing: 6) {
-                        if goal.isStopwatchRunning {
+                        if running {
                             Circle().fill(Color.red).frame(width: 6, height: 6)
                             Text("Running")
                                 .font(.system(size: 10, weight: .medium))
                                 .foregroundStyle(.red)
+                        } else if goal.isCompleted {
+                            Image(systemName: "checkmark.seal.fill")
+                                .font(.system(size: 9))
+                                .foregroundStyle(.green)
+                            Text("Locked at completion")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(.secondary)
                         } else {
                             Text("Stopped")
                                 .font(.system(size: 10, weight: .medium))
@@ -151,29 +162,29 @@ struct GoalDetailView: View {
                 if !goal.isCompleted {
                     Button(action: { goalVM.toggleStopwatch(goal) }) {
                         HStack(spacing: 6) {
-                            Image(systemName: goal.isStopwatchRunning ? "pause.fill" : "play.fill")
+                            Image(systemName: running ? "pause.fill" : "play.fill")
                                 .font(.system(size: 12))
-                            Text(goal.isStopwatchRunning ? "Pause" : "Start")
+                            Text(running ? "Pause" : "Start")
                                 .font(.system(size: 12, weight: .semibold))
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
-                        .background(goal.isStopwatchRunning ? Color.red.opacity(0.85) : Color.calmTeal)
+                        .background(running ? Color.red.opacity(0.85) : Color.calmTeal)
                         .foregroundStyle(.white)
                         .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                }
 
-                Button(action: openElapsedEditor) {
-                    Image(systemName: "pencil")
-                        .font(.system(size: 11))
-                        .frame(width: 28, height: 28)
-                        .background(Color.secondary.opacity(0.15))
-                        .clipShape(Circle())
+                    Button(action: openElapsedEditor) {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 11))
+                            .frame(width: 28, height: 28)
+                            .background(Color.secondary.opacity(0.15))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Edit total time")
                 }
-                .buttonStyle(.plain)
-                .help("Edit total time")
             }
         }
         .sheet(isPresented: $editingElapsed) {
@@ -286,7 +297,7 @@ struct GoalDetailView: View {
                     Image(systemName: "plus.circle")
                         .font(.system(size: 13))
                         .foregroundStyle(Color.calmTeal)
-                    TextField("Add a step toward this goal…", text: $newMilestoneTitle, onCommit: addMilestone)
+                    TextField("Add a step toward this goal…", text: $newMilestoneTitle)
                         .textFieldStyle(.plain)
                         .font(.system(size: 12))
                         .onSubmit(addMilestone)

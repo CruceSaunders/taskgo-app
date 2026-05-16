@@ -142,7 +142,8 @@ private struct GoalListRow: View {
 
     var body: some View {
         let _ = goalVM.stopwatchTick // ensure re-render while running
-        HStack(spacing: 10) {
+        let running = goal.isStopwatchRunning && !goal.isCompleted
+        return HStack(spacing: 10) {
             ZStack {
                 Circle()
                     .stroke(Color.secondary.opacity(0.2), lineWidth: 2.5)
@@ -179,7 +180,7 @@ private struct GoalListRow: View {
                         .labelStyle(.titleAndIcon)
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
-                    if goal.isStopwatchRunning {
+                    if running {
                         Circle()
                             .fill(Color.red)
                             .frame(width: 6, height: 6)
@@ -191,15 +192,15 @@ private struct GoalListRow: View {
 
             if !goal.isCompleted {
                 Button(action: { goalVM.toggleStopwatch(goal) }) {
-                    Image(systemName: goal.isStopwatchRunning ? "pause.fill" : "play.fill")
+                    Image(systemName: running ? "pause.fill" : "play.fill")
                         .font(.system(size: 11))
                         .frame(width: 28, height: 28)
-                        .background(goal.isStopwatchRunning ? Color.red.opacity(0.85) : Color.calmTeal)
+                        .background(running ? Color.red.opacity(0.85) : Color.calmTeal)
                         .foregroundStyle(.white)
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .help(goal.isStopwatchRunning ? "Pause stopwatch" : "Start stopwatch")
+                .help(running ? "Pause stopwatch" : "Start stopwatch")
             }
         }
         .padding(.horizontal, 10)
