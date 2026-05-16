@@ -26,6 +26,11 @@ class GoalViewModel: ObservableObject {
     /// snapshots.
     private var pendingLocalWrites: Set<String> = []
 
+    /// Goals we've optimistically deleted locally. Listener snapshots that
+    /// still contain these ids are filtered out so the row doesn't briefly
+    /// flicker back before the Firestore delete propagates.
+    private var pendingLocalDeletes: Set<String> = []
+
     private var userId: String? { Auth.auth().currentUser?.uid }
 
     // MARK: - Lifecycle
@@ -65,10 +70,14 @@ class GoalViewModel: ObservableObject {
     private func mergeFromListener(_ remoteGoals: [Goal]) {
         var byId: [String: Goal] = [:]
         for g in remoteGoals {
-            if let id = g.id { byId[id] = g }
+            guard let id = g.id else { continue }
+            // Filter out goals we've locally deleted; the server delete is
+            // still in flight but we don't want them flickering back into UI.
+            if pendingLocalDeletes.contains(id) { continue }
+            byId[id] = g
         }
 
-        // Preserve locally-pending goals.
+        // Preserve locally-pending writes.
         for goal in goals {
             guard let id = goal.id, pendingLocalWrites.contains(id) else { continue }
             byId[id] = goal
@@ -166,14 +175,18 @@ class GoalViewModel: ObservableObject {
     func deleteGoal(_ goal: Goal) {
         guard let userId = userId, let goalId = goal.id else { return }
         if selectedGoalId == goalId { selectedGoalId = nil }
-        // Optimistic local remove
+        // Optimistic local remove (and shield against listener flicker).
+        pendingLocalDeletes.insert(goalId)
         goals.removeAll { $0.id == goalId }
+        refreshStopwatchTimer()
         Task {
             do {
                 try await FirestoreService.shared.deleteGoal(goalId, userId: userId)
             } catch {
+                // Roll back — let the next listener fire restore the goal.
                 self.errorMessage = "Couldn't delete goal: \(error.localizedDescription)"
             }
+            _ = await MainActor.run { self.pendingLocalDeletes.remove(goalId) }
         }
     }
 

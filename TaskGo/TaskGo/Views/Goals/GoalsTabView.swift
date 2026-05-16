@@ -6,6 +6,7 @@ struct GoalsTabView: View {
     @State private var newGoalTitle: String = ""
     @State private var showingCompleted: Bool = false
     @State private var showingNewGoalSheet: Bool = false
+    @State private var goalPendingDeletion: Goal?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -25,6 +26,23 @@ struct GoalsTabView: View {
         .sheet(isPresented: $showingNewGoalSheet) {
             NewGoalSheet(isPresented: $showingNewGoalSheet)
                 .environmentObject(goalVM)
+        }
+        .confirmationDialog(
+            goalPendingDeletion.map { "Delete \u{201C}\($0.title)\u{201D}?" } ?? "Delete goal?",
+            isPresented: Binding(
+                get: { goalPendingDeletion != nil },
+                set: { if !$0 { goalPendingDeletion = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: goalPendingDeletion
+        ) { goal in
+            Button("Delete Goal", role: .destructive) {
+                goalVM.deleteGoal(goal)
+                goalPendingDeletion = nil
+            }
+            Button("Cancel", role: .cancel) { goalPendingDeletion = nil }
+        } message: { _ in
+            Text("This permanently removes the goal, its milestones, notes, and tracked time. This can't be undone.")
         }
     }
 
@@ -119,10 +137,39 @@ struct GoalsTabView: View {
                         .padding(.top, 32)
                 } else {
                     ForEach(visible) { goal in
-                        GoalListRow(goal: goal)
-                            .onTapGesture {
+                        GoalListRow(
+                            goal: goal,
+                            onDeleteRequest: { goalPendingDeletion = goal }
+                        )
+                        .onTapGesture {
+                            goalVM.selectedGoalId = goal.id
+                        }
+                        .contextMenu {
+                            Button {
                                 goalVM.selectedGoalId = goal.id
+                            } label: {
+                                Label("Open", systemImage: "arrow.up.right.square")
                             }
+                            if !goal.isCompleted {
+                                Button {
+                                    goalVM.markGoalComplete(goal)
+                                } label: {
+                                    Label("Mark Complete", systemImage: "checkmark")
+                                }
+                            } else {
+                                Button {
+                                    goalVM.reopenGoal(goal)
+                                } label: {
+                                    Label("Reopen", systemImage: "arrow.uturn.backward")
+                                }
+                            }
+                            Divider()
+                            Button(role: .destructive) {
+                                goalPendingDeletion = goal
+                            } label: {
+                                Label("Delete Goal\u{2026}", systemImage: "trash")
+                            }
+                        }
                     }
                 }
             }
@@ -137,6 +184,7 @@ struct GoalsTabView: View {
 private struct GoalListRow: View {
     @EnvironmentObject var goalVM: GoalViewModel
     let goal: Goal
+    var onDeleteRequest: () -> Void
 
     @State private var hovered = false
 
@@ -189,6 +237,20 @@ private struct GoalListRow: View {
             }
 
             Spacer()
+
+            if hovered {
+                Button(action: onDeleteRequest) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 11))
+                        .frame(width: 28, height: 28)
+                        .background(Color.red.opacity(0.12))
+                        .foregroundStyle(.red)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .help("Delete goal\u{2026}")
+                .transition(.opacity)
+            }
 
             if !goal.isCompleted {
                 Button(action: { goalVM.toggleStopwatch(goal) }) {
