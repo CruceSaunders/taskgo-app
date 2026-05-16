@@ -399,7 +399,14 @@ class FirestoreService {
     @discardableResult
     func saveGoal(_ goal: Goal, userId: String) async throws -> String {
         if let goalId = goal.id {
-            try goalsRef(userId).document(goalId).setData(from: goal, merge: true)
+            // IMPORTANT: do NOT use merge here. Codable's encodeIfPresent
+            // omits nil optionals from the payload, and merge: true would
+            // then leave the previous values for those keys intact in
+            // Firestore. That breaks pause (stopwatchStartedAt -> nil),
+            // goal reopen (completedAt -> nil), and timeline edits
+            // (estimatedEndDate -> nil) because the listener would deliver
+            // the stale field back and clobber our local clear.
+            try goalsRef(userId).document(goalId).setData(from: goal)
             return goalId
         } else {
             let ref = try goalsRef(userId).addDocument(from: goal)

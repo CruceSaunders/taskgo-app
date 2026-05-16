@@ -263,9 +263,11 @@ class GoalViewModel: ObservableObject {
 
         guard let id = goal.id, let idx = goals.firstIndex(where: { $0.id == id }) else { return }
         guard !goals[idx].isStopwatchRunning else { return }
-        goals[idx].stopwatchStartedAt = Date()
-        goals[idx].updatedAt = Date()
-        persistOptimistic(goals[idx])
+        var updated = goals[idx]
+        updated.stopwatchStartedAt = Date()
+        updated.updatedAt = Date()
+        goals[idx] = updated
+        persistOptimistic(updated)
         refreshStopwatchTimer()
     }
 
@@ -278,10 +280,12 @@ class GoalViewModel: ObservableObject {
         guard let id = goal.id, let idx = goals.firstIndex(where: { $0.id == id }) else { return }
         guard let started = goals[idx].stopwatchStartedAt else { return }
         let delta = max(0, Int(Date().timeIntervalSince(started)))
-        goals[idx].totalElapsedSeconds += delta
-        goals[idx].stopwatchStartedAt = nil
-        goals[idx].updatedAt = Date()
-        persistOptimistic(goals[idx])
+        var updated = goals[idx]
+        updated.totalElapsedSeconds += delta
+        updated.stopwatchStartedAt = nil
+        updated.updatedAt = Date()
+        goals[idx] = updated
+        persistOptimistic(updated)
     }
 
     func toggleStopwatch(_ goal: Goal) {
